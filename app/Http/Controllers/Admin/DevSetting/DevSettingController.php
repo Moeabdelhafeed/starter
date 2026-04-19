@@ -625,8 +625,13 @@ class DevSettingController extends Controller
         return redirect()->back()->with('success', 'Deploy config saved.');
     }
 
-    public function deploy()
+    public function deploy(Request $request)
     {
+        $validated = $request->validate([
+            'migration_option' => ['required', 'in:migrate,migrate_seed,fresh_seed,none'],
+            'run_seeders' => ['boolean'],
+        ]);
+
         set_time_limit(600);
 
         $base = base_path();
@@ -652,9 +657,13 @@ class DevSettingController extends Controller
         // Remove hot file
         @unlink($base.'/public/hot');
 
-        // Step 2: Deploy via SCP
+        // Step 2: Deploy via SCP with options
         $config = json_decode(file_get_contents($deployPath), true);
-        $sshResult = $this->runSshDeploy($config);
+        $deployOptions = [
+            'migration_option' => $validated['migration_option'],
+            'run_seeders' => $validated['run_seeders'] ?? false,
+        ];
+        $sshResult = $this->runSshDeploy($config, $deployOptions);
 
         if ($sshResult['success']) {
             return redirect()->back()
@@ -1167,11 +1176,13 @@ class DevSettingController extends Controller
         return array_merge($defaults, $config, ['has_config' => true]);
     }
 
-    private function runSshDeploy(array $config): array
+    private function runSshDeploy(array $config, array $options = []): array
     {
         $base = base_path();
         $php = '/opt/alt/php84/usr/bin/php';
         $domain = $config['domain'] ?? null;
+        $migrationOption = $options['migration_option'] ?? 'migrate_seed';
+        $runSeeders = $options['run_seeders'] ?? false;
 
         if (! $domain) {
             return ['success' => false, 'message' => 'No domain configured in SSH settings.'];
@@ -1245,7 +1256,30 @@ class DevSettingController extends Controller
         if ($isFirstTime) {
             $output .= $ssh->exec("cd {$backendPath} && {$php} artisan key:generate --force 2>&1")."\n";
         }
-        $output .= $ssh->exec("cd {$backendPath} && {$php} artisan migrate --seed --force 2>&1")."\n";
+
+        // Run migrations based on option
+        switch ($migrationOption) {
+            case 'fresh_seed':
+                // WARNING: This wipes all data!
+                $output .= $ssh->exec("cd {$backendPath} && {$php} artisan migrate:fresh --seed --force 2>&1")."\n";
+                break;
+            case 'migrate_seed':
+                $output .= $ssh->exec("cd {$backendPath} && {$php} artisan migrate --seed --force 2>&1")."\n";
+                break;
+            case 'migrate':
+                $output .= $ssh->exec("cd {$backendPath} && {$php} artisan migrate --force 2>&1")."\n";
+                break;
+            case 'none':
+                // Skip migrations
+                $output .= "Skipping migrations (user selected 'none').\n";
+                break;
+        }
+
+        // Run seeders separately if requested and not already run
+        if ($runSeeders && ! in_array($migrationOption, ['fresh_seed', 'migrate_seed'])) {
+            $output .= $ssh->exec("cd {$backendPath} && {$php} artisan db:seed --force 2>&1")."\n";
+        }
+
         $output .= $ssh->exec("cd {$backendPath} && {$php} artisan config:clear && {$php} artisan route:clear && {$php} artisan view:clear 2>&1")."\n";
 
         // Step 9: Copy public/ contents to public_html/

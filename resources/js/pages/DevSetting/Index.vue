@@ -762,10 +762,24 @@ const pushToGithub = () => {
 
 // Deploy
 const deploying = ref(false);
+const showDeployModal = ref(false);
+const deployOptions = ref({
+    migration_option: 'migrate', // Default to safe option
+    run_seeders: false,
+});
+
+const openDeployModal = () => {
+    showDeployModal.value = true;
+};
+
+const closeDeployModal = () => {
+    showDeployModal.value = false;
+};
 
 const deployToProduction = () => {
     deploying.value = true;
-    router.post(route('dev_settings.deploy'), {}, {
+    showDeployModal.value = false;
+    router.post(route('dev_settings.deploy'), deployOptions.value, {
         preserveScroll: true,
         onFinish: () => { deploying.value = false; },
     });
@@ -1033,7 +1047,7 @@ const sendTestFcm = () => {
 
                     <Button :disabled="deploying" variant="outline"
                         class="border-emerald-500 text-emerald-500 hover:bg-emerald-500 hover:text-white"
-                        @click="deployToProduction">
+                        @click="openDeployModal">
                         <Loader2 v-if="deploying" class="me-2 h-4 w-4 animate-spin" />
                         <Rocket v-else class="me-2 size-4" />
                         {{ deploying ? t('deploying') : t('deploy') }}
@@ -2328,4 +2342,123 @@ const sendTestFcm = () => {
             </div>
         </div>
     </div>
+
+    <!-- Deploy Options Modal -->
+    <Teleport to="body">
+        <Transition
+            enter-active-class="transition duration-200 ease-out"
+            enter-from-class="opacity-0"
+            enter-to-class="opacity-100"
+            leave-active-class="transition duration-150 ease-in"
+            leave-from-class="opacity-100"
+            leave-to-class="opacity-0"
+        >
+            <div v-if="showDeployModal" class="fixed inset-0 z-50 overflow-y-auto" @click.self="closeDeployModal">
+                <div class="absolute inset-0 bg-black/50 backdrop-blur-sm"></div>
+                <div class="relative flex min-h-full items-center justify-center p-4">
+                    <div class="relative w-full max-w-lg transform overflow-hidden rounded-2xl bg-card p-6 shadow-xl transition-all text-start">
+                        <!-- Header -->
+                        <div class="mb-6 flex items-center gap-3">
+                            <div class="flex h-10 w-10 items-center justify-center rounded-full bg-emerald-500/10">
+                                <Rocket class="size-5 text-emerald-500" />
+                            </div>
+                            <div>
+                                <h3 class="text-lg font-semibold text-foreground">{{ t('deploy_options') }}</h3>
+                                <p class="text-sm text-muted-foreground">{{ t('deploy_options_desc') }}</p>
+                            </div>
+                        </div>
+
+                        <!-- Migration Options -->
+                        <div class="space-y-4">
+                            <label class="block text-sm font-medium text-foreground">{{ t('database_migration') }}</label>
+
+                            <div class="space-y-3">
+                                <!-- Migrate only -->
+                                <label class="flex items-start gap-3 rounded-xl border border-border p-4 cursor-pointer transition-colors"
+                                    :class="deployOptions.migration_option === 'migrate' ? 'border-primary bg-primary/5' : 'hover:bg-muted/50'">
+                                    <input type="radio" v-model="deployOptions.migration_option" value="migrate"
+                                        class="mt-0.5 h-4 w-4 text-primary focus:ring-primary" />
+                                    <div class="flex-1">
+                                        <span class="font-medium text-foreground">{{ t('migrate_only') }}</span>
+                                        <p class="text-sm text-muted-foreground">{{ t('migrate_only_desc') }}</p>
+                                    </div>
+                                    <span class="rounded-full bg-emerald-500/10 px-2 py-0.5 text-xs font-medium text-emerald-600">{{ t('recommended') }}</span>
+                                </label>
+
+                                <!-- Migrate + Seed -->
+                                <label class="flex items-start gap-3 rounded-xl border border-border p-4 cursor-pointer transition-colors"
+                                    :class="deployOptions.migration_option === 'migrate_seed' ? 'border-primary bg-primary/5' : 'hover:bg-muted/50'">
+                                    <input type="radio" v-model="deployOptions.migration_option" value="migrate_seed"
+                                        class="mt-0.5 h-4 w-4 text-primary focus:ring-primary" />
+                                    <div class="flex-1">
+                                        <span class="font-medium text-foreground">{{ t('migrate_and_seed') }}</span>
+                                        <p class="text-sm text-muted-foreground">{{ t('migrate_and_seed_desc') }}</p>
+                                    </div>
+                                </label>
+
+                                <!-- Fresh + Seed -->
+                                <label class="flex items-start gap-3 rounded-xl border border-red-500/50 p-4 cursor-pointer transition-colors"
+                                    :class="deployOptions.migration_option === 'fresh_seed' ? 'border-red-500 bg-red-500/5' : 'hover:bg-red-500/5'">
+                                    <input type="radio" v-model="deployOptions.migration_option" value="fresh_seed"
+                                        class="mt-0.5 h-4 w-4 text-red-500 focus:ring-red-500" />
+                                    <div class="flex-1">
+                                        <span class="font-medium text-red-600">{{ t('fresh_migrate_seed') }}</span>
+                                        <p class="text-sm text-red-500/80">{{ t('fresh_migrate_seed_desc') }}</p>
+                                    </div>
+                                    <span class="rounded-full bg-red-500/10 px-2 py-0.5 text-xs font-medium text-red-600">{{ t('destructive') }}</span>
+                                </label>
+
+                                <!-- No migration -->
+                                <label class="flex items-start gap-3 rounded-xl border border-border p-4 cursor-pointer transition-colors"
+                                    :class="deployOptions.migration_option === 'none' ? 'border-primary bg-primary/5' : 'hover:bg-muted/50'">
+                                    <input type="radio" v-model="deployOptions.migration_option" value="none"
+                                        class="mt-0.5 h-4 w-4 text-primary focus:ring-primary" />
+                                    <div class="flex-1">
+                                        <span class="font-medium text-foreground">{{ t('skip_migrations') }}</span>
+                                        <p class="text-sm text-muted-foreground">{{ t('skip_migrations_desc') }}</p>
+                                    </div>
+                                </label>
+                            </div>
+
+                            <!-- Run Seeders Checkbox -->
+                            <div v-if="deployOptions.migration_option === 'migrate' || deployOptions.migration_option === 'none'"
+                                class="flex items-center gap-3 rounded-xl border border-border p-4">
+                                <Checkbox v-model="deployOptions.run_seeders" />
+                                <div>
+                                    <span class="font-medium text-foreground">{{ t('run_seeders_separately') }}</span>
+                                    <p class="text-sm text-muted-foreground">{{ t('run_seeders_separately_desc') }}</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Warning for fresh -->
+                        <div v-if="deployOptions.migration_option === 'fresh_seed'"
+                            class="mt-4 rounded-xl bg-red-500/10 border border-red-500/30 p-4">
+                            <div class="flex items-center gap-2 text-red-600">
+                                <svg class="size-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                                </svg>
+                                <span class="font-medium">{{ t('warning') }}</span>
+                            </div>
+                            <p class="mt-2 text-sm text-red-600/80">{{ t('fresh_warning_message') }}</p>
+                        </div>
+
+                        <!-- Footer -->
+                        <div class="mt-6 flex gap-3">
+                            <Button type="button" variant="outline" @click="closeDeployModal" class="flex-1">
+                                {{ t('cancel') }}
+                            </Button>
+                            <Button type="button" @click="deployToProduction" class="flex-1"
+                                :class="deployOptions.migration_option === 'fresh_seed'
+                                    ? 'bg-red-600 hover:bg-red-700 text-white'
+                                    : 'bg-emerald-600 hover:bg-emerald-700 text-white'">
+                                <Rocket class="me-2 size-4" />
+                                {{ t('deploy_now') }}
+                            </Button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </Transition>
+    </Teleport>
 </template>
