@@ -1258,6 +1258,13 @@ class DevSettingController extends Controller
         }
 
         // Run migrations based on option
+        // If first time deployment, fresh_seed doesn't make sense (no tables to drop)
+        // So we treat it as migrate_seed for initial setup
+        if ($isFirstTime && $migrationOption === 'fresh_seed') {
+            $output .= "First deployment detected. Running migrate --seed instead of migrate:fresh.\n";
+            $migrationOption = 'migrate_seed';
+        }
+
         switch ($migrationOption) {
             case 'fresh_seed':
                 // WARNING: This wipes all data!
