@@ -1,0 +1,1045 @@
+{
+  "info": {
+    "_postman_id": "339ae9d9-1229-449b-9454-85543ef78900",
+    "name": "Starter",
+    "description": "API collection for the Inertia Starter project.\n\n## Authentication\n- All API requests require `X-API-TOKEN` header\n- All requests require `Accept-Language` header (`en` or `ar`)\n- Protected routes require Bearer token from login\n- Login uses `identifier` field — searched across all columns configured in `AUTH_IDENTIFIERS` env (comma-separated, e.g. `email,phone`)\n- Registration requires each identifier field by name (e.g. `email`, `phone`)\n- Additional profile fields (email, phone, username) can be toggled via `HAS_EMAIL_FIELD`, `HAS_PHONE_FIELD`, `HAS_USERNAME_FIELD` env variables (only for non-identifier fields)\n\n## Variables\n- `{{base_url}}` — Base URL (e.g. http://localhost:8000)\n- `{{x-api-token}}` — API token for server authentication\n- `{{token}}` — Bearer token from login response",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_exporter_id": "35322283"
+  },
+  "item": [
+    {
+      "name": "Pages",
+      "item": [
+        {
+          "name": "Get All Pages",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Accept-Language",
+                "value": "en",
+                "type": "text"
+              },
+              {
+                "key": "X-API-TOKEN",
+                "value": "{{x-api-token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/pages",
+              "host": ["{{base_url}}"],
+              "path": ["api", "pages"]
+            },
+            "description": "Returns all active pages with their translated content.\n\nThe `name` and `content` fields are returned in the language specified by the `Accept-Language` header.\n\nNo authentication required."
+          },
+          "response": [
+            {
+              "name": "Success",
+              "originalRequest": {
+                "method": "GET",
+                "url": {
+                  "raw": "{{base_url}}/api/pages",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "pages"]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"success\": true,\n  \"message\": \"Pages retrieved successfully.\",\n  \"errors\": null,\n  \"data\": [\n    {\n      \"id\": 1,\n      \"slug\": \"about-us\",\n      \"name\": \"About Us\",\n      \"content\": \"<p>Welcome to our company...</p>\",\n      \"image\": \"http://localhost:8000/storage/pages/image.jpg\"\n    },\n    {\n      \"id\": 2,\n      \"slug\": \"privacy-policy\",\n      \"name\": \"Privacy Policy\",\n      \"content\": \"<p>Your privacy is important to us...</p>\",\n      \"image\": null\n    }\n  ]\n}"
+            }
+          ]
+        },
+        {
+          "name": "Get Page by Slug",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Accept-Language",
+                "value": "en",
+                "type": "text"
+              },
+              {
+                "key": "X-API-TOKEN",
+                "value": "{{x-api-token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/pages/about-us",
+              "host": ["{{base_url}}"],
+              "path": ["api", "pages", "about-us"]
+            },
+            "description": "Returns a single active page by its slug.\n\nThe `name` and `content` fields are returned in the language specified by the `Accept-Language` header.\n\nReturns 404 if the page doesn't exist or is not active.\n\nNo authentication required."
+          },
+          "response": [
+            {
+              "name": "Success",
+              "originalRequest": {
+                "method": "GET",
+                "url": {
+                  "raw": "{{base_url}}/api/pages/about-us",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "pages", "about-us"]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"success\": true,\n  \"message\": \"Page retrieved successfully.\",\n  \"errors\": null,\n  \"data\": {\n    \"id\": 1,\n    \"slug\": \"about-us\",\n    \"name\": \"About Us\",\n    \"content\": \"<p>Welcome to our company. We are dedicated to providing excellent service...</p>\",\n    \"image\": \"http://localhost:8000/storage/pages/image.jpg\"\n  }\n}"
+            },
+            {
+              "name": "Not Found",
+              "originalRequest": {
+                "method": "GET",
+                "url": {
+                  "raw": "{{base_url}}/api/pages/non-existent",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "pages", "non-existent"]
+                }
+              },
+              "status": "Not Found",
+              "code": 404,
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"success\": false,\n  \"message\": \"Page not found.\",\n  \"errors\": null,\n  \"data\": null\n}"
+            }
+          ]
+        }
+      ],
+      "description": "Endpoints for retrieving page content. Pages contain translatable content (name and HTML content) that adapts to the Accept-Language header."
+    },
+    {
+      "name": "Languages",
+      "item": [
+        {
+          "name": "Get All Languages",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Accept-Language",
+                "value": "en",
+                "type": "text"
+              },
+              {
+                "key": "X-API-TOKEN",
+                "value": "{{x-api-token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/languages",
+              "host": ["{{base_url}}"],
+              "path": ["api", "languages"]
+            },
+            "description": "Returns all active languages available in the system. Use this to know which locales are supported for translations and the `Accept-Language` header.\n\nNo authentication required."
+          },
+          "response": [
+            {
+              "name": "Success",
+              "originalRequest": {
+                "method": "GET",
+                "url": {
+                  "raw": "{{base_url}}/api/languages",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "languages"]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"success\": true,\n  \"message\": \"Languages retrieved successfully.\",\n  \"errors\": null,\n  \"data\": [\n    {\n      \"id\": 1,\n      \"code\": \"en\",\n      \"name\": \"English\",\n      \"native_name\": \"English\",\n      \"direction\": \"ltr\",\n      \"is_default\": true,\n      \"image\": null\n    },\n    {\n      \"id\": 2,\n      \"code\": \"ar\",\n      \"name\": \"Arabic\",\n      \"native_name\": \"العربية\",\n      \"direction\": \"rtl\",\n      \"is_default\": false,\n      \"image\": null\n    }\n  ]\n}"
+            }
+          ]
+        }
+      ],
+      "description": "Endpoints for retrieving available languages."
+    },
+    {
+      "name": "Translations",
+      "item": [
+        {
+          "name": "Get Translations",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept-Language",
+                "value": "en",
+                "type": "text"
+              },
+              {
+                "key": "X-API-TOKEN",
+                "value": "{{x-api-token}}",
+                "type": "text"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/translations",
+              "host": ["{{base_url}}"],
+              "path": ["api", "translations"]
+            },
+            "description": "Returns all translation key-value pairs for the current locale.\n\nThe locale is determined by the `Accept-Language` header. Returns a flat object of `key: value` pairs for the requested language.\n\nNo authentication required."
+          },
+          "response": [
+            {
+              "name": "Success (English)",
+              "originalRequest": {
+                "method": "GET",
+                "header": [
+                  { "key": "Accept-Language", "value": "en", "type": "text" }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/translations",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "translations"]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"success\": true,\n  \"message\": \"Translations\",\n  \"errors\": null,\n  \"data\": {\n    \"hello\": \"Hello\",\n    \"goodbye\": \"Goodbye\",\n    \"welcome_message\": \"Welcome to our app!\"\n  }\n}"
+            },
+            {
+              "name": "Success (Arabic)",
+              "originalRequest": {
+                "method": "GET",
+                "header": [
+                  { "key": "Accept-Language", "value": "ar", "type": "text" }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/translations",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "translations"]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"success\": true,\n  \"message\": \"الترجمات\",\n  \"errors\": null,\n  \"data\": {\n    \"hello\": \"مرحبا\",\n    \"goodbye\": \"مع السلامة\",\n    \"welcome_message\": \"مرحباً بك في تطبيقنا!\"\n  }\n}"
+            }
+          ]
+        },
+        {
+          "name": "Create Translations",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept-Language",
+                "value": "en",
+                "type": "text"
+              },
+              {
+                "key": "X-API-TOKEN",
+                "value": "{{x-api-token}}",
+                "type": "text"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"hello\": {\n    \"default\": \"Hello\"\n  },\n  \"goodbye\": {\n    \"en\": \"Goodbye\",\n    \"ar\": \"مع السلامة\"\n  },\n  \"welcome_message\": {\n    \"default\": \"Welcome to our app!\"\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/api/translations",
+              "host": ["{{base_url}}"],
+              "path": ["api", "translations"]
+            },
+            "description": "Create or update translations. Translations are stored in the `app` group.\n\n**Request format:** JSON object where each key is the translation key, and the value is an object with either:\n\n1. **`default`** — applies the same value to ALL active languages:\n```json\n{\n  \"hello\": { \"default\": \"Hello\" },\n  \"welcome\": { \"default\": \"Welcome!\" }\n}\n```\n\n2. **Specific language codes** — only updates those languages:\n```json\n{\n  \"goodbye\": { \"en\": \"Goodbye\", \"ar\": \"مع السلامة\" },\n  \"thanks\": { \"en\": \"Thanks\" }\n}\n```\n\n**Rules:**\n- Cannot mix `default` with specific language codes in the same key\n- Each key must have either `default` OR language codes (not both, not empty)\n- Only active languages in the system will be updated\n- Existing keys are updated, new keys are created\n\nNo authentication required."
+          },
+          "response": [
+            {
+              "name": "Success",
+              "originalRequest": {
+                "method": "POST",
+                "url": {
+                  "raw": "{{base_url}}/api/translations",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "translations"]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"success\": true,\n  \"message\": \"Translations added successfully.\",\n  \"errors\": null,\n  \"data\": {\n    \"created\": 2,\n    \"updated\": 1\n  }\n}"
+            },
+            {
+              "name": "Success with Errors",
+              "originalRequest": {
+                "method": "POST",
+                "url": {
+                  "raw": "{{base_url}}/api/translations",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "translations"]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"success\": true,\n  \"message\": \"Translations added successfully.\",\n  \"errors\": null,\n  \"data\": {\n    \"created\": 1,\n    \"updated\": 0,\n    \"errors\": [\n      \"Key 'invalid_key' cannot have both 'default' and specific language codes\"\n    ]\n  }\n}"
+            },
+            {
+              "name": "Empty Body",
+              "originalRequest": {
+                "method": "POST",
+                "url": {
+                  "raw": "{{base_url}}/api/translations",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "translations"]
+                }
+              },
+              "status": "Bad Request",
+              "code": 400,
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"success\": false,\n  \"message\": \"No translations provided.\",\n  \"errors\": null,\n  \"data\": null\n}"
+            }
+          ]
+        }
+      ],
+      "description": "Endpoints for managing mobile app translations. Translations are stored in the `app` group and returned based on the `Accept-Language` header."
+    },
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Protected",
+          "item": [
+            {
+              "name": "Verified",
+              "item": [
+                {
+                  "name": "Request Email Change",
+                  "request": {
+                    "method": "POST",
+                    "header": [
+                      { "key": "Accept-Language", "value": "en", "type": "text" },
+                      { "key": "X-API-TOKEN", "value": "{{x-api-token}}", "type": "text" },
+                      { "key": "Accept", "value": "application/json", "type": "text" }
+                    ],
+                    "body": {
+                      "mode": "raw",
+                      "raw": "{\n  \"new_email\": \"newemail@example.com\"\n}",
+                      "options": { "raw": { "language": "json" } }
+                    },
+                    "url": {
+                      "raw": "{{base_url}}/api/request-email-change",
+                      "host": ["{{base_url}}"],
+                      "path": ["api", "request-email-change"]
+                    },
+                    "description": "Request an email change. Sends an OTP to the new email address for verification.\n\nRequires: Bearer token + verified account."
+                  },
+                  "response": [
+                    {
+                      "name": "Success",
+                      "status": "OK",
+                      "code": 200,
+                      "_postman_previewlanguage": "json",
+                      "body": "{\n  \"success\": true,\n  \"message\": \"Verification code sent to your new email.\",\n  \"errors\": null,\n  \"data\": null\n}"
+                    }
+                  ]
+                },
+                {
+                  "name": "Verify Email Change",
+                  "request": {
+                    "method": "POST",
+                    "header": [
+                      { "key": "Accept-Language", "value": "en", "type": "text" },
+                      { "key": "X-API-TOKEN", "value": "{{x-api-token}}", "type": "text" },
+                      { "key": "Accept", "value": "application/json", "type": "text" }
+                    ],
+                    "body": {
+                      "mode": "raw",
+                      "raw": "{\n  \"new_email\": \"newemail@example.com\",\n  \"otp\": \"123456\"\n}",
+                      "options": { "raw": { "language": "json" } }
+                    },
+                    "url": {
+                      "raw": "{{base_url}}/api/verify-email-change",
+                      "host": ["{{base_url}}"],
+                      "path": ["api", "verify-email-change"]
+                    },
+                    "description": "Verify the email change OTP and update the user's email.\n\nRequires: Bearer token + verified account."
+                  },
+                  "response": [
+                    {
+                      "name": "Success",
+                      "status": "OK",
+                      "code": 200,
+                      "_postman_previewlanguage": "json",
+                      "body": "{\n  \"success\": true,\n  \"message\": \"Email changed successfully.\",\n  \"errors\": null,\n  \"data\": null\n}"
+                    }
+                  ]
+                },
+                {
+                  "name": "Update Profile",
+                  "request": {
+                    "method": "PUT",
+                    "header": [
+                      { "key": "Accept-Language", "value": "en", "type": "text" },
+                      { "key": "X-API-TOKEN", "value": "{{x-api-token}}", "type": "text" },
+                      { "key": "Accept", "value": "application/json", "type": "text" }
+                    ],
+                    "body": {
+                      "mode": "raw",
+                      "raw": "{\n  \"name\": \"Updated Name\",\n  \"email\": \"newemail@example.com\",\n  \"phone\": \"+962790000000\",\n  \"username\": \"newusername\"\n}",
+                      "options": { "raw": { "language": "json" } }
+                    },
+                    "url": {
+                      "raw": "{{base_url}}/api/update-profile",
+                      "host": ["{{base_url}}"],
+                      "path": ["api", "update-profile"]
+                    },
+                    "description": "Update the authenticated user's profile info.\n\n**Available fields:** `name`, plus any non-identifier fields that are enabled (e.g. if identifier is `username`, you can update `email` and `phone` if those fields are enabled).\n\nThe identifier field itself cannot be changed through this endpoint.\n\nRequires: Bearer token + verified account."
+                  },
+                  "response": [
+                    {
+                      "name": "Success",
+                      "status": "OK",
+                      "code": 200,
+                      "_postman_previewlanguage": "json",
+                      "body": "{\n  \"success\": true,\n  \"message\": \"Profile updated successfully.\",\n  \"errors\": null,\n  \"data\": {\n    \"user\": {\n      \"id\": 1,\n      \"name\": \"Updated Name\",\n      \"email\": \"newemail@example.com\"\n    }\n  }\n}"
+                    }
+                  ]
+                },
+                {
+                  "name": "Change Password",
+                  "request": {
+                    "method": "POST",
+                    "header": [
+                      { "key": "Accept-Language", "value": "en", "type": "text" },
+                      { "key": "X-API-TOKEN", "value": "{{x-api-token}}", "type": "text" },
+                      { "key": "Accept", "value": "application/json", "type": "text" }
+                    ],
+                    "body": {
+                      "mode": "raw",
+                      "raw": "{\n  \"old_password\": \"password123\",\n  \"password\": \"newpassword123\",\n  \"password_confirmation\": \"newpassword123\"\n}",
+                      "options": { "raw": { "language": "json" } }
+                    },
+                    "url": {
+                      "raw": "{{base_url}}/api/change-password",
+                      "host": ["{{base_url}}"],
+                      "path": ["api", "change-password"]
+                    },
+                    "description": "Change the authenticated user's password.\n\nRequires: Bearer token + verified account."
+                  },
+                  "response": [
+                    {
+                      "name": "Success",
+                      "status": "OK",
+                      "code": 200,
+                      "_postman_previewlanguage": "json",
+                      "body": "{\n  \"success\": true,\n  \"message\": \"Password changed successfully.\",\n  \"errors\": null,\n  \"data\": null\n}"
+                    }
+                  ]
+                },
+                {
+                  "name": "Delete Account",
+                  "request": {
+                    "method": "DELETE",
+                    "header": [
+                      { "key": "Accept-Language", "value": "en", "type": "text" },
+                      { "key": "X-API-TOKEN", "value": "{{x-api-token}}", "type": "text" },
+                      { "key": "Accept", "value": "application/json", "type": "text" }
+                    ],
+                    "url": {
+                      "raw": "{{base_url}}/api/delete-account",
+                      "host": ["{{base_url}}"],
+                      "path": ["api", "delete-account"]
+                    },
+                    "description": "Permanently delete the authenticated user's account and revoke all tokens.\n\nRequires: Bearer token + verified account."
+                  },
+                  "response": [
+                    {
+                      "name": "Success",
+                      "status": "OK",
+                      "code": 200,
+                      "_postman_previewlanguage": "json",
+                      "body": "{\n  \"success\": true,\n  \"message\": \"Account deleted successfully.\",\n  \"errors\": null,\n  \"data\": null\n}"
+                    }
+                  ]
+                },
+                {
+                  "name": "Get Social Accounts",
+                  "request": {
+                    "method": "GET",
+                    "header": [
+                      { "key": "Accept-Language", "value": "en", "type": "text" },
+                      { "key": "X-API-TOKEN", "value": "{{x-api-token}}", "type": "text" },
+                      { "key": "Accept", "value": "application/json", "type": "text" }
+                    ],
+                    "url": {
+                      "raw": "{{base_url}}/api/social-accounts",
+                      "host": ["{{base_url}}"],
+                      "path": ["api", "social-accounts"]
+                    },
+                    "description": "Get all social accounts linked to the authenticated user.\n\nReturns an array of social accounts with provider info and whether more can be linked based on configuration.\n\nRequires: Bearer token + verified account."
+                  },
+                  "response": [
+                    {
+                      "name": "Success",
+                      "status": "OK",
+                      "code": 200,
+                      "_postman_previewlanguage": "json",
+                      "body": "{\n  \"success\": true,\n  \"message\": \"Social accounts retrieved successfully.\",\n  \"errors\": null,\n  \"data\": {\n    \"social_accounts\": [\n      {\n        \"id\": 1,\n        \"provider\": \"google.com\",\n        \"provider_name\": \"Google\",\n        \"email\": \"user@gmail.com\",\n        \"name\": \"John Doe\",\n        \"created_at\": \"2026-04-14T12:00:00.000000Z\"\n      },\n      {\n        \"id\": 2,\n        \"provider\": \"apple.com\",\n        \"provider_name\": \"Apple\",\n        \"email\": \"user@icloud.com\",\n        \"name\": \"John Doe\",\n        \"created_at\": \"2026-04-14T13:00:00.000000Z\"\n      }\n    ],\n    \"can_link_more\": true,\n    \"max_accounts\": 0,\n    \"allowed_providers\": [\"google.com\", \"apple.com\", \"facebook.com\"]\n  }\n}"
+                    },
+                    {
+                      "name": "No Social Accounts",
+                      "status": "OK",
+                      "code": 200,
+                      "_postman_previewlanguage": "json",
+                      "body": "{\n  \"success\": true,\n  \"message\": \"Social accounts retrieved successfully.\",\n  \"errors\": null,\n  \"data\": {\n    \"social_accounts\": [],\n    \"can_link_more\": true,\n    \"max_accounts\": 0,\n    \"allowed_providers\": [\"google.com\", \"apple.com\"]\n  }\n}"
+                    }
+                  ]
+                },
+                {
+                  "name": "Link Social Account",
+                  "request": {
+                    "method": "POST",
+                    "header": [
+                      { "key": "Accept-Language", "value": "en", "type": "text" },
+                      { "key": "X-API-TOKEN", "value": "{{x-api-token}}", "type": "text" },
+                      { "key": "Accept", "value": "application/json", "type": "text" }
+                    ],
+                    "body": {
+                      "mode": "raw",
+                      "raw": "{\n  \"token\": \"firebase_id_token_here\"\n}",
+                      "options": { "raw": { "language": "json" } }
+                    },
+                    "url": {
+                      "raw": "{{base_url}}/api/link-social-account",
+                      "host": ["{{base_url}}"],
+                      "path": ["api", "link-social-account"]
+                    },
+                    "description": "Link a social account (Google, Apple, etc.) to the authenticated user's account.\n\n**Required:** `token` — Firebase ID token from the social provider.\n\n**Constraints:**\n- Social account email must match the user's account email\n- Social account must not already be linked to another user\n- Provider must be in the allowed providers list (configurable via DevSettings)\n- User cannot exceed max social accounts limit (if set)\n- Same provider cannot be linked twice to the same user\n- Requires email to be configured as a login identifier\n\nRequires: Bearer token + verified account."
+                  },
+                  "response": [
+                    {
+                      "name": "Success",
+                      "status": "OK",
+                      "code": 200,
+                      "_postman_previewlanguage": "json",
+                      "body": "{\n  \"success\": true,\n  \"message\": \"Social account linked successfully.\",\n  \"errors\": null,\n  \"data\": {\n    \"social_account\": {\n      \"id\": 1,\n      \"provider\": \"google.com\",\n      \"provider_name\": \"Google\",\n      \"email\": \"user@gmail.com\",\n      \"name\": \"John Doe\"\n    }\n  }\n}"
+                    },
+                    {
+                      "name": "Email Mismatch",
+                      "status": "Bad Request",
+                      "code": 400,
+                      "_postman_previewlanguage": "json",
+                      "body": "{\n  \"success\": false,\n  \"message\": \"Social account email does not match your account email.\",\n  \"errors\": null,\n  \"data\": null\n}"
+                    },
+                    {
+                      "name": "Provider Not Allowed",
+                      "status": "Bad Request",
+                      "code": 400,
+                      "_postman_previewlanguage": "json",
+                      "body": "{\n  \"success\": false,\n  \"message\": \"This social provider is not allowed.\",\n  \"errors\": null,\n  \"data\": null\n}"
+                    },
+                    {
+                      "name": "Provider Already Linked",
+                      "status": "Conflict",
+                      "code": 409,
+                      "_postman_previewlanguage": "json",
+                      "body": "{\n  \"success\": false,\n  \"message\": \"You already have this social provider linked.\",\n  \"errors\": null,\n  \"data\": null\n}"
+                    },
+                    {
+                      "name": "Max Accounts Reached",
+                      "status": "Bad Request",
+                      "code": 400,
+                      "_postman_previewlanguage": "json",
+                      "body": "{\n  \"success\": false,\n  \"message\": \"You have reached the maximum number of social accounts allowed.\",\n  \"errors\": null,\n  \"data\": null\n}"
+                    },
+                    {
+                      "name": "Already Linked to Another User",
+                      "status": "Conflict",
+                      "code": 409,
+                      "_postman_previewlanguage": "json",
+                      "body": "{\n  \"success\": false,\n  \"message\": \"This social account is already linked to another user.\",\n  \"errors\": null,\n  \"data\": null\n}"
+                    }
+                  ]
+                },
+                {
+                  "name": "Unlink Social Account",
+                  "request": {
+                    "method": "DELETE",
+                    "header": [
+                      { "key": "Accept-Language", "value": "en", "type": "text" },
+                      { "key": "X-API-TOKEN", "value": "{{x-api-token}}", "type": "text" },
+                      { "key": "Accept", "value": "application/json", "type": "text" }
+                    ],
+                    "body": {
+                      "mode": "raw",
+                      "raw": "{\n  \"provider\": \"google.com\"\n}",
+                      "options": { "raw": { "language": "json" } }
+                    },
+                    "url": {
+                      "raw": "{{base_url}}/api/unlink-social-account",
+                      "host": ["{{base_url}}"],
+                      "path": ["api", "unlink-social-account"]
+                    },
+                    "description": "Unlink a specific social account from the authenticated user.\n\n**Required:** `provider` — The provider to unlink (e.g. `google.com`, `apple.com`)\n\n**Constraints:**\n- User must have a password set OR have other social accounts linked (cannot remove last login method)\n- The specified provider must be linked to the user\n\nRequires: Bearer token + verified account."
+                  },
+                  "response": [
+                    {
+                      "name": "Success",
+                      "status": "OK",
+                      "code": 200,
+                      "_postman_previewlanguage": "json",
+                      "body": "{\n  \"success\": true,\n  \"message\": \"Social account unlinked successfully.\",\n  \"errors\": null,\n  \"data\": null\n}"
+                    },
+                    {
+                      "name": "Provider Not Linked",
+                      "status": "Bad Request",
+                      "code": 400,
+                      "_postman_previewlanguage": "json",
+                      "body": "{\n  \"success\": false,\n  \"message\": \"This social provider is not linked to your account.\",\n  \"errors\": null,\n  \"data\": null\n}"
+                    },
+                    {
+                      "name": "Cannot Unlink (No Password)",
+                      "status": "Bad Request",
+                      "code": 400,
+                      "_postman_previewlanguage": "json",
+                      "body": "{\n  \"success\": false,\n  \"message\": \"Cannot unlink social account. Please set a password first or keep at least one social account linked.\",\n  \"errors\": null,\n  \"data\": null\n}"
+                    }
+                  ]
+                }
+              ],
+              "description": "Endpoints that require the user's email to be verified."
+            },
+            {
+              "name": "Get User",
+              "request": {
+                "method": "GET",
+                "header": [
+                  { "key": "Accept-Language", "value": "en", "type": "text" },
+                  { "key": "X-API-TOKEN", "value": "{{x-api-token}}", "type": "text" },
+                  { "key": "Accept", "value": "application/json", "type": "text" }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/user",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "user"]
+                },
+                "description": "Get the currently authenticated user's profile.\n\nRequires: Bearer token."
+              },
+              "response": [
+                {
+                  "name": "Success",
+                  "status": "OK",
+                  "code": 200,
+                  "_postman_previewlanguage": "json",
+                  "body": "{\n  \"success\": true,\n  \"message\": \"Operation successful\",\n  \"errors\": null,\n  \"data\": {\n    \"id\": 1,\n    \"name\": \"Test User\",\n    \"email\": \"user@example.com\",\n    \"phone\": null,\n    \"verified_at\": \"2026-04-01T12:00:00.000000Z\",\n    \"is_active\": true,\n    \"created_at\": \"2026-04-01T12:00:00.000000Z\",\n    \"updated_at\": \"2026-04-01T12:00:00.000000Z\"\n  }\n}"
+                }
+              ]
+            },
+            {
+              "name": "Send OTP (Verification)",
+              "request": {
+                "method": "POST",
+                "header": [
+                  { "key": "Accept-Language", "value": "en", "type": "text" },
+                  { "key": "X-API-TOKEN", "value": "{{x-api-token}}", "type": "text" },
+                  { "key": "Accept", "value": "application/json", "type": "text" }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/send-otp",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "send-otp"]
+                },
+                "description": "Send an OTP to the authenticated user's email for account verification.\n\nRequires: Bearer token."
+              },
+              "response": [
+                {
+                  "name": "Success",
+                  "status": "OK",
+                  "code": 200,
+                  "_postman_previewlanguage": "json",
+                  "body": "{\n  \"success\": true,\n  \"message\": \"Verification code sent successfully.\",\n  \"errors\": null,\n  \"data\": null\n}"
+                }
+              ]
+            },
+            {
+              "name": "Verify OTP (Email)",
+              "request": {
+                "method": "POST",
+                "header": [
+                  { "key": "Accept-Language", "value": "en", "type": "text" },
+                  { "key": "X-API-TOKEN", "value": "{{x-api-token}}", "type": "text" },
+                  { "key": "Accept", "value": "application/json", "type": "text" }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"otp\": \"123456\"\n}",
+                  "options": { "raw": { "language": "json" } }
+                },
+                "url": {
+                  "raw": "{{base_url}}/api/verify-otp",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "verify-otp"]
+                },
+                "description": "Verify the OTP sent to the user's email to complete account verification.\n\nRequires: Bearer token."
+              },
+              "response": [
+                {
+                  "name": "Success",
+                  "status": "OK",
+                  "code": 200,
+                  "_postman_previewlanguage": "json",
+                  "body": "{\n  \"success\": true,\n  \"message\": \"Code verified successfully.\",\n  \"errors\": null,\n  \"data\": null\n}"
+                }
+              ]
+            },
+            {
+              "name": "Logout",
+              "request": {
+                "method": "POST",
+                "header": [
+                  { "key": "Accept-Language", "value": "en", "type": "text" },
+                  { "key": "X-API-TOKEN", "value": "{{x-api-token}}", "type": "text" },
+                  { "key": "Accept", "value": "application/json", "type": "text" }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/logout",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "logout"]
+                },
+                "description": "Logout the authenticated user and revoke the current access token.\n\nRequires: Bearer token."
+              },
+              "response": [
+                {
+                  "name": "Success",
+                  "status": "OK",
+                  "code": 200,
+                  "_postman_previewlanguage": "json",
+                  "body": "{\n  \"success\": true,\n  \"message\": \"Logout successful.\",\n  \"errors\": null,\n  \"data\": null\n}"
+                }
+              ]
+            }
+          ],
+          "auth": {
+            "type": "bearer",
+            "bearer": [
+              { "key": "token", "value": "{{token}}", "type": "string" }
+            ]
+          },
+          "description": "Endpoints that require authentication (Bearer token).",
+          "event": [
+            { "listen": "prerequest", "script": { "type": "text/javascript", "exec": [""] } },
+            { "listen": "test", "script": { "type": "text/javascript", "exec": [""] } }
+          ]
+        },
+        {
+          "name": "Register",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "X-API-TOKEN", "value": "{{x-api-token}}", "type": "text" },
+              { "key": "Accept", "value": "application/json", "type": "text" },
+              { "key": "Accept-Language", "value": "en", "type": "text" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"policy_agreed\": true,\n  \"name\": \"Test User\",\n  \"email\": \"user@example.com\",\n  \"phone\": \"+1234567890\",\n  \"password\": \"password123\",\n  \"password_confirmation\": \"password123\",\n  \"fcm_token\": \"fake_fcm_token_123\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{base_url}}/api/register",
+              "host": ["{{base_url}}"],
+              "path": ["api", "register"]
+            },
+            "description": "Register a new app user.\n\n**Required fields:** `policy_agreed`, `name`, `password`, `password_confirmation`, plus each configured identifier field (e.g. `email`, `phone`).\n\n**Optional:** `fcm_token`, and any non-identifier fields that are enabled (e.g. `username`).\n\nIdentifier fields are configured via `AUTH_IDENTIFIERS` env variable (comma-separated, e.g. `email,phone`). All identifier fields are required and unique.\n\nReturns a Bearer token on success. An OTP is sent for verification (email/phone identifiers only)."
+          },
+          "response": [
+            {
+              "name": "Success",
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"success\": true,\n  \"message\": \"User registered successfully.\",\n  \"errors\": null,\n  \"data\": {\n    \"token\": \"1|abc123tokenhere\",\n    \"user\": {\n      \"id\": 1,\n      \"name\": \"Test User\",\n      \"email\": \"user@example.com\",\n      \"phone\": null,\n      \"is_active\": true,\n      \"verified_at\": null,\n      \"created_at\": \"2026-04-01T12:00:00.000000Z\"\n    },\n    \"otp_expires_in_minutes\": 5\n  }\n}"
+            }
+          ]
+        },
+        {
+          "name": "Login",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Accept-Language", "value": "en", "type": "text" },
+              { "key": "X-API-TOKEN", "value": "{{x-api-token}}", "type": "text" },
+              { "key": "Accept", "value": "application/json", "type": "text" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"identifier\": \"user@example.com\",\n  \"password\": \"password123\",\n  \"fcm_token\": \"fake_fcm_token_123\",\n  \"remember_me\": true\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{base_url}}/api/login",
+              "host": ["{{base_url}}"],
+              "path": ["api", "login"]
+            },
+            "description": "Login an existing app user.\n\n**Required fields:** `identifier`, `password`\n\n**Optional:** `fcm_token`, `remember_me`\n\nThe `identifier` field is searched across all configured identifier columns (set via `AUTH_IDENTIFIERS` env, e.g. `email,phone`). Users can log in with any of their configured identifiers.\n\nReturns a Bearer token on success."
+          },
+          "response": [
+            {
+              "name": "Success",
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"success\": true,\n  \"message\": \"Login successful.\",\n  \"errors\": null,\n  \"data\": {\n    \"token\": \"2|xyz456tokenhere\",\n    \"user\": {\n      \"id\": 1,\n      \"name\": \"Test User\",\n      \"email\": \"user@example.com\",\n      \"phone\": null,\n      \"is_active\": true,\n      \"verified_at\": \"2026-04-01T12:00:00.000000Z\"\n    },\n    \"is_verified\": true\n  }\n}"
+            },
+            {
+              "name": "Invalid Credentials",
+              "status": "Bad Request",
+              "code": 400,
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"success\": false,\n  \"message\": \"Invalid credentials.\",\n  \"errors\": null,\n  \"data\": null\n}"
+            }
+          ]
+        },
+        {
+          "name": "Firebase Login (Social Auth)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Accept-Language", "value": "en", "type": "text" },
+              { "key": "X-API-TOKEN", "value": "{{x-api-token}}", "type": "text" },
+              { "key": "Accept", "value": "application/json", "type": "text" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"token\": \"firebase_id_token_here\",\n  \"fcm_token\": \"fake_fcm_token_123\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{base_url}}/api/firebase-login",
+              "host": ["{{base_url}}"],
+              "path": ["api", "firebase-login"]
+            },
+            "description": "Login or register using Firebase social authentication (Google, Apple, etc.).\n\n**Required:** `token` — Firebase ID token from the social provider.\n\n**Optional:** `fcm_token`\n\n**Prerequisites:**\n- Email must be configured as a login identifier (`AUTH_IDENTIFIERS` must include `email`)\n- Firebase project must be configured with credentials in `config/firebase.php`\n\n**Behavior:**\n- If social account is already linked → login\n- If email exists with password → returns error (must use password login)\n- If email exists without password (social-only) → links and logs in\n- If email doesn't exist → creates new account\n\nReturns a Bearer token on success. User is automatically verified."
+          },
+          "response": [
+            {
+              "name": "Success (New User)",
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"success\": true,\n  \"message\": \"Login successful.\",\n  \"errors\": null,\n  \"data\": {\n    \"token\": \"3|abc789tokenhere\",\n    \"user\": {\n      \"id\": 2,\n      \"name\": \"John Doe\",\n      \"email\": \"john@gmail.com\",\n      \"verified_at\": \"2026-04-14T12:00:00.000000Z\",\n      \"social_accounts\": [\n        {\n          \"id\": 1,\n          \"provider\": \"google.com\",\n          \"provider_name\": \"Google\",\n          \"email\": \"john@gmail.com\"\n        }\n      ]\n    },\n    \"is_verified\": true,\n    \"is_new_user\": true\n  }\n}"
+            },
+            {
+              "name": "Success (Existing User)",
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"success\": true,\n  \"message\": \"Login successful.\",\n  \"errors\": null,\n  \"data\": {\n    \"token\": \"4|def012tokenhere\",\n    \"user\": {\n      \"id\": 2,\n      \"name\": \"John Doe\",\n      \"email\": \"john@gmail.com\",\n      \"verified_at\": \"2026-04-14T12:00:00.000000Z\",\n      \"social_accounts\": [\n        {\n          \"id\": 1,\n          \"provider\": \"google.com\",\n          \"provider_name\": \"Google\",\n          \"email\": \"john@gmail.com\"\n        }\n      ]\n    },\n    \"is_verified\": true,\n    \"is_new_user\": false\n  }\n}"
+            },
+            {
+              "name": "Provider Not Allowed",
+              "status": "Bad Request",
+              "code": 400,
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"success\": false,\n  \"message\": \"This social provider is not allowed.\",\n  \"errors\": null,\n  \"data\": null\n}"
+            },
+            {
+              "name": "Account Exists (Use Password)",
+              "status": "Conflict",
+              "code": 409,
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"success\": false,\n  \"message\": \"Account already exists. Please login with your password.\",\n  \"errors\": null,\n  \"data\": null\n}"
+            },
+            {
+              "name": "Invalid Token",
+              "status": "Unauthorized",
+              "code": 401,
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"success\": false,\n  \"message\": \"Invalid or expired Firebase token.\",\n  \"errors\": null,\n  \"data\": null\n}"
+            },
+            {
+              "name": "Email Required",
+              "status": "Bad Request",
+              "code": 400,
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"success\": false,\n  \"message\": \"Email is required for social login.\",\n  \"errors\": null,\n  \"data\": null\n}"
+            },
+            {
+              "name": "Social Auth Not Available",
+              "status": "Bad Request",
+              "code": 400,
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"success\": false,\n  \"message\": \"Social authentication is not available. Email must be configured as a login identifier.\",\n  \"errors\": null,\n  \"data\": null\n}"
+            }
+          ]
+        },
+        {
+          "name": "Check Identifier",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Accept-Language", "value": "en", "type": "text" },
+              { "key": "X-API-TOKEN", "value": "{{x-api-token}}", "type": "text" },
+              { "key": "Accept", "value": "application/json", "type": "text" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"identifier\": \"user@example.com\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{base_url}}/api/check-identifier",
+              "host": ["{{base_url}}"],
+              "path": ["api", "check-identifier"]
+            },
+            "description": "Check if an identifier exists in the system. Searches across all configured identifier columns (set via `AUTH_IDENTIFIERS` env).\n\nUseful for real-time validation on the login screen before submitting credentials.\n\nNo authentication required."
+          },
+          "response": [
+            {
+              "name": "Exists",
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"success\": true,\n  \"message\": \"Operation successful\",\n  \"errors\": null,\n  \"data\": {\n    \"exists\": true\n  }\n}"
+            },
+            {
+              "name": "Not Found",
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"success\": true,\n  \"message\": \"Operation successful\",\n  \"errors\": null,\n  \"data\": {\n    \"exists\": false\n  }\n}"
+            }
+          ]
+        },
+        {
+          "name": "Forgot Password",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Accept-Language", "value": "en", "type": "text" },
+              { "key": "X-API-TOKEN", "value": "{{x-api-token}}", "type": "text" },
+              { "key": "Accept", "value": "application/json", "type": "text" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"identifier\": \"user@example.com\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{base_url}}/api/forgot-password",
+              "host": ["{{base_url}}"],
+              "path": ["api", "forgot-password"]
+            },
+            "description": "Request a password reset OTP. Sends an OTP to the user's email or phone based on `IS_EMAIL_LOGIN` env.\n\nNo authentication required."
+          },
+          "response": [
+            {
+              "name": "Success",
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"success\": true,\n  \"message\": \"Password reset code sent.\",\n  \"errors\": null,\n  \"data\": null\n}"
+            }
+          ]
+        },
+        {
+          "name": "Verify Forgot Password OTP",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Accept-Language", "value": "en", "type": "text" },
+              { "key": "X-API-TOKEN", "value": "{{x-api-token}}", "type": "text" },
+              { "key": "Accept", "value": "application/json", "type": "text" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"identifier\": \"user@example.com\",\n  \"otp\": \"123456\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{base_url}}/api/verify-forgot-password-otp",
+              "host": ["{{base_url}}"],
+              "path": ["api", "verify-forgot-password-otp"]
+            },
+            "description": "Verify the OTP sent for password reset. Must be called before `Change Forgot Password`.\n\nNo authentication required."
+          },
+          "response": [
+            {
+              "name": "Success",
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"success\": true,\n  \"message\": \"Code verified successfully.\",\n  \"errors\": null,\n  \"data\": null\n}"
+            }
+          ]
+        },
+        {
+          "name": "Change Forgot Password",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Accept-Language", "value": "en", "type": "text" },
+              { "key": "X-API-TOKEN", "value": "{{x-api-token}}", "type": "text" },
+              { "key": "Accept", "value": "application/json", "type": "text" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"identifier\": \"user@example.com\",\n  \"otp\": \"123456\",\n  \"password\": \"newpassword123\",\n  \"password_confirmation\": \"newpassword123\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{base_url}}/api/change-forgot-password",
+              "host": ["{{base_url}}"],
+              "path": ["api", "change-forgot-password"]
+            },
+            "description": "Set a new password after verifying the forgot password OTP.\n\n**Required:** `email`, `otp` (verified), `password`, `password_confirmation`\n\nNo authentication required."
+          },
+          "response": [
+            {
+              "name": "Success",
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"success\": true,\n  \"message\": \"Password changed successfully.\",\n  \"errors\": null,\n  \"data\": null\n}"
+            }
+          ]
+        }
+      ],
+      "auth": {
+        "type": "noauth"
+      },
+      "description": "User authentication endpoints including registration, login, password reset, OTP verification, and account management.",
+      "event": [
+        { "listen": "prerequest", "script": { "type": "text/javascript", "exec": [""] } },
+        { "listen": "test", "script": { "type": "text/javascript", "exec": [""] } }
+      ]
+    }
+  ]
+}

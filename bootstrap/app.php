@@ -1,0 +1,57 @@
+<?php
+
+use App\Http\Middleware\EnsureUserIsActive;
+use App\Http\Middleware\EnsureUserIsVerified;
+use App\Http\Middleware\HandleInertiaRequests;
+use App\Http\Middleware\SetLocaleMiddleware;
+use App\Http\Middleware\WebLocale;
+use App\Http\Middleware\XApiTokenMiddlleware;
+use Illuminate\Foundation\Application;
+use Illuminate\Foundation\Configuration\Exceptions;
+use Illuminate\Foundation\Configuration\Middleware;
+use Illuminate\Http\Middleware\AddLinkHeadersForPreloadedAssets;
+use Spatie\Permission\Middleware\PermissionMiddleware;
+use Spatie\Permission\Middleware\RoleMiddleware;
+use Spatie\Permission\Middleware\RoleOrPermissionMiddleware;
+
+return Application::configure(basePath: dirname(__DIR__))
+    ->withRouting(
+        web: __DIR__.'/../routes/web.php',
+        api: __DIR__.'/../routes/api.php',
+        commands: __DIR__.'/../routes/console.php',
+        health: '/up',
+    )
+    ->withBroadcasting(
+        __DIR__.'/../routes/channels.php',
+        ['prefix' => 'api', 'middleware' => ['api', 'auth:sanctum']],
+    )
+    ->withMiddleware(function (Middleware $middleware): void {
+
+        $middleware->redirectTo(
+            guests: fn () => route('login'),
+            users: fn () => route('dashboard'),
+        );
+
+        $middleware->web(append: [
+            WebLocale::class,
+            EnsureUserIsActive::class,
+            HandleInertiaRequests::class,
+            AddLinkHeadersForPreloadedAssets::class,
+        ]);
+
+        $middleware->api(append: [
+            SetLocaleMiddleware::class,
+            XApiTokenMiddlleware::class,
+        ]);
+
+        $middleware->alias([
+            'role' => RoleMiddleware::class,
+            'permission' => PermissionMiddleware::class,
+            'role_or_permission' => RoleOrPermissionMiddleware::class,
+            'verified' => EnsureUserIsVerified::class,
+            'active' => EnsureUserIsActive::class,
+        ]);
+    })
+    ->withExceptions(function (Exceptions $exceptions): void {
+        //
+    })->create();
