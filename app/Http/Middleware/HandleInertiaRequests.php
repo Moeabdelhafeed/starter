@@ -51,6 +51,7 @@ class HandleInertiaRequests extends Middleware
             'success' => session('success'),
             'error' => session('error'),
             'app_users' => env('APP_USERS'),
+            'has_translations' => filter_var(env('HAS_TRANSLATIONS', true), FILTER_VALIDATE_BOOLEAN),
             'is_local' => app()->environment('local'),
             'auth_identifiers' => array_map('trim', explode(',', env('AUTH_IDENTIFIERS', 'email'))),
             'auth_fields' => [

@@ -375,7 +375,7 @@ Available on every page via `usePage().props`:
 - `auth.permissions` — array of permission names.
 - `locale` — `{ code, dir, name }`.
 - `success` / `error` — flash messages.
-- `app_users`, `is_local` — feature flags.
+- `app_users`, `has_translations`, `is_local` — feature flags.
 - `auth_identifier` — current login identifier (`email`, `phone`, or `username`).
 - `auth_fields` — `{ email: bool, phone: bool, username: bool }` — which fields are available.
 
@@ -845,6 +845,7 @@ channel.listen('.order.status', (event) => {
 
 Key `.env` flags that affect behavior:
 - `APP_USERS` — enables mobile app user module and API auth routes.
+- `HAS_TRANSLATIONS` — enables app translations feature (admin panel routes, navbar links, and API endpoints for translations/languages).
 - `AUTH_IDENTIFIERS` — comma-separated login identifiers (e.g. `email`, `email,phone`).
 - `HAS_EMAIL_FIELD` / `HAS_PHONE_FIELD` / `HAS_USERNAME_FIELD` — toggle extra profile fields (only for non-identifier fields).
 - `IS_TESTING` — testing mode flag (exposes OTP in API responses).

@@ -29,6 +29,7 @@ class DevSettingController extends Controller
 
     private array $envToggles = [
         'APP_USERS',
+        'HAS_TRANSLATIONS',
         'IS_TESTING',
         'APP_DEBUG',
         'IS_OTP_WHATSAPP',

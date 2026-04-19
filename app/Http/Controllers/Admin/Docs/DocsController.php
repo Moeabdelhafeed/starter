@@ -412,9 +412,10 @@ HAS_USERNAME_FIELD=false
 IS_OTP_WHATSAPP=false
 ```
 
-### API Settings
+### Feature Toggles
 ```env
 APP_USERS=true                  # Enable/disable app user module
+HAS_TRANSLATIONS=true           # Enable/disable app translations
 IS_TESTING=true                 # Expose OTP in API responses
 APP_X_API_TOKEN=your-token      # X-API-TOKEN header value
 ```
@@ -973,6 +974,22 @@ MD
 # Translations
 
 This project uses **three translation systems** for different purposes.
+
+## Enabling/Disabling App Translations
+
+The app translations feature can be toggled via environment variable or DevSettings:
+
+```env
+HAS_TRANSLATIONS=true   # Enable app translations (default)
+HAS_TRANSLATIONS=false  # Disable app translations
+```
+
+When disabled:
+- Admin panel hides Translations and Languages pages
+- Navbar hides Translations and Languages links (Pages and Activity Logs still visible)
+- API endpoints `/api/translations` and `/api/languages` return 404
+
+Configure in DevSettings → Environment → "App Translations" toggle.
 
 ## Decision Tree: Which System to Use?
 

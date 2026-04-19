@@ -35,20 +35,22 @@ Route::middleware('auth')->group(function () {
     Route::put('/profile', [ProfileController::class, 'update'])->name('profile.update');
 
     // translations
-    Route::prefix('translations')->middleware('permission:translations')->group(function () {
-        Route::get('/', [TranslationController::class, 'index'])->name('translations');
-        Route::post('/edit', [TranslationController::class, 'edit'])->name('translations.edit');
-        Route::delete('/bulk-destroy', [TranslationController::class, 'bulkDestroy'])->name('translations.bulk-destroy');
-        Route::delete('/{translation}', [TranslationController::class, 'destroy'])->name('translations.destroy');
-    });
+    if (filter_var(env('HAS_TRANSLATIONS', true), FILTER_VALIDATE_BOOLEAN)) {
+        Route::prefix('translations')->middleware('permission:translations')->group(function () {
+            Route::get('/', [TranslationController::class, 'index'])->name('translations');
+            Route::post('/edit', [TranslationController::class, 'edit'])->name('translations.edit');
+            Route::delete('/bulk-destroy', [TranslationController::class, 'bulkDestroy'])->name('translations.bulk-destroy');
+            Route::delete('/{translation}', [TranslationController::class, 'destroy'])->name('translations.destroy');
+        });
 
-    // languages
-    Route::prefix('languages')->middleware('permission:translations')->group(function () {
-        Route::get('/', [LanguageController::class, 'index'])->name('languages');
-        Route::post('/', [LanguageController::class, 'store'])->name('languages.store');
-        Route::put('/{language}', [LanguageController::class, 'update'])->name('languages.update');
-        Route::delete('/{language}', [LanguageController::class, 'destroy'])->name('languages.destroy');
-    });
+        // languages
+        Route::prefix('languages')->middleware('permission:translations')->group(function () {
+            Route::get('/', [LanguageController::class, 'index'])->name('languages');
+            Route::post('/', [LanguageController::class, 'store'])->name('languages.store');
+            Route::put('/{language}', [LanguageController::class, 'update'])->name('languages.update');
+            Route::delete('/{language}', [LanguageController::class, 'destroy'])->name('languages.destroy');
+        });
+    }
 
     // users
     Route::prefix('users')->middleware('permission:users')->group(function () {

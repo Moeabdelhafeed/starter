@@ -164,6 +164,7 @@ const toggleProdEnv = (key, currentValue) => {
 const envLabel = (key) => {
     const labels = {
         'APP_USERS': 'App Users Module',
+        'HAS_TRANSLATIONS': 'App Translations',
         'IS_TESTING': 'Testing Mode',
         'APP_DEBUG': 'Debug Mode',
         'IS_OTP_WHATSAPP': 'OTP via WhatsApp',
@@ -174,6 +175,7 @@ const envLabel = (key) => {
 const envDescription = (key) => {
     const desc = {
         'APP_USERS': 'Enable/disable the app users (API guard) module and routes',
+        'HAS_TRANSLATIONS': 'Enable/disable app translations feature (admin routes, navbar links, API endpoints for translations/languages)',
         'IS_TESTING': 'Enable/disable testing mode for the application',
         'APP_DEBUG': 'Enable/disable detailed error pages and debug info',
         'IS_OTP_WHATSAPP': 'If true, OTPs sent via WhatsApp. If false, sent via SMS. Only applies when identifier is phone.',

@@ -186,7 +186,7 @@ const isRouteActive = (name) => {
                 </div>
 
                 <!-- Website Settings Accordion -->
-                <div v-if="page.props.auth.permissions.find((p) => p === 'translations')" class="space-y-1">
+                <div v-if="(page.props.has_translations && page.props.auth.permissions.find((p) => p === 'translations')) || page.props.auth.permissions.find((p) => p === 'activity_logs') || page.props.auth.permissions.find((p) => p === 'pages')" class="space-y-1">
                     <button
                         @click="toggleAccordion('websiteSettings')"
                         class="flex w-full items-center justify-between rounded-lg p-3 transition-colors hover:bg-primary/10"
@@ -207,7 +207,7 @@ const isRouteActive = (name) => {
                         v-show="openAccordions.websiteSettings"
                         class="ms-4 space-y-1 overflow-hidden border-s border-border ps-2 transition-all duration-200"
                     >
-                        <div v-if="page.props.auth.permissions.find((p) => p === 'translations')" class="space-y-2">
+                        <div v-if="page.props.has_translations && page.props.auth.permissions.find((p) => p === 'translations')" class="space-y-2">
                             <Link :href="route('translations', { locale: page.props.locale.code })" class="w-full">
                                 <Button
                                     variant="ghost"
@@ -219,7 +219,7 @@ const isRouteActive = (name) => {
                                 </Button>
                             </Link>
                         </div>
-                        <div v-if="page.props.auth.permissions.find((p) => p === 'translations')" class="space-y-2">
+                        <div v-if="page.props.has_translations && page.props.auth.permissions.find((p) => p === 'translations')" class="space-y-2">
                             <Link :href="route('languages')" class="w-full">
                                 <Button
                                     variant="ghost"
