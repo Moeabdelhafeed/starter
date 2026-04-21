@@ -68,7 +68,7 @@ onMounted(() => {
 
 <template>
     <div id="main_div" class="text-scondary font-[Cairo]" :dir="page.props.locale.dir">
-        <Navbar />
+        <Navbar v-if="page.props.auth.user" />
 
         <!-- Success Toast -->
         <Transition

@@ -371,6 +371,9 @@
 
     "documentation": "التوثيق",
     "docs": "الدليل",
+    "local_admin_credentials": "بيانات المسؤول المحلي",
+    "autofill": "ملء تلقائي",
+    "back_to_login": "العودة لتسجيل الدخول",
     "search_docs": "البحث في التوثيق...",
     "getting_started": "البداية",
     "features": "الميزات",

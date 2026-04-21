@@ -53,6 +53,10 @@ class HandleInertiaRequests extends Middleware
             'app_users' => env('APP_USERS'),
             'has_translations' => filter_var(env('HAS_TRANSLATIONS', true), FILTER_VALIDATE_BOOLEAN),
             'is_local' => app()->environment('local'),
+            'admin_credentials' => (app()->environment('local') && ! $request->user()) ? [
+                'email' => env('ADMIN_EMAIL'),
+                'password' => env('ADMIN_PASSWORD'),
+            ] : null,
             'auth_identifiers' => array_map('trim', explode(',', env('AUTH_IDENTIFIERS', 'email'))),
             'auth_fields' => [
                 'email' => in_array('email', array_map('trim', explode(',', env('AUTH_IDENTIFIERS', 'email')))) || filter_var(env('HAS_EMAIL_FIELD', true), FILTER_VALIDATE_BOOLEAN),

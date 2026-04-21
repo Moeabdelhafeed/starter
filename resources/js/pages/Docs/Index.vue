@@ -1,6 +1,6 @@
 <script setup>
 import Default from '@/layouts/default.vue';
-import { Head, router, Link } from '@inertiajs/vue3';
+import { Head, router, Link, usePage } from '@inertiajs/vue3';
 import { useI18n } from 'vue-i18n';
 import { ref, computed, watch } from 'vue';
 import {
@@ -16,6 +16,7 @@ import {
     Radio,
     Upload,
     BookOpen,
+    ArrowLeft,
     X,
 } from 'lucide-vue-next';
 import Input from '@/components/ui/input/Input.vue';
@@ -31,6 +32,8 @@ const props = defineProps({
 });
 
 const { t } = useI18n();
+const page = usePage();
+const isGuest = computed(() => !page.props.auth.user);
 
 const searchQuery = ref('');
 const expandedSections = ref([props.currentSection?.split('-')[0] || 'getting-started']);
@@ -306,6 +309,16 @@ const clearSearch = () => {
                 >
                     {{ t('no_results_found') }}
                 </div>
+
+                <!-- Back to Login (guest only) -->
+                <Link
+                    v-if="isGuest"
+                    :href="route('login')"
+                    class="mt-3 flex w-full items-center justify-center gap-2 rounded-lg bg-primary px-3 py-2 text-sm font-medium text-primary-foreground transition hover:opacity-90"
+                >
+                    <ArrowLeft class="size-4 rtl:rotate-180" />
+                    {{ t('back_to_login') }}
+                </Link>
             </aside>
 
             <!-- Mobile Menu -->
@@ -324,6 +337,14 @@ const clearSearch = () => {
                             <component :is="iconMap[section.icon]" class="size-4" />
                             <span class="whitespace-nowrap">{{ section.title }}</span>
                         </button>
+                        <Link
+                            v-if="isGuest"
+                            :href="route('login')"
+                            class="flex shrink-0 flex-col items-center gap-1 rounded-lg bg-primary px-3 py-2 text-xs text-primary-foreground transition-colors hover:opacity-90"
+                        >
+                            <ArrowLeft class="size-4 rtl:rotate-180" />
+                            <span class="whitespace-nowrap">{{ t('back_to_login') }}</span>
+                        </Link>
                     </div>
                 </div>
             </div>
@@ -361,7 +382,7 @@ const clearSearch = () => {
                     </article>
 
                     <!-- Navigation Footer -->
-                    <div class="mt-12 flex items-center justify-between border-t border-border pt-6">
+                    <div v-if="!isGuest" class="mt-12 flex items-center justify-between border-t border-border pt-6">
                         <Link :href="route('dev_settings')" class="text-sm text-primary hover:underline">
                             ← {{ t('developer_settings') }}
                         </Link>

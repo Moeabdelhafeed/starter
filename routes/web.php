@@ -19,6 +19,11 @@ use Illuminate\Support\Facades\Route;
 // locale
 Route::post('/set-locale', [LocaleController::class, 'setLocale'])->name('locale.post');
 
+// documentation (local env only, publicly accessible)
+if (app()->environment('local')) {
+    Route::get('/docs', [DocsController::class, 'index'])->name('docs');
+}
+
 // guest
 Route::middleware('guest')->group(function () {
     Route::get('/login', [AuthController::class, 'index'])->name('login');
@@ -114,11 +119,6 @@ Route::middleware('auth')->group(function () {
             Route::post('/{user}/restore', [AppUserController::class, 'restore'])->name('app_users.restore')->withTrashed();
             Route::delete('/{user}/force-delete', [AppUserController::class, 'forceDelete'])->name('app_users.force-delete')->withTrashed();
         });
-    }
-
-    // documentation (local env only)
-    if (app()->environment('local')) {
-        Route::get('/docs', [DocsController::class, 'index'])->name('docs');
     }
 
     // developer settings (local env only)

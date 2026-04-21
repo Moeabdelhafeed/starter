@@ -371,6 +371,9 @@
 
     "documentation": "Documentation",
     "docs": "Docs",
+    "local_admin_credentials": "Local Admin Credentials",
+    "autofill": "Autofill",
+    "back_to_login": "Back to Login",
     "search_docs": "Search documentation...",
     "getting_started": "Getting Started",
     "features": "Features",
