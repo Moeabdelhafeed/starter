@@ -55,10 +55,30 @@ onMounted(() => {
     isDark.value = localStorage.getItem('theme') === 'dark';
 });
 
-const toggleTheme = () => {
-    isDark.value = !isDark.value;
-    document.documentElement.classList.toggle('dark', isDark.value);
-    localStorage.setItem('theme', isDark.value ? 'dark' : 'light');
+const toggleTheme = (event) => {
+    const applyTheme = () => {
+        isDark.value = !isDark.value;
+        document.documentElement.classList.toggle('dark', isDark.value);
+        localStorage.setItem('theme', isDark.value ? 'dark' : 'light');
+    };
+
+    if (!document.startViewTransition) {
+        applyTheme();
+        return;
+    }
+
+    const x = event?.clientX ?? window.innerWidth / 2;
+    const y = event?.clientY ?? window.innerHeight / 2;
+    const radius = Math.hypot(
+        Math.max(x, window.innerWidth - x),
+        Math.max(y, window.innerHeight - y),
+    );
+
+    document.documentElement.style.setProperty('--theme-x', `${x}px`);
+    document.documentElement.style.setProperty('--theme-y', `${y}px`);
+    document.documentElement.style.setProperty('--theme-r', `${radius}px`);
+
+    document.startViewTransition(() => applyTheme());
 };
 
 const localeForm = useForm({

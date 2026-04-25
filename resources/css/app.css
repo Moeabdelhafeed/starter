@@ -178,3 +178,31 @@
     border-top-color: var(--primary) !important;
     border-left-color: var(--primary) !important;
 }
+
+/* Theme toggle circular reveal */
+::view-transition-old(root),
+::view-transition-new(root) {
+    animation: none;
+    mix-blend-mode: normal;
+}
+
+::view-transition-old(root) {
+    z-index: 1;
+}
+
+::view-transition-new(root) {
+    z-index: 9999;
+}
+
+@keyframes theme-clip-reveal {
+    from {
+        clip-path: circle(0 at var(--theme-x, 50%) var(--theme-y, 50%));
+    }
+    to {
+        clip-path: circle(var(--theme-r, 150vmax) at var(--theme-x, 50%) var(--theme-y, 50%));
+    }
+}
+
+::view-transition-new(root) {
+    animation: theme-clip-reveal 500ms ease-out;
+}
