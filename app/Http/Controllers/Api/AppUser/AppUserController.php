@@ -15,6 +15,9 @@ use App\Rules\AllowedEmailDomain;
 use App\Rules\AllowedPhoneCountry;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Validator;
+use Illuminate\Validation\Rule;
+use Illuminate\Validation\Rules\Unique;
 use Kreait\Firebase\Contract\Auth as FirebaseAuth;
 use Kreait\Firebase\Exception\Auth\FailedToVerifyToken;
 use Spatie\Permission\Models\Role;
@@ -25,37 +28,68 @@ class AppUserController extends Controller
     {
         $identifiers = $this->getAuthIdentifiers();
 
-        $rules = [
-            'policy_agreed' => 'required|boolean',
+        $baseRules = [
+            'policy_agreed' => 'required|accepted',
             'name' => 'required|string|max:255',
+            'identifier' => 'required|string|max:255',
             'password' => 'required|string|min:8|max:255|confirmed',
             'fcm_token' => 'nullable|string|max:255',
         ];
 
-        // Each identifier field is required
-        foreach ($identifiers as $field) {
-            $rules[$field] = match ($field) {
-                'email' => $this->getEmailValidationRule(true),
-                'phone' => $this->getPhoneValidationRule(true),
-                'username' => 'required|string|alpha_dash|max:255|unique:users,username',
-            };
+        // Username field — when enabled, required at register and usable for login.
+        // Format: must start with a letter and contain letters/digits/underscores/dashes only.
+        // Excludes email (`@`) and phone (digits-only / `+`) formats.
+        if ($this->hasField('username')) {
+            $baseRules['username'] = ['required', 'string', 'max:255', 'min:3', 'regex:/^[A-Za-z][A-Za-z0-9_-]*$/', $this->uniqueApiUsernameRule()];
         }
 
-        // Non-identifier fields that are enabled are optional
-        foreach (['email', 'phone', 'username'] as $field) {
+        // Other non-identifier extras (email/phone) keep their own keys, optional.
+        foreach (['email', 'phone'] as $field) {
             if (! $this->isIdentifier($field) && $this->hasField($field)) {
-                $rules[$field] = match ($field) {
+                $baseRules[$field] = match ($field) {
                     'email' => $this->getEmailValidationRule(false),
                     'phone' => $this->getPhoneValidationRule(false),
-                    'username' => 'nullable|string|alpha_dash|max:255|unique:users,username',
                 };
             }
         }
 
-        $request->validate($rules);
+        $validator = Validator::make($request->all(), $baseRules);
 
-        if (! $request->policy_agreed) {
-            return ApiResponse::error(Trans::get('api.policy_not_agreed'), null, 401);
+        if ($validator->fails()) {
+            return ApiResponse::error(Trans::get('api.validation_failed'), $validator->errors()->toArray(), 422);
+        }
+
+        // Resolve identifier kind. Identifiers are limited to email/phone now.
+        if (count($identifiers) === 1) {
+            $detectedField = $identifiers[0];
+        } else {
+            $detectedField = $this->detectIdentifierKind($request->identifier);
+
+            if (! $detectedField || ! in_array($detectedField, $identifiers, true)) {
+                return ApiResponse::error(
+                    Trans::get('api.validation_failed'),
+                    ['identifier' => [Trans::get('api.invalid_identifier')]],
+                    422,
+                );
+            }
+        }
+
+        $identifierRule = match ($detectedField) {
+            'email' => $this->getEmailValidationRule(true),
+            'phone' => $this->getPhoneValidationRule(true),
+        };
+
+        $identifierValidator = Validator::make(
+            [$detectedField => $request->identifier],
+            [$detectedField => $identifierRule],
+        );
+
+        if ($identifierValidator->fails()) {
+            return ApiResponse::error(
+                Trans::get('api.validation_failed'),
+                ['identifier' => $identifierValidator->errors()->get($detectedField)],
+                422,
+            );
         }
 
         $role = Role::where('name', 'user')->where('guard_name', 'api')->first();
@@ -71,15 +105,15 @@ class AppUserController extends Controller
             'name' => $request->name,
             'password' => Hash::make($request->password),
             'fcm_token' => $request->fcm_token,
+            $detectedField => $request->identifier,
         ];
 
-        // Add identifier fields
-        foreach ($identifiers as $field) {
-            $userData[$field] = $request->$field;
+        if ($this->hasField('username')) {
+            $userData['username'] = $request->username;
         }
 
-        // Add optional non-identifier fields
-        foreach (['email', 'phone', 'username'] as $field) {
+        // Other non-identifier extras (email/phone) when supplied.
+        foreach (['email', 'phone'] as $field) {
             if (! $this->isIdentifier($field) && $this->hasField($field) && $request->$field) {
                 $userData[$field] = $request->$field;
             }
@@ -88,12 +122,9 @@ class AppUserController extends Controller
         $user = User::create($userData);
         $user->assignRole($role);
 
-        $token = $user->createToken('user_token', ['*'], now()->addDays(1))->plainTextToken;
-
         $otp = $this->sendOtpToUser($user, 'verify');
 
         $responseData = [
-            'token' => $token,
             'user' => $user->fresh(),
             'otp_expires_in_minutes' => 5,
         ];
@@ -145,7 +176,11 @@ class AppUserController extends Controller
         $user = $this->findUserByIdentifier($request->identifier);
 
         if (! $user) {
-            return ApiResponse::error(Trans::get('api.user_not_found'), null, 404);
+            return ApiResponse::error(
+                Trans::get('api.user_not_found'),
+                ['identifier' => [Trans::get('api.user_not_found')]],
+                422,
+            );
         }
 
         if (! $user->is_active) {
@@ -153,7 +188,11 @@ class AppUserController extends Controller
         }
 
         if (! Hash::check($request->password, $user->password)) {
-            return ApiResponse::error(Trans::get('api.invalid_credentials'), null, 401);
+            return ApiResponse::error(
+                Trans::get('api.invalid_credentials'),
+                ['password' => [Trans::get('api.invalid_credentials')]],
+                422,
+            );
         }
 
         if (! $user->hasRole('user', 'api')) {
@@ -169,11 +208,17 @@ class AppUserController extends Controller
         if ($user->verified_at === null) {
             $token = $user->createToken('user_token', ['*'], now()->addDays(1))->plainTextToken;
 
-            $otp = $this->sendOtpToUser($user, 'verify');
+            // Reuse a recent verify OTP (< 60s old) to avoid spamming SMS/email when
+            // the client calls login immediately after register.
+            $otp = $user->otps()
+                ->where('type', 'verify')
+                ->where('created_at', '>', now()->subSeconds(60))
+                ->latest()
+                ->first()
+                ?? $this->sendOtpToUser($user, 'verify');
 
             $responseData = [
                 'user' => $user->fresh(),
-                'token' => $token,
                 'is_verified' => false,
                 'otp_expires_in_minutes' => 5,
             ];
@@ -182,17 +227,32 @@ class AppUserController extends Controller
                 $responseData['otp'] = $otp ? $otp->otp : null;
             }
 
-            return ApiResponse::success($responseData, Trans::get('api.user_not_verified'));
+            return ApiResponse::success($responseData, Trans::get('api.user_not_verified'), $token);
         }
 
         $days = $request->remember_me ? 30 : 1;
         $token = $user->createToken('user_token', ['*'], now()->addDays($days))->plainTextToken;
 
         return ApiResponse::success([
-            'token' => $token,
             'user' => $user->fresh(),
             'is_verified' => true,
-        ], Trans::get('api.login_successful'));
+        ], Trans::get('api.login_successful'), $token);
+    }
+
+    public function authConfig()
+    {
+        $identifiers = $this->getAuthIdentifiers();
+
+        return ApiResponse::success([
+            'identifiers' => $identifiers,
+            'has_username_field' => filter_var(env('HAS_USERNAME_FIELD', false), FILTER_VALIDATE_BOOLEAN),
+            'has_email_field' => filter_var(env('HAS_EMAIL_FIELD', false), FILTER_VALIDATE_BOOLEAN),
+            'has_phone_field' => filter_var(env('HAS_PHONE_FIELD', false), FILTER_VALIDATE_BOOLEAN),
+            'social_providers' => array_values(array_filter(array_map('trim', explode(',', env('SOCIAL_AUTH_PROVIDERS', ''))))),
+            'max_social_accounts' => (int) env('SOCIAL_AUTH_MAX_ACCOUNTS', 0),
+            'social_auth_available' => in_array('email', $identifiers, true),
+            'is_otp_whatsapp' => filter_var(env('IS_OTP_WHATSAPP', false), FILTER_VALIDATE_BOOLEAN),
+        ]);
     }
 
     public function checkIdentifier(Request $request)
@@ -201,10 +261,50 @@ class AppUserController extends Controller
             'identifier' => 'required|string|max:255',
         ]);
 
-        $user = $this->findUserByIdentifier($request->identifier);
+        $value = trim($request->identifier);
+        $kind = $this->detectIdentifierKind($value);
+
+        // Resolve the column to query based on detected kind. Supports identifier columns
+        // AND non-identifier extras (HAS_*_FIELD) for pre-submit uniqueness checks
+        // (e.g. before request-identifier-change or update-profile username change).
+        $column = null;
+        if ($kind === 'email' && $this->hasField('email')) {
+            $column = 'email';
+        } elseif ($kind === 'phone' && $this->hasField('phone')) {
+            $column = 'phone';
+        } elseif ($kind === null && filter_var(env('HAS_USERNAME_FIELD', false), FILTER_VALIDATE_BOOLEAN)) {
+            $column = 'username';
+        }
+
+        if (! $column) {
+            return ApiResponse::success(['exists' => false, 'available_channels' => []]);
+        }
+
+        if ($column === 'email') {
+            $value = strtolower($value);
+        }
+
+        $user = User::where($column, $value)
+            ->whereHas('roles', fn ($q) => $q->where('name', 'user')->where('guard_name', 'api'))
+            ->first();
+
+        if (! $user) {
+            return ApiResponse::success(['exists' => false, 'available_channels' => []]);
+        }
+
+        // Tell the client which OTP delivery channels are populated on the user record.
+        // Used by the frontend to pick a `type` for forgot-password.
+        $channels = [];
+        if ($user->email) {
+            $channels[] = 'email';
+        }
+        if ($user->phone) {
+            $channels[] = 'phone';
+        }
 
         return ApiResponse::success([
-            'exists' => $user !== null,
+            'exists' => true,
+            'available_channels' => $channels,
         ]);
     }
 
@@ -229,7 +329,11 @@ class AppUserController extends Controller
             ->first();
 
         if (! $otpRecord) {
-            return ApiResponse::error(Trans::get('api.invalid_otp'), null, 401);
+            return ApiResponse::error(
+                Trans::get('api.invalid_otp'),
+                ['otp' => [Trans::get('api.invalid_otp')]],
+                422,
+            );
         }
 
         $user->verified_at = now();
@@ -244,27 +348,70 @@ class AppUserController extends Controller
     {
         $request->validate([
             'identifier' => 'required|string|max:255',
+            'type' => 'nullable|in:email,phone',
         ]);
 
         $user = $this->findUserByIdentifier($request->identifier);
 
         if (! $user) {
-            return ApiResponse::error(Trans::get('api.user_not_found'), null, 404);
+            return ApiResponse::error(
+                Trans::get('api.user_not_found'),
+                ['identifier' => [Trans::get('api.user_not_found')]],
+                422,
+            );
         }
 
         if (! $user->is_active) {
             return ApiResponse::error(__('admin.account_is_inactive'), null, 403);
         }
 
-        $otp = $this->sendOtpToUser($user, 'reset_password');
+        // Resolve which channel to use.
+        // - If client passed `type`, use it (must be populated on the user).
+        // - Else default priority: email > phone.
+        $available = array_values(array_filter([
+            $user->email ? 'email' : null,
+            $user->phone ? 'phone' : null,
+        ]));
+
+        if ($request->type) {
+            if (! in_array($request->type, $available, true)) {
+                return ApiResponse::error(
+                    Trans::get('api.otp_not_available'),
+                    ['type' => [Trans::get('api.otp_not_available')]],
+                    422,
+                );
+            }
+            $channel = $request->type;
+        } else {
+            $channel = $available[0] ?? null;
+        }
+
+        if (! $channel) {
+            return ApiResponse::error(
+                Trans::get('api.otp_not_available'),
+                ['identifier' => [Trans::get('api.otp_not_available')]],
+                422,
+            );
+        }
+
+        $otp = $this->sendOtpToUser($user, 'reset_password', $channel);
+
+        if (! $otp) {
+            return ApiResponse::error(
+                Trans::get('api.otp_not_available'),
+                ['identifier' => [Trans::get('api.otp_not_available')]],
+                422,
+            );
+        }
 
         $responseData = [
-            'identifier' => $this->getOtpIdentifierValue($user),
+            'identifier' => $user->{$channel},
+            'channel' => $channel,
             'otp_expires_in_minutes' => 5,
         ];
 
         if (filter_var(env('IS_TESTING'), FILTER_VALIDATE_BOOLEAN)) {
-            $responseData['otp'] = $otp ? $otp->otp : null;
+            $responseData['otp'] = $otp->otp;
         }
 
         return ApiResponse::success($responseData, Trans::get('api.forgot_password_otp_sent'));
@@ -280,7 +427,11 @@ class AppUserController extends Controller
         $user = $this->findUserByIdentifier($request->identifier);
 
         if (! $user) {
-            return ApiResponse::error(Trans::get('api.user_not_found'), null, 404);
+            return ApiResponse::error(
+                Trans::get('api.user_not_found'),
+                ['identifier' => [Trans::get('api.user_not_found')]],
+                422,
+            );
         }
 
         if (! $user->is_active) {
@@ -294,7 +445,11 @@ class AppUserController extends Controller
             ->first();
 
         if (! $otpRecord) {
-            return ApiResponse::error(Trans::get('api.invalid_otp'), null, 401);
+            return ApiResponse::error(
+                Trans::get('api.invalid_otp'),
+                ['otp' => [Trans::get('api.invalid_otp')]],
+                422,
+            );
         }
 
         return ApiResponse::success([
@@ -314,7 +469,11 @@ class AppUserController extends Controller
         $user = $this->findUserByIdentifier($request->identifier);
 
         if (! $user) {
-            return ApiResponse::error(Trans::get('api.user_not_found'), null, 404);
+            return ApiResponse::error(
+                Trans::get('api.user_not_found'),
+                ['identifier' => [Trans::get('api.user_not_found')]],
+                422,
+            );
         }
 
         if (! $user->is_active) {
@@ -328,7 +487,11 @@ class AppUserController extends Controller
             ->first();
 
         if (! $otpRecord) {
-            return ApiResponse::error(Trans::get('api.invalid_otp'), null, 401);
+            return ApiResponse::error(
+                Trans::get('api.invalid_otp'),
+                ['otp' => [Trans::get('api.invalid_otp')]],
+                422,
+            );
         }
 
         $user->tokens()->delete();
@@ -350,7 +513,11 @@ class AppUserController extends Controller
         $user = $request->user();
 
         if (! Hash::check($request->old_password, $user->password)) {
-            return ApiResponse::error(Trans::get('api.invalid_old_password'), null, 401);
+            return ApiResponse::error(
+                Trans::get('api.invalid_old_password'),
+                ['old_password' => [Trans::get('api.invalid_old_password')]],
+                422,
+            );
         }
 
         $user->password = Hash::make($request->password);
@@ -365,41 +532,79 @@ class AppUserController extends Controller
     {
         $user = $request->user();
         $user->tokens()->delete();
-        $user->delete();
+
+        // Permanently delete (bypasses SoftDeletes). Account cannot be restored.
+        $user->forceDelete();
 
         return ApiResponse::success(null, Trans::get('api.account_deleted_successfully'));
     }
 
-    public function requestEmailChange(Request $request)
+    public function requestIdentifierChange(Request $request)
     {
-        if (! $this->isIdentifier('email')) {
-            return ApiResponse::error(Trans::get('api.email_change_not_available'), null, 400);
-        }
+        $identifiers = $this->getAuthIdentifiers();
 
         $request->validate([
-            'new_email' => $this->getEmailValidationRule(true),
+            'new_identifier' => 'required|string|max:255',
         ]);
 
+        $newIdentifier = trim($request->new_identifier);
+        $kind = $this->detectIdentifierKind($newIdentifier);
+
+        if (! $kind || ! in_array($kind, $identifiers, true)) {
+            return ApiResponse::error(
+                Trans::get('api.invalid_identifier'),
+                ['new_identifier' => [Trans::get('api.invalid_identifier')]],
+                422,
+            );
+        }
+
+        if ($kind === 'email') {
+            $newIdentifier = strtolower($newIdentifier);
+        }
+
         $user = $request->user();
-        $user->otps()->where('type', 'change_email')->delete();
+        $rule = match ($kind) {
+            'email' => $this->getEmailValidationRule(true, $user->id),
+            'phone' => $this->getPhoneValidationRule(true, $user->id),
+        };
+
+        $validator = Validator::make([$kind => $newIdentifier], [$kind => $rule]);
+
+        if ($validator->fails()) {
+            return ApiResponse::error(
+                Trans::get('api.validation_failed'),
+                ['new_identifier' => $validator->errors()->get($kind)],
+                422,
+            );
+        }
+
+        $user->otps()->where('type', 'change_identifier')->delete();
 
         $otp = Otp::create([
             'user_id' => $user->id,
-            'type' => 'change_email',
-            'identifier' => $request->new_email,
+            'type' => 'change_identifier',
+            'identifier' => $newIdentifier,
             'otp' => (string) random_int(100000, 999999),
             'expires_at' => now()->addMinutes(5),
         ]);
 
-        EmailHelper::send(
-            $request->new_email,
-            Trans::get('api.otp_subject_change_email'),
-            'emails.otp',
-            ['otp' => $otp->otp, 'name' => $user->name]
-        );
+        if ($kind === 'email') {
+            EmailHelper::send(
+                $newIdentifier,
+                Trans::get('api.otp_subject_change_identifier'),
+                'emails.otp',
+                ['otp' => $otp->otp, 'name' => $user->name]
+            );
+        } elseif ($kind === 'phone') {
+            if (filter_var(env('IS_OTP_WHATSAPP'), FILTER_VALIDATE_BOOLEAN)) {
+                SendWhatsapp::send($newIdentifier, 'Your OTP is: '.$otp->otp);
+            } else {
+                SendSMS::send($newIdentifier, 'Your OTP is: '.$otp->otp);
+            }
+        }
 
         $responseData = [
-            'new_email' => $request->new_email,
+            'new_identifier' => $newIdentifier,
             'otp_expires_in_minutes' => 5,
         ];
 
@@ -407,38 +612,60 @@ class AppUserController extends Controller
             $responseData['otp'] = $otp->otp;
         }
 
-        return ApiResponse::success($responseData, Trans::get('api.email_change_otp_sent'));
+        return ApiResponse::success($responseData, Trans::get('api.identifier_change_otp_sent'));
     }
 
-    public function verifyEmailChange(Request $request)
+    public function verifyIdentifierChange(Request $request)
     {
-        if (! $this->isIdentifier('email')) {
-            return ApiResponse::error(Trans::get('api.email_change_not_available'), null, 400);
-        }
+        $identifiers = $this->getAuthIdentifiers();
 
         $request->validate([
-            'new_email' => $this->getEmailValidationRule(true),
+            'new_identifier' => 'required|string|max:255',
             'otp' => 'required|string|max:10',
         ]);
 
+        $newIdentifier = trim($request->new_identifier);
+        $kind = $this->detectIdentifierKind($newIdentifier);
+
+        if (! $kind || ! in_array($kind, $identifiers, true)) {
+            return ApiResponse::error(
+                Trans::get('api.invalid_identifier'),
+                ['new_identifier' => [Trans::get('api.invalid_identifier')]],
+                422,
+            );
+        }
+
+        if ($kind === 'email') {
+            $newIdentifier = strtolower($newIdentifier);
+        }
+
         $user = $request->user();
+
+        if (! $user->is_active) {
+            return ApiResponse::error(__('admin.account_is_inactive'), null, 403);
+        }
+
         $otpRecord = $user->otps()
             ->where('otp', $request->otp)
-            ->where('identifier', $request->new_email)
-            ->where('type', 'change_email')
+            ->where('identifier', $newIdentifier)
+            ->where('type', 'change_identifier')
             ->where('expires_at', '>', now())
             ->first();
 
         if (! $otpRecord) {
-            return ApiResponse::error(Trans::get('api.invalid_otp'), null, 401);
+            return ApiResponse::error(
+                Trans::get('api.invalid_otp'),
+                ['otp' => [Trans::get('api.invalid_otp')]],
+                422,
+            );
         }
 
-        $user->email = $request->new_email;
+        $user->{$kind} = $newIdentifier;
         $user->save();
 
         $otpRecord->delete();
 
-        return ApiResponse::success(['user' => $user->fresh()], Trans::get('api.email_changed_successfully'));
+        return ApiResponse::success(['user' => $user->fresh()], Trans::get('api.identifier_changed_successfully'));
     }
 
     public function updateProfile(Request $request)
@@ -449,20 +676,26 @@ class AppUserController extends Controller
             'name' => 'nullable|string|max:255',
         ];
 
-        // Allow editing non-identifier fields that are enabled
-        foreach (['email', 'phone', 'username'] as $field) {
+        // Username is always editable when enabled (never an identifier).
+        // Same format rule as register — disallow email/phone-shaped values.
+        if ($this->hasField('username')) {
+            $rules['username'] = ['nullable', 'string', 'max:255', 'min:3', 'regex:/^[A-Za-z][A-Za-z0-9_-]*$/', $this->uniqueApiUsernameRule($user->id)];
+        }
+
+        // Email/phone editable only when enabled as non-identifier extras (HAS_*_FIELD).
+        // Identifier email/phone changes go through request-identifier-change.
+        foreach (['email', 'phone'] as $field) {
             if (! $this->isIdentifier($field) && $this->hasField($field)) {
                 $rules[$field] = match ($field) {
                     'email' => $this->getEmailValidationRule(false, $user->id),
                     'phone' => $this->getPhoneValidationRule(false, $user->id),
-                    'username' => 'nullable|string|alpha_dash|max:255|unique:users,username,'.$user->id,
                 };
             }
         }
 
         $validated = $request->validate($rules);
 
-        $user->fill(array_filter($validated, fn ($v) => $v !== null));
+        $user->fill(array_filter($validated, fn ($v) => $v !== null && $v !== ''));
         $user->save();
 
         return ApiResponse::success(['user' => $user->fresh()], Trans::get('api.profile_updated'));
@@ -474,7 +707,11 @@ class AppUserController extends Controller
     {
         $value = env('AUTH_IDENTIFIERS', 'email');
 
-        return array_map('trim', explode(',', $value));
+        // Identifiers are limited to email/phone. Username is no longer a primary identifier.
+        $list = array_map('trim', explode(',', $value));
+        $allowed = array_values(array_intersect($list, ['email', 'phone']));
+
+        return ! empty($allowed) ? $allowed : ['email'];
     }
 
     private function isIdentifier(string $field): bool
@@ -491,39 +728,121 @@ class AppUserController extends Controller
         return filter_var(env('HAS_'.strtoupper($field).'_FIELD', false), FILTER_VALIDATE_BOOLEAN);
     }
 
-    private function findUserByIdentifier(string $value): ?User
+    private function generateUniqueUsername(string $email): string
     {
-        $fields = $this->getAuthIdentifiers();
+        $base = preg_replace('/[^A-Za-z0-9_-]/', '_', explode('@', $email)[0]);
+        $base = trim($base, '_-') ?: 'user';
 
-        return User::where(function ($query) use ($fields, $value) {
-            foreach ($fields as $field) {
-                $query->orWhere($field, $value);
-            }
-        })->first();
+        $candidate = $base;
+        $i = 1;
+        while (User::where('username', $candidate)->exists()) {
+            $candidate = $base.'_'.$i;
+            $i++;
+        }
+
+        return $candidate;
     }
 
-    private function getOtpIdentifierValue(User $user): string
+    private function uniqueApiUsernameRule(?int $excludeId = null): Unique
+    {
+        // Username must be unique among api-guard users. Admin/web-guard users may share
+        // the column without conflicting.
+        $rule = Rule::unique('users', 'username')
+            ->where(fn ($q) => $q->whereExists(fn ($s) => $s
+                ->from('model_has_roles')
+                ->whereColumn('model_has_roles.model_id', 'users.id')
+                ->where('model_has_roles.model_type', User::class)
+                ->whereExists(fn ($r) => $r
+                    ->from('roles')
+                    ->whereColumn('roles.id', 'model_has_roles.role_id')
+                    ->where('roles.name', 'user')
+                    ->where('roles.guard_name', 'api')
+                )
+            ));
+
+        if ($excludeId) {
+            $rule->ignore($excludeId);
+        }
+
+        return $rule;
+    }
+
+    private function detectIdentifierKind(string $value): ?string
+    {
+        if (filter_var($value, FILTER_VALIDATE_EMAIL)) {
+            return 'email';
+        }
+
+        if (preg_match('/^\+?[0-9]{6,}$/', $value)) {
+            return 'phone';
+        }
+
+        return null;
+    }
+
+    private function findUserByIdentifier(string $value): ?User
+    {
+        $value = trim($value);
+        $identifiers = $this->getAuthIdentifiers();
+        $hasUsername = filter_var(env('HAS_USERNAME_FIELD', false), FILTER_VALIDATE_BOOLEAN);
+        $kind = $this->detectIdentifierKind($value);
+
+        // Detect kind from format and query the single matching column.
+        // Email format → email column. Phone format → phone column. Else (alpha) → username column.
+        // Email is lowercased to keep lookups case-insensitive across DB engines.
+        $column = null;
+        if ($kind && in_array($kind, $identifiers, true)) {
+            $column = $kind;
+        } elseif ($kind === null && $hasUsername) {
+            $column = 'username';
+        }
+
+        if (! $column) {
+            return null;
+        }
+
+        if ($column === 'email') {
+            $value = strtolower($value);
+        }
+
+        return User::where($column, $value)
+            ->whereHas('roles', fn ($q) => $q->where('name', 'user')->where('guard_name', 'api'))
+            ->first();
+    }
+
+    private function getOtpIdentifierValue(User $user): ?string
     {
         $identifiers = $this->getAuthIdentifiers();
 
-        // Return the first available identifier value (priority: email > phone > username)
-        foreach (['email', 'phone', 'username'] as $field) {
+        // Priority: email > phone (only deliverable channels).
+        foreach (['email', 'phone'] as $field) {
             if (in_array($field, $identifiers) && $user->$field) {
                 return $user->$field;
             }
         }
 
-        return $user->{$identifiers[0]};
+        return null;
     }
 
-    private function sendOtpToUser(User $user, string $type = 'verify'): ?Otp
+    private function sendOtpToUser(User $user, string $type = 'verify', ?string $forceChannel = null): ?Otp
     {
         $identifiers = $this->getAuthIdentifiers();
+
+        // If a channel is forced (e.g. forgot-password with username + type chosen), use it.
+        if ($forceChannel && in_array($forceChannel, ['email', 'phone'], true) && $user->{$forceChannel}) {
+            $deliveryValue = $user->{$forceChannel};
+        } else {
+            $deliveryValue = $this->getOtpIdentifierValue($user);
+        }
+
+        if (! $deliveryValue) {
+            return null;
+        }
 
         $user->otps()->where('type', $type)->delete();
 
         $otp = $user->otps()->create([
-            'identifier' => $this->getOtpIdentifierValue($user),
+            'identifier' => $deliveryValue,
             'otp' => (string) random_int(100000, 999999),
             'type' => $type,
             'expires_at' => now()->addMinutes(5),
@@ -535,13 +854,20 @@ class AppUserController extends Controller
             default => Trans::get('api.otp_subject_verify'),
         };
 
-        // Send OTP via the best available channel (priority: email > phone)
-        if (in_array('email', $identifiers) && $user->email) {
+        // Determine actual delivery channel:
+        // - $forceChannel takes precedence when set.
+        // - else priority: email (if identifier and populated) > phone (if identifier and populated).
+        $useEmail = $forceChannel === 'email'
+            || ($forceChannel === null && in_array('email', $identifiers) && $user->email);
+        $usePhone = $forceChannel === 'phone'
+            || ($forceChannel === null && ! $useEmail && in_array('phone', $identifiers) && $user->phone);
+
+        if ($useEmail && $user->email) {
             EmailHelper::send($user->email, $subject, 'emails.otp', [
                 'otp' => $otp->otp,
                 'name' => $user->name,
             ]);
-        } elseif (in_array('phone', $identifiers) && $user->phone) {
+        } elseif ($usePhone && $user->phone) {
             if (filter_var(env('IS_OTP_WHATSAPP'), FILTER_VALIDATE_BOOLEAN)) {
                 SendWhatsapp::send($user->phone, 'Your OTP is: '.$otp->otp);
             } else {
@@ -607,16 +933,28 @@ class AppUserController extends Controller
             $firebaseData = $verifiedToken->claims()->get('firebase');
             $provider = $firebaseData['sign_in_provider'] ?? 'firebase';
         } catch (FailedToVerifyToken $e) {
-            return ApiResponse::error(Trans::get('api.invalid_firebase_token'), null, 401);
+            return ApiResponse::error(
+                Trans::get('api.invalid_firebase_token'),
+                ['token' => [Trans::get('api.invalid_firebase_token')]],
+                422,
+            );
         }
 
         if (! $email) {
-            return ApiResponse::error(Trans::get('api.firebase_email_required'), null, 400);
+            return ApiResponse::error(
+                Trans::get('api.firebase_email_required'),
+                ['token' => [Trans::get('api.firebase_email_required')]],
+                422,
+            );
         }
 
         // Check if provider is allowed
         if (! $this->isProviderAllowed($provider)) {
-            return ApiResponse::error(Trans::get('api.social_provider_not_allowed'), null, 400);
+            return ApiResponse::error(
+                Trans::get('api.social_provider_not_allowed'),
+                ['token' => [Trans::get('api.social_provider_not_allowed')]],
+                422,
+            );
         }
 
         $role = Role::where('name', 'user')->where('guard_name', 'api')->first();
@@ -653,7 +991,11 @@ class AppUserController extends Controller
 
             if ($existingUser && $existingUser->password) {
                 // Account exists with password - block social login
-                return ApiResponse::error(Trans::get('api.account_exists_use_password'), null, 409);
+                return ApiResponse::error(
+                    Trans::get('api.account_exists_use_password'),
+                    ['token' => [Trans::get('api.account_exists_use_password')]],
+                    422,
+                );
             }
 
             if ($existingUser) {
@@ -667,7 +1009,11 @@ class AppUserController extends Controller
                 if (! $user->hasSocialProvider($provider)) {
                     // Check max accounts limit
                     if (! $this->canLinkMoreSocialAccounts($user)) {
-                        return ApiResponse::error(Trans::get('api.social_max_accounts_reached'), null, 400);
+                        return ApiResponse::error(
+                            Trans::get('api.social_max_accounts_reached'),
+                            ['token' => [Trans::get('api.social_max_accounts_reached')]],
+                            422,
+                        );
                     }
 
                     $user->socialAccounts()->create([
@@ -683,14 +1029,22 @@ class AppUserController extends Controller
                 }
             } else {
                 // Create new user
-                $user = User::create([
+                $userData = [
                     'name' => $name ?? explode('@', $email)[0],
                     'email' => $email,
                     'phone' => $phone,
                     'fcm_token' => $request->fcm_token,
                     'is_active' => true,
-                    'verified_at' => now(), // Firebase already verified the user
-                ]);
+                ];
+
+                // Auto-generate a unique username from the email prefix when HAS_USERNAME_FIELD is on.
+                if ($this->hasField('username')) {
+                    $userData['username'] = $this->generateUniqueUsername($email);
+                }
+
+                $user = User::create($userData);
+                $user->verified_at = now(); // Firebase already verified the user
+                $user->save();
 
                 $user->assignRole($role);
 
@@ -713,11 +1067,10 @@ class AppUserController extends Controller
         $token = $user->createToken('user_token', ['*'], now()->addDays(30))->plainTextToken;
 
         return ApiResponse::success([
-            'token' => $token,
             'user' => $user->fresh()->load('socialAccounts'),
             'is_verified' => true,
             'is_new_user' => $user->wasRecentlyCreated,
-        ], Trans::get('api.login_successful'));
+        ], Trans::get('api.login_successful'), $token);
     }
 
     public function linkSocialAccount(Request $request, FirebaseAuth $firebaseAuth)
@@ -740,12 +1093,20 @@ class AppUserController extends Controller
             $firebaseData = $verifiedToken->claims()->get('firebase');
             $provider = $firebaseData['sign_in_provider'] ?? 'firebase';
         } catch (FailedToVerifyToken $e) {
-            return ApiResponse::error(Trans::get('api.invalid_firebase_token'), null, 401);
+            return ApiResponse::error(
+                Trans::get('api.invalid_firebase_token'),
+                ['token' => [Trans::get('api.invalid_firebase_token')]],
+                422,
+            );
         }
 
         // Check if provider is allowed
         if (! $this->isProviderAllowed($provider)) {
-            return ApiResponse::error(Trans::get('api.social_provider_not_allowed'), null, 400);
+            return ApiResponse::error(
+                Trans::get('api.social_provider_not_allowed'),
+                ['token' => [Trans::get('api.social_provider_not_allowed')]],
+                422,
+            );
         }
 
         $user = $request->user();
@@ -757,22 +1118,38 @@ class AppUserController extends Controller
             ->first();
 
         if ($existingLink) {
-            return ApiResponse::error(Trans::get('api.social_account_already_linked'), null, 409);
+            return ApiResponse::error(
+                Trans::get('api.social_account_already_linked'),
+                ['token' => [Trans::get('api.social_account_already_linked')]],
+                422,
+            );
         }
 
         // Check if user already has this provider linked
         if ($user->hasSocialProvider($provider)) {
-            return ApiResponse::error(Trans::get('api.social_provider_already_linked'), null, 409);
+            return ApiResponse::error(
+                Trans::get('api.social_provider_already_linked'),
+                ['token' => [Trans::get('api.social_provider_already_linked')]],
+                422,
+            );
         }
 
         // Check if email matches (optional security check)
         if ($email && $email !== $user->email) {
-            return ApiResponse::error(Trans::get('api.social_email_mismatch'), null, 400);
+            return ApiResponse::error(
+                Trans::get('api.social_email_mismatch'),
+                ['token' => [Trans::get('api.social_email_mismatch')]],
+                422,
+            );
         }
 
         // Check max accounts limit
         if (! $this->canLinkMoreSocialAccounts($user)) {
-            return ApiResponse::error(Trans::get('api.social_max_accounts_reached'), null, 400);
+            return ApiResponse::error(
+                Trans::get('api.social_max_accounts_reached'),
+                ['token' => [Trans::get('api.social_max_accounts_reached')]],
+                422,
+            );
         }
 
         // Link the social account
@@ -800,14 +1177,22 @@ class AppUserController extends Controller
         $socialAccount = $user->socialAccounts()->where('provider', $request->provider)->first();
 
         if (! $socialAccount) {
-            return ApiResponse::error(Trans::get('api.social_provider_not_linked'), null, 404);
+            return ApiResponse::error(
+                Trans::get('api.social_provider_not_linked'),
+                ['provider' => [Trans::get('api.social_provider_not_linked')]],
+                422,
+            );
         }
 
         // Check if user has password or other social accounts
         $otherSocialAccounts = $user->socialAccounts()->where('provider', '!=', $request->provider)->count();
 
         if (! $user->password && $otherSocialAccounts === 0) {
-            return ApiResponse::error(Trans::get('api.cannot_unlink_social_only'), null, 400);
+            return ApiResponse::error(
+                Trans::get('api.cannot_unlink_social_only'),
+                ['provider' => [Trans::get('api.cannot_unlink_social_only')]],
+                422,
+            );
         }
 
         $socialAccount->delete();

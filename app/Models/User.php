@@ -106,4 +106,46 @@ class User extends Authenticatable
             'password' => 'hashed',
         ];
     }
+
+    /**
+     * Hide identifier-like fields (`email`, `phone`, `username`) from API serialization
+     * when they are NOT configured (neither in `AUTH_IDENTIFIERS` nor enabled via `HAS_*_FIELD`).
+     * Admin/web responses keep all columns so the admin panel can manage every field.
+     */
+    public function toArray()
+    {
+        $array = parent::toArray();
+
+        if (! request()->is('api/*')) {
+            return $array;
+        }
+
+        foreach (['email', 'phone', 'username'] as $field) {
+            if (! self::isAuthFieldEnabled($field)) {
+                unset($array[$field]);
+            }
+        }
+
+        return $array;
+    }
+
+    /**
+     * Normalize email to lowercase on every write to keep lookups case-insensitive
+     * across MySQL/PostgreSQL.
+     */
+    public function setEmailAttribute(?string $value): void
+    {
+        $this->attributes['email'] = $value !== null ? strtolower(trim($value)) : null;
+    }
+
+    private static function isAuthFieldEnabled(string $field): bool
+    {
+        $identifiers = array_map('trim', explode(',', env('AUTH_IDENTIFIERS', 'email')));
+
+        if (in_array($field, $identifiers, true)) {
+            return true;
+        }
+
+        return filter_var(env('HAS_'.strtoupper($field).'_FIELD', false), FILTER_VALIDATE_BOOLEAN);
+    }
 }

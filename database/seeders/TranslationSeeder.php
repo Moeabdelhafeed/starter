@@ -55,6 +55,22 @@ class TranslationSeeder extends Seeder
             'en' => 'User not found.',
             'ar' => 'المستخدم غير موجود.',
         ],
+        'validation_failed' => [
+            'en' => 'The given data was invalid.',
+            'ar' => 'البيانات المدخلة غير صحيحة.',
+        ],
+        'too_many_requests' => [
+            'en' => 'Too many requests. Please try again later.',
+            'ar' => 'طلبات كثيرة جداً. يرجى المحاولة لاحقاً.',
+        ],
+        'too_many_login_attempts' => [
+            'en' => 'Too many login attempts. Please try again in a minute.',
+            'ar' => 'محاولات تسجيل دخول كثيرة جداً. يرجى المحاولة بعد دقيقة.',
+        ],
+        'too_many_otp_requests' => [
+            'en' => 'Too many verification code requests. Please wait a few minutes.',
+            'ar' => 'طلبات كثيرة لرمز التحقق. يرجى الانتظار بضع دقائق.',
+        ],
         'user_not_verified' => [
             'en' => 'Account not verified. Please check your email.',
             'ar' => 'الحساب غير مفعل. يرجى التحقق من بريدك الإلكتروني.',
@@ -89,9 +105,9 @@ class TranslationSeeder extends Seeder
             'en' => 'Password Reset Request',
             'ar' => 'إعادة تعيين كلمة المرور',
         ],
-        'otp_subject_change_email' => [
-            'en' => 'Change Email Verification',
-            'ar' => 'التحقق من تغيير البريد الإلكتروني',
+        'otp_subject_change_identifier' => [
+            'en' => 'Change Identifier Verification',
+            'ar' => 'التحقق من تغيير المعرّف',
         ],
         'otp_not_available' => [
             'en' => 'OTP not available for this identifier type.',
@@ -112,18 +128,18 @@ class TranslationSeeder extends Seeder
             'ar' => 'كلمة المرور القديمة غير صحيحة.',
         ],
 
-        // Email Change
-        'email_change_otp_sent' => [
-            'en' => 'Verification code sent to your new email.',
-            'ar' => 'تم إرسال رمز التحقق إلى بريدك الإلكتروني الجديد.',
+        // Identifier Change (email or phone identifier)
+        'identifier_change_otp_sent' => [
+            'en' => 'Verification code sent to your new identifier.',
+            'ar' => 'تم إرسال رمز التحقق إلى المعرّف الجديد.',
         ],
-        'email_changed_successfully' => [
-            'en' => 'Email changed successfully.',
-            'ar' => 'تم تغيير البريد الإلكتروني بنجاح.',
+        'identifier_changed_successfully' => [
+            'en' => 'Identifier changed successfully.',
+            'ar' => 'تم تغيير المعرّف بنجاح.',
         ],
-        'email_change_not_available' => [
-            'en' => 'Email change is only available when email is a login identifier.',
-            'ar' => 'تغيير البريد الإلكتروني متاح فقط عندما يكون البريد الإلكتروني معرف تسجيل الدخول.',
+        'invalid_identifier' => [
+            'en' => 'The identifier must be a valid email or phone.',
+            'ar' => 'يجب أن يكون المعرّف بريداً إلكترونياً أو رقم هاتف صحيحاً.',
         ],
 
         // Locale

@@ -12,11 +12,18 @@ use Illuminate\Http\Request;
 
 class TranslationController extends Controller
 {
-    public function index()
+    private const ALLOWED_GROUPS = ['app', 'web'];
+
+    public function index(Request $request)
     {
+        $request->validate([
+            'group' => ['nullable', 'string', 'in:'.implode(',', self::ALLOWED_GROUPS)],
+        ]);
+
+        $group = $request->input('group', 'app');
         $locale = app()->getLocale();
 
-        $translations = TranslationKey::where('group', 'app')
+        $translations = TranslationKey::where('group', $group)
             ->with(['values' => fn ($q) => $q->where('locale', $locale)])
             ->get()
             ->mapWithKeys(function ($key) {
@@ -26,34 +33,48 @@ class TranslationController extends Controller
             })
             ->toArray();
 
-        return ApiResponse::success($translations, Trans::get('api.translations'));
+        return ApiResponse::success([
+            'group' => $group,
+            'locale' => $locale,
+            'translations' => $translations,
+        ], Trans::get('api.translations'));
     }
 
     /**
-     * Store translations from JSON body.
+     * Store translations from a flat JSON body keyed by `Accept-Language`.
      *
-     * Format:
+     * Body shape:
      * {
-     *     "key_name": {
-     *         "default": "Value for all languages"
-     *     },
-     *     "another_key": {
-     *         "en": "English value",
-     *         "ar": "Arabic value"
-     *     }
+     *     "welcome_screen_title": "Welcome",
+     *     "tap_to_continue": "Tap to continue"
      * }
      *
-     * Rules:
-     * - If "default" is present, value is applied to ALL active languages
-     * - If specific language codes are present, only those languages are updated
-     * - Cannot mix "default" with specific language codes
+     * Behavior:
+     * - The locale comes from the request's `Accept-Language` header (resolved by SetLocaleMiddleware).
+     * - For each key:
+     *   - First time seen → key is created in the `app` group; the value is saved for the
+     *     header's locale; all other active locales are stored as null (placeholder rows).
+     *   - Already exists → only the header's locale value is updated. Other locales are untouched.
+     * - `api`-group keys are server-controlled and cannot be created or modified here.
      */
     public function store(Request $request)
     {
-        $activeCodes = Language::active()->pluck('code')->toArray();
-        $translations = $request->all();
+        $request->validate([
+            'group' => ['nullable', 'string', 'in:'.implode(',', self::ALLOWED_GROUPS)],
+            'translations' => ['required', 'array'],
+        ]);
+
+        $group = $request->input('group', 'app');
+        $translations = $request->input('translations', []);
 
         if (empty($translations)) {
+            return ApiResponse::error(Trans::get('api.translations_empty'), null, 400);
+        }
+
+        $locale = app()->getLocale();
+        $activeCodes = Language::active()->pluck('code')->toArray();
+
+        if (! in_array($locale, $activeCodes, true)) {
             return ApiResponse::error(Trans::get('api.translations_empty'), null, 400);
         }
 
@@ -61,77 +82,53 @@ class TranslationController extends Controller
         $updatedCount = 0;
         $errors = [];
 
-        foreach ($translations as $keyName => $values) {
-            if (! is_array($values)) {
-                $errors[] = "Key '{$keyName}' must have an object value";
+        foreach ($translations as $keyName => $value) {
+            if (! is_string($keyName) || $keyName === '') {
+                continue;
+            }
+
+            if (! is_string($value) && ! is_null($value)) {
+                $errors[] = "Key '{$keyName}' must be a string value";
 
                 continue;
             }
 
-            $hasDefault = array_key_exists('default', $values);
-            $languageCodes = array_filter(array_keys($values), fn ($k) => $k !== 'default');
-            $hasLanguages = count($languageCodes) > 0;
-
-            // Validate: cannot mix default with specific languages
-            if ($hasDefault && $hasLanguages) {
-                $errors[] = "Key '{$keyName}' cannot have both 'default' and specific language codes";
-
-                continue;
-            }
-
-            // Validate: must have either default or language codes
-            if (! $hasDefault && ! $hasLanguages) {
-                $errors[] = "Key '{$keyName}' must have either 'default' or language codes";
-
-                continue;
-            }
-
-            // Create or get the translation key (always in 'app' group)
             $translationKey = TranslationKey::where('key', $keyName)
-                ->where('group', 'app')
+                ->where('group', $group)
                 ->first();
-
-            $isNew = ! $translationKey;
 
             if (! $translationKey) {
                 $translationKey = TranslationKey::create([
                     'key' => $keyName,
-                    'group' => 'app',
+                    'group' => $group,
                 ]);
-            }
 
-            if ($hasDefault) {
-                // Apply default value to ALL active languages
-                $defaultValue = $values['default'];
+                // Seed placeholder rows for every active locale, then set the header locale's value.
                 foreach ($activeCodes as $code) {
-                    TranslationValue::updateOrCreate(
-                        ['translation_key_id' => $translationKey->id, 'locale' => $code],
-                        ['value' => $defaultValue]
-                    );
+                    TranslationValue::create([
+                        'translation_key_id' => $translationKey->id,
+                        'locale' => $code,
+                        'value' => $code === $locale ? $value : null,
+                    ]);
                 }
-            } else {
-                // Apply specific language values
-                foreach ($languageCodes as $code) {
-                    if (in_array($code, $activeCodes)) {
-                        TranslationValue::updateOrCreate(
-                            ['translation_key_id' => $translationKey->id, 'locale' => $code],
-                            ['value' => $values[$code]]
-                        );
-                    }
-                }
-            }
 
-            if ($isNew) {
                 $createdCount++;
             } else {
+                // Existing key — only update the header's locale.
+                TranslationValue::updateOrCreate(
+                    ['translation_key_id' => $translationKey->id, 'locale' => $locale],
+                    ['value' => $value]
+                );
+
                 $updatedCount++;
             }
         }
 
-        // Clear translation cache
         Trans::clearCache();
 
         $response = [
+            'group' => $group,
+            'locale' => $locale,
             'created' => $createdCount,
             'updated' => $updatedCount,
         ];

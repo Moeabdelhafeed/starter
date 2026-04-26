@@ -23,6 +23,7 @@ const getGroupLabel = (groupValue) => {
         all: t('all_groups'),
         api: t('api_group'),
         app: t('app_group'),
+        web: t('web_group'),
     };
     return labels[groupValue] || groupValue;
 };

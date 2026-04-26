@@ -256,7 +256,7 @@ class DevSettingController extends Controller
     {
         $validated = $request->validate([
             'identifiers' => ['required', 'array', 'min:1'],
-            'identifiers.*' => ['required', 'string', 'in:email,phone,username'],
+            'identifiers.*' => ['required', 'string', 'in:email,phone'],
             'has_email_field' => ['required', 'boolean'],
             'has_phone_field' => ['required', 'boolean'],
             'has_username_field' => ['required', 'boolean'],

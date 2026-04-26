@@ -2,6 +2,7 @@
 
 return [
     'updated_successfully' => 'تم التحديث بنجاح',
+    'translation_missing_placeholders' => 'هذه القيمة مفقود منها متغيرات مطلوبة: :placeholders. يجب أن تبقى ضمن النص.',
     'created_successfully' => 'تم الإضافة بنجاح',
     'deleted_successfully' => 'تم الحذف بنجاح',
     'restored_successfully' => 'تم الإستعادة بنجاح',

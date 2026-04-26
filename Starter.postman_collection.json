@@ -2,7 +2,7 @@
   "info": {
     "_postman_id": "339ae9d9-1229-449b-9454-85543ef78900",
     "name": "Starter",
-    "description": "API collection for the Inertia Starter project.\n\n## Authentication\n- All API requests require `X-API-TOKEN` header\n- All requests require `Accept-Language` header (`en` or `ar`)\n- Protected routes require Bearer token from login\n- Login uses `identifier` field — searched across all columns configured in `AUTH_IDENTIFIERS` env (comma-separated, e.g. `email,phone`)\n- Registration requires each identifier field by name (e.g. `email`, `phone`)\n- Additional profile fields (email, phone, username) can be toggled via `HAS_EMAIL_FIELD`, `HAS_PHONE_FIELD`, `HAS_USERNAME_FIELD` env variables (only for non-identifier fields)\n\n## Variables\n- `{{base_url}}` — Base URL (e.g. http://localhost:8000)\n- `{{x-api-token}}` — API token for server authentication\n- `{{token}}` — Bearer token from login response",
+    "description": "API collection for the Inertia Starter project.\n\n## Authentication\n- All API requests require `X-API-TOKEN` header\n- All requests require `Accept-Language` header (`en` or `ar`)\n- Protected routes require Bearer token from login\n- `AUTH_IDENTIFIERS` allows only `email` and/or `phone` (e.g. `email`, `phone`, `email,phone`). Username is never a primary identifier.\n- Login and registration use a single `identifier` field for the email/phone value. Single identifier configured → validated against that field. Multiple → kind detected from format (email / phone) and validated against the matching field.\n- `HAS_USERNAME_FIELD=true` → `username` is **required** at register (format: starts with letter, letters/digits/`_`/`-` after, min 3, not email/phone shape), usable as a login alias (login `identifier` is also searched against the username column), and editable via `update-profile`. Username uniqueness is scoped to api-guard users.\n- `HAS_EMAIL_FIELD` / `HAS_PHONE_FIELD` toggle email/phone as optional profile fields when not configured as identifiers.\n- Email values are normalized to lowercase on every write and lookup (cross-DB safe).\n- `request-identifier-change` (auth) is rate-limited via `throttle:otp` (3/5min) like `forgot-password` and `send-otp`.\n\n## Field-Keyed Errors (Frontend Convention)\nAny error tied to a specific request input field is returned as HTTP 422 with the error keyed under the same name as the input parameter. Frontend can look up `errors.{paramName}` to show inline messages next to the matching input.\n\n| Endpoint | Trigger | Error Key |\n|----------|---------|-----------|\n| `login` | invalid credentials | `password` |\n| `login` / `forgot-password` / `verify-forgot-password-otp` / `change-forgot-password` / `register` | identifier validation / user not found | `identifier` |\n| `verify-otp` / `verify-forgot-password-otp` / `change-forgot-password` / `verify-email-change` | invalid OTP | `otp` |\n| `change-password` | wrong current password | `old_password` |\n| `firebase-login` / `link-social-account` | invalid token, provider issues, email mismatch, etc. | `token` |\n| `unlink-social-account` | provider not linked, cannot unlink last | `provider` |\n\nState/config errors (account inactive, unauthorized access, feature disabled) remain plain top-level error messages with `errors: null`.\n\n## Variables\n- `{{base_url}}` — Base URL (e.g. http://localhost:8000)\n- `{{x-api-token}}` — API token for server authentication\n- `{{token}}` — Bearer token from login response (returned at top-level `token` field AND duplicated inside `data.token` for convenience)",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
     "_exporter_id": "35322283"
   },
@@ -197,11 +197,14 @@
               }
             ],
             "url": {
-              "raw": "{{base_url}}/api/translations",
+              "raw": "{{base_url}}/api/translations?group=app",
               "host": ["{{base_url}}"],
-              "path": ["api", "translations"]
+              "path": ["api", "translations"],
+              "query": [
+                { "key": "group", "value": "app", "description": "app or web (default: app)" }
+              ]
             },
-            "description": "Returns all translation key-value pairs for the current locale.\n\nThe locale is determined by the `Accept-Language` header. Returns a flat object of `key: value` pairs for the requested language.\n\nNo authentication required."
+            "description": "Returns all translation key-value pairs for the chosen group in the current locale.\n\n**Query:**\n- `group` (optional, default `app`) — `app` or `web`. `api` is server-controlled and not exposed here.\n\nLocale is determined by the `Accept-Language` header.\n\n**Response shape:**\n```\n{\n  \"group\": \"app\",\n  \"locale\": \"en\",\n  \"translations\": { \"key1\": \"value1\", ... }\n}\n```\n\nFetch on boot and on language switch. Merge into the client i18n store.\n\nValues may contain Laravel `:placeholder` tokens (e.g. `:name`, `:count`). Substitute at render time on the client.\n\nGated by `HAS_TRANSLATIONS=true`. Rate-limited via `throttle:api`.\n\nNo authentication required."
           },
           "response": [
             {
@@ -220,7 +223,7 @@
               "status": "OK",
               "code": 200,
               "_postman_previewlanguage": "json",
-              "body": "{\n  \"success\": true,\n  \"message\": \"Translations\",\n  \"errors\": null,\n  \"data\": {\n    \"hello\": \"Hello\",\n    \"goodbye\": \"Goodbye\",\n    \"welcome_message\": \"Welcome to our app!\"\n  }\n}"
+              "body": "{\n  \"success\": true,\n  \"message\": \"Translations\",\n  \"errors\": null,\n  \"data\": {\n    \"group\": \"app\",\n    \"locale\": \"en\",\n    \"translations\": {\n      \"welcome_screen_title\": \"Welcome\",\n      \"tap_to_continue\": \"Tap to continue\"\n    }\n  }\n}"
             },
             {
               "name": "Success (Arabic)",
@@ -238,7 +241,7 @@
               "status": "OK",
               "code": 200,
               "_postman_previewlanguage": "json",
-              "body": "{\n  \"success\": true,\n  \"message\": \"الترجمات\",\n  \"errors\": null,\n  \"data\": {\n    \"hello\": \"مرحبا\",\n    \"goodbye\": \"مع السلامة\",\n    \"welcome_message\": \"مرحباً بك في تطبيقنا!\"\n  }\n}"
+              "body": "{\n  \"success\": true,\n  \"message\": \"الترجمات\",\n  \"errors\": null,\n  \"data\": {\n    \"group\": \"app\",\n    \"locale\": \"ar\",\n    \"translations\": {\n      \"welcome_screen_title\": \"مرحباً\",\n      \"tap_to_continue\": \"اضغط للمتابعة\"\n    }\n  }\n}"
             }
           ]
         },
@@ -265,7 +268,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"hello\": {\n    \"default\": \"Hello\"\n  },\n  \"goodbye\": {\n    \"en\": \"Goodbye\",\n    \"ar\": \"مع السلامة\"\n  },\n  \"welcome_message\": {\n    \"default\": \"Welcome to our app!\"\n  }\n}",
+              "raw": "{\n  \"group\": \"app\",\n  \"translations\": {\n    \"welcome_screen_title\": \"Welcome\",\n    \"tap_to_continue\": \"Tap to continue\"\n  }\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -277,7 +280,7 @@
               "host": ["{{base_url}}"],
               "path": ["api", "translations"]
             },
-            "description": "Create or update translations. Translations are stored in the `app` group.\n\n**Request format:** JSON object where each key is the translation key, and the value is an object with either:\n\n1. **`default`** — applies the same value to ALL active languages:\n```json\n{\n  \"hello\": { \"default\": \"Hello\" },\n  \"welcome\": { \"default\": \"Welcome!\" }\n}\n```\n\n2. **Specific language codes** — only updates those languages:\n```json\n{\n  \"goodbye\": { \"en\": \"Goodbye\", \"ar\": \"مع السلامة\" },\n  \"thanks\": { \"en\": \"Thanks\" }\n}\n```\n\n**Rules:**\n- Cannot mix `default` with specific language codes in the same key\n- Each key must have either `default` OR language codes (not both, not empty)\n- Only active languages in the system will be updated\n- Existing keys are updated, new keys are created\n\nNo authentication required."
+            "description": "Create or update translations. Locale comes from the `Accept-Language` header.\n\n**Body:**\n```json\n{\n  \"group\": \"app\",\n  \"translations\": {\n    \"key1\": \"value1\",\n    \"key2\": \"value2\"\n  }\n}\n```\n\n- `group` (optional, default `app`): `app` or `web`. `api` is server-controlled and rejected here.\n- `translations`: flat object of `key → value` pairs.\n\n**Behavior:**\n- New key → created in the chosen group. Header's locale gets the value; other active locales are seeded as `null` (admin fills them later in the CMS).\n- Existing key → only the header's locale value is updated. Other locales untouched.\n- Re-call with the same key/group under a different `Accept-Language` to populate that locale.\n- Values may contain Laravel `:placeholder` tokens (e.g. `:name`). The admin Translations CMS rejects edits that drop a placeholder present in the default-language value, so keep them intact across locales.\n\nNo authentication required."
           },
           "response": [
             {
@@ -293,10 +296,10 @@
               "status": "OK",
               "code": 200,
               "_postman_previewlanguage": "json",
-              "body": "{\n  \"success\": true,\n  \"message\": \"Translations added successfully.\",\n  \"errors\": null,\n  \"data\": {\n    \"created\": 2,\n    \"updated\": 1\n  }\n}"
+              "body": "{\n  \"success\": true,\n  \"message\": \"Translations added successfully.\",\n  \"errors\": null,\n  \"data\": {\n    \"group\": \"app\",\n    \"locale\": \"en\",\n    \"created\": 1,\n    \"updated\": 1\n  }\n}"
             },
             {
-              "name": "Success with Errors",
+              "name": "Success (with non-string value warning)",
               "originalRequest": {
                 "method": "POST",
                 "url": {
@@ -308,7 +311,7 @@
               "status": "OK",
               "code": 200,
               "_postman_previewlanguage": "json",
-              "body": "{\n  \"success\": true,\n  \"message\": \"Translations added successfully.\",\n  \"errors\": null,\n  \"data\": {\n    \"created\": 1,\n    \"updated\": 0,\n    \"errors\": [\n      \"Key 'invalid_key' cannot have both 'default' and specific language codes\"\n    ]\n  }\n}"
+              "body": "{\n  \"success\": true,\n  \"message\": \"Translations added successfully.\",\n  \"errors\": null,\n  \"data\": {\n    \"group\": \"app\",\n    \"locale\": \"en\",\n    \"created\": 1,\n    \"updated\": 0,\n    \"errors\": [\n      \"Key 'invalid_key' must be a string value\"\n    ]\n  }\n}"
             },
             {
               "name": "Empty Body",
@@ -340,7 +343,7 @@
               "name": "Verified",
               "item": [
                 {
-                  "name": "Request Email Change",
+                  "name": "Request Identifier Change",
                   "request": {
                     "method": "POST",
                     "header": [
@@ -350,15 +353,15 @@
                     ],
                     "body": {
                       "mode": "raw",
-                      "raw": "{\n  \"new_email\": \"newemail@example.com\"\n}",
+                      "raw": "{\n  \"new_identifier\": \"newemail@example.com\"\n}",
                       "options": { "raw": { "language": "json" } }
                     },
                     "url": {
-                      "raw": "{{base_url}}/api/request-email-change",
+                      "raw": "{{base_url}}/api/request-identifier-change",
                       "host": ["{{base_url}}"],
-                      "path": ["api", "request-email-change"]
+                      "path": ["api", "request-identifier-change"]
                     },
-                    "description": "Request an email change. Sends an OTP to the new email address for verification.\n\nRequires: Bearer token + verified account."
+                    "description": "Request a change to the user's email or phone identifier. Kind is auto-detected from `new_identifier` and must match one of the configured identifiers in `AUTH_IDENTIFIERS` (allowed: email, phone).\n\nSends an OTP via the matching channel (email → EmailHelper; phone → SMS).\n\nUsername is not an identifier — change it via `Update Profile` instead.\n\n**Errors:**\n- 422 `errors.new_identifier` — invalid format, wrong kind, or fails uniqueness/format rules.\n\nRequires: Bearer token + verified account."
                   },
                   "response": [
                     {
@@ -366,12 +369,12 @@
                       "status": "OK",
                       "code": 200,
                       "_postman_previewlanguage": "json",
-                      "body": "{\n  \"success\": true,\n  \"message\": \"Verification code sent to your new email.\",\n  \"errors\": null,\n  \"data\": null\n}"
+                      "body": "{\n  \"success\": true,\n  \"message\": \"Verification code sent to your new identifier.\",\n  \"errors\": null,\n  \"data\": {\n    \"new_identifier\": \"newemail@example.com\",\n    \"otp_expires_in_minutes\": 5\n  }\n}"
                     }
                   ]
                 },
                 {
-                  "name": "Verify Email Change",
+                  "name": "Verify Identifier Change",
                   "request": {
                     "method": "POST",
                     "header": [
@@ -381,15 +384,15 @@
                     ],
                     "body": {
                       "mode": "raw",
-                      "raw": "{\n  \"new_email\": \"newemail@example.com\",\n  \"otp\": \"123456\"\n}",
+                      "raw": "{\n  \"new_identifier\": \"newemail@example.com\",\n  \"otp\": \"123456\"\n}",
                       "options": { "raw": { "language": "json" } }
                     },
                     "url": {
-                      "raw": "{{base_url}}/api/verify-email-change",
+                      "raw": "{{base_url}}/api/verify-identifier-change",
                       "host": ["{{base_url}}"],
-                      "path": ["api", "verify-email-change"]
+                      "path": ["api", "verify-identifier-change"]
                     },
-                    "description": "Verify the email change OTP and update the user's email.\n\nRequires: Bearer token + verified account."
+                    "description": "Verify the identifier-change OTP and update the user's email or phone column. Username is not handled here (use `Update Profile` instead).\n\nInvalid OTP returns `errors.otp` (422).\n\nRequires: Bearer token + verified account."
                   },
                   "response": [
                     {
@@ -397,7 +400,7 @@
                       "status": "OK",
                       "code": 200,
                       "_postman_previewlanguage": "json",
-                      "body": "{\n  \"success\": true,\n  \"message\": \"Email changed successfully.\",\n  \"errors\": null,\n  \"data\": null\n}"
+                      "body": "{\n  \"success\": true,\n  \"message\": \"Identifier changed successfully.\",\n  \"errors\": null,\n  \"data\": {\n    \"user\": { \"id\": 1, \"email\": \"newemail@example.com\" }\n  }\n}"
                     }
                   ]
                 },
@@ -477,7 +480,7 @@
                       "host": ["{{base_url}}"],
                       "path": ["api", "delete-account"]
                     },
-                    "description": "Permanently delete the authenticated user's account and revoke all tokens.\n\nRequires: Bearer token + verified account."
+                    "description": "**Permanently** deletes the authenticated user's record (bypasses `SoftDeletes` via `forceDelete()`) and revokes all tokens. **Cannot be restored** — the DB row is gone. Use for GDPR / account-deletion compliance.\n\nRequires: Bearer token + verified account."
                   },
                   "response": [
                     {
@@ -769,7 +772,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"policy_agreed\": true,\n  \"name\": \"Test User\",\n  \"email\": \"user@example.com\",\n  \"phone\": \"+1234567890\",\n  \"password\": \"password123\",\n  \"password_confirmation\": \"password123\",\n  \"fcm_token\": \"fake_fcm_token_123\"\n}",
+              "raw": "{\n  \"policy_agreed\": true,\n  \"name\": \"Test User\",\n  \"identifier\": \"user@example.com\",\n  \"username\": \"testuser\",\n  \"password\": \"password123\",\n  \"password_confirmation\": \"password123\",\n  \"fcm_token\": \"fake_fcm_token_123\"\n}",
               "options": { "raw": { "language": "json" } }
             },
             "url": {
@@ -777,7 +780,7 @@
               "host": ["{{base_url}}"],
               "path": ["api", "register"]
             },
-            "description": "Register a new app user.\n\n**Required fields:** `policy_agreed`, `name`, `password`, `password_confirmation`, plus each configured identifier field (e.g. `email`, `phone`).\n\n**Optional:** `fcm_token`, and any non-identifier fields that are enabled (e.g. `username`).\n\nIdentifier fields are configured via `AUTH_IDENTIFIERS` env variable (comma-separated, e.g. `email,phone`). All identifier fields are required and unique.\n\nReturns a Bearer token on success. An OTP is sent for verification (email/phone identifiers only)."
+            "description": "Register a new app user.\n\n**Required fields:** `policy_agreed`, `name`, `identifier`, `password`, `password_confirmation`.\n\n**Optional:** `fcm_token`, and any non-identifier fields that are enabled via `HAS_*_FIELD` env (e.g. `phone` when phone is not an identifier).\n\n## Identifier Resolution\n\nThe `identifier` field is resolved against `AUTH_IDENTIFIERS` (allowed values: `email`, `phone`):\n- **Single identifier configured** → validated against that field's rules.\n- **`email,phone`** → kind detected from format (email / phone) and validated against the matching field.\n\n## Username\n\nWhen `HAS_USERNAME_FIELD=true`, `username` is **required** at register. Username is never an identifier — it is a separate column searchable at login as an alias. Format: must start with a letter, then letters/digits/`_`/`-`. Min length 3. Email/phone-shaped values rejected. Uniqueness scoped to api-guard users.\n\nEmail values are normalized to lowercase before storage.\n\nValidation errors on the identifier are returned under `errors.identifier`. Other field errors keep their own keys.\n\n**Does not issue a Bearer token.** Account is created and an OTP is sent for verification. The user must call `Login` afterwards to obtain a token (login on an unverified account triggers another verify OTP and returns a token to use with `verify-otp`)."
           },
           "response": [
             {
@@ -785,7 +788,21 @@
               "status": "OK",
               "code": 200,
               "_postman_previewlanguage": "json",
-              "body": "{\n  \"success\": true,\n  \"message\": \"User registered successfully.\",\n  \"errors\": null,\n  \"data\": {\n    \"token\": \"1|abc123tokenhere\",\n    \"user\": {\n      \"id\": 1,\n      \"name\": \"Test User\",\n      \"email\": \"user@example.com\",\n      \"phone\": null,\n      \"is_active\": true,\n      \"verified_at\": null,\n      \"created_at\": \"2026-04-01T12:00:00.000000Z\"\n    },\n    \"otp_expires_in_minutes\": 5\n  }\n}"
+              "body": "{\n  \"success\": true,\n  \"message\": \"User registered successfully.\",\n  \"errors\": null,\n  \"data\": {\n    \"user\": {\n      \"id\": 1,\n      \"name\": \"Test User\",\n      \"email\": \"user@example.com\",\n      \"phone\": null,\n      \"is_active\": true,\n      \"verified_at\": null,\n      \"created_at\": \"2026-04-01T12:00:00.000000Z\"\n    },\n    \"otp_expires_in_minutes\": 5\n  }\n}"
+            },
+            {
+              "name": "Success (Username — Auto-Verified)",
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"success\": true,\n  \"message\": \"User registered successfully.\",\n  \"errors\": null,\n  \"data\": {\n    \"user\": {\n      \"id\": 2,\n      \"name\": \"Test User\",\n      \"username\": \"testuser\",\n      \"email\": null,\n      \"phone\": null,\n      \"is_active\": true,\n      \"verified_at\": \"2026-04-25T12:00:00.000000Z\",\n      \"created_at\": \"2026-04-25T12:00:00.000000Z\"\n    }\n  }\n}"
+            },
+            {
+              "name": "Validation Failed (Identifier Remap)",
+              "status": "Unprocessable Entity",
+              "code": 422,
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"success\": false,\n  \"message\": \"The given data was invalid.\",\n  \"errors\": {\n    \"identifier\": [\n      \"The identifier has already been taken.\"\n    ],\n    \"password\": [\n      \"The password must be at least 8 characters.\"\n    ]\n  },\n  \"data\": null\n}"
             }
           ]
         },
@@ -816,7 +833,7 @@
               "status": "OK",
               "code": 200,
               "_postman_previewlanguage": "json",
-              "body": "{\n  \"success\": true,\n  \"message\": \"Login successful.\",\n  \"errors\": null,\n  \"data\": {\n    \"token\": \"2|xyz456tokenhere\",\n    \"user\": {\n      \"id\": 1,\n      \"name\": \"Test User\",\n      \"email\": \"user@example.com\",\n      \"phone\": null,\n      \"is_active\": true,\n      \"verified_at\": \"2026-04-01T12:00:00.000000Z\"\n    },\n    \"is_verified\": true\n  }\n}"
+              "body": "{\n  \"success\": true,\n  \"message\": \"Login successful.\",\n  \"errors\": null,\n  \"token\": \"2|xyz456tokenhere\",\n  \"data\": {\n    \"user\": {\n      \"id\": 1,\n      \"name\": \"Test User\",\n      \"email\": \"user@example.com\",\n      \"phone\": null,\n      \"is_active\": true,\n      \"verified_at\": \"2026-04-01T12:00:00.000000Z\"\n    },\n    \"is_verified\": true,\n    \"token\": \"2|xyz456tokenhere\"\n  }\n}"
             },
             {
               "name": "Invalid Credentials",
@@ -824,6 +841,13 @@
               "code": 400,
               "_postman_previewlanguage": "json",
               "body": "{\n  \"success\": false,\n  \"message\": \"Invalid credentials.\",\n  \"errors\": null,\n  \"data\": null\n}"
+            },
+            {
+              "name": "User Not Found",
+              "status": "Unprocessable Entity",
+              "code": 422,
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"success\": false,\n  \"message\": \"User not found.\",\n  \"errors\": {\n    \"identifier\": [\n      \"User not found.\"\n    ]\n  },\n  \"data\": null\n}"
             }
           ]
         },
@@ -854,14 +878,14 @@
               "status": "OK",
               "code": 200,
               "_postman_previewlanguage": "json",
-              "body": "{\n  \"success\": true,\n  \"message\": \"Login successful.\",\n  \"errors\": null,\n  \"data\": {\n    \"token\": \"3|abc789tokenhere\",\n    \"user\": {\n      \"id\": 2,\n      \"name\": \"John Doe\",\n      \"email\": \"john@gmail.com\",\n      \"verified_at\": \"2026-04-14T12:00:00.000000Z\",\n      \"social_accounts\": [\n        {\n          \"id\": 1,\n          \"provider\": \"google.com\",\n          \"provider_name\": \"Google\",\n          \"email\": \"john@gmail.com\"\n        }\n      ]\n    },\n    \"is_verified\": true,\n    \"is_new_user\": true\n  }\n}"
+              "body": "{\n  \"success\": true,\n  \"message\": \"Login successful.\",\n  \"errors\": null,\n  \"token\": \"3|abc789tokenhere\",\n  \"data\": {\n    \"user\": {\n      \"id\": 2,\n      \"name\": \"John Doe\",\n      \"email\": \"john@gmail.com\",\n      \"verified_at\": \"2026-04-14T12:00:00.000000Z\",\n      \"social_accounts\": [\n        {\n          \"id\": 1,\n          \"provider\": \"google.com\",\n          \"provider_name\": \"Google\",\n          \"email\": \"john@gmail.com\"\n        }\n      ]\n    },\n    \"is_verified\": true,\n    \"is_new_user\": true,\n    \"token\": \"3|abc789tokenhere\"\n  }\n}"
             },
             {
               "name": "Success (Existing User)",
               "status": "OK",
               "code": 200,
               "_postman_previewlanguage": "json",
-              "body": "{\n  \"success\": true,\n  \"message\": \"Login successful.\",\n  \"errors\": null,\n  \"data\": {\n    \"token\": \"4|def012tokenhere\",\n    \"user\": {\n      \"id\": 2,\n      \"name\": \"John Doe\",\n      \"email\": \"john@gmail.com\",\n      \"verified_at\": \"2026-04-14T12:00:00.000000Z\",\n      \"social_accounts\": [\n        {\n          \"id\": 1,\n          \"provider\": \"google.com\",\n          \"provider_name\": \"Google\",\n          \"email\": \"john@gmail.com\"\n        }\n      ]\n    },\n    \"is_verified\": true,\n    \"is_new_user\": false\n  }\n}"
+              "body": "{\n  \"success\": true,\n  \"message\": \"Login successful.\",\n  \"errors\": null,\n  \"token\": \"4|def012tokenhere\",\n  \"data\": {\n    \"user\": {\n      \"id\": 2,\n      \"name\": \"John Doe\",\n      \"email\": \"john@gmail.com\",\n      \"verified_at\": \"2026-04-14T12:00:00.000000Z\",\n      \"social_accounts\": [\n        {\n          \"id\": 1,\n          \"provider\": \"google.com\",\n          \"provider_name\": \"Google\",\n          \"email\": \"john@gmail.com\"\n        }\n      ]\n    },\n    \"is_verified\": true,\n    \"is_new_user\": false,\n    \"token\": \"4|def012tokenhere\"\n  }\n}"
             },
             {
               "name": "Provider Not Allowed",
@@ -901,6 +925,32 @@
           ]
         },
         {
+          "name": "Auth Config",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Accept-Language", "value": "en", "type": "text" },
+              { "key": "X-API-TOKEN", "value": "{{x-api-token}}", "type": "text" },
+              { "key": "Accept", "value": "application/json", "type": "text" }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/auth-config",
+              "host": ["{{base_url}}"],
+              "path": ["api", "auth-config"]
+            },
+            "description": "Returns the live auth configuration so mobile/web clients can adapt their UI on boot. No body, no Bearer token required.\n\n**Response fields:**\n- `identifiers` — array of `email` and/or `phone` (configured via `AUTH_IDENTIFIERS`).\n- `has_username_field` — when true, register requires `username` and login can match against username.\n- `has_email_field` / `has_phone_field` — when true (and that field is NOT an identifier), it is exposed as an optional profile field.\n- `social_providers` — array of allowed Firebase providers (e.g. `[\"google.com\", \"apple.com\"]`). Empty = all allowed.\n- `max_social_accounts` — max linked social accounts per user (0 = unlimited).\n- `social_auth_available` — true when email is an identifier (Firebase social auth requires email).\n- `is_otp_whatsapp` — phone OTPs go via WhatsApp instead of SMS when true.\n\nFetch on app boot, cache in client state."
+          },
+          "response": [
+            {
+              "name": "Success",
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"success\": true,\n  \"message\": \"Operation successful\",\n  \"errors\": null,\n  \"data\": {\n    \"identifiers\": [\"email\", \"phone\"],\n    \"has_username_field\": true,\n    \"has_email_field\": false,\n    \"has_phone_field\": false,\n    \"social_providers\": [\"google.com\", \"apple.com\"],\n    \"max_social_accounts\": 0,\n    \"social_auth_available\": true,\n    \"is_otp_whatsapp\": false\n  }\n}"
+            }
+          ]
+        },
+        {
           "name": "Check Identifier",
           "request": {
             "method": "POST",
@@ -919,7 +969,7 @@
               "host": ["{{base_url}}"],
               "path": ["api", "check-identifier"]
             },
-            "description": "Check if an identifier exists in the system. Searches across all configured identifier columns (set via `AUTH_IDENTIFIERS` env).\n\nUseful for real-time validation on the login screen before submitting credentials.\n\nNo authentication required."
+            "description": "Detects kind (email / phone / username) from the value and queries the matching column when configured (identifier OR `HAS_*_FIELD` extra). Scoped to api-guard users.\n\nResponse:\n```\n{\n  \"exists\": true|false,\n  \"available_channels\": [\"email\", \"phone\"]\n}\n```\n\n`available_channels` lists which OTP delivery channels are populated on the user record. Use this to:\n- Pick a `type` for `forgot-password`.\n- Pre-submit uniqueness checks (register / update-profile username / request-identifier-change).\n\nNo authentication required."
           },
           "response": [
             {
@@ -927,14 +977,14 @@
               "status": "OK",
               "code": 200,
               "_postman_previewlanguage": "json",
-              "body": "{\n  \"success\": true,\n  \"message\": \"Operation successful\",\n  \"errors\": null,\n  \"data\": {\n    \"exists\": true\n  }\n}"
+              "body": "{\n  \"success\": true,\n  \"message\": \"Operation successful\",\n  \"errors\": null,\n  \"data\": {\n    \"exists\": true,\n    \"available_channels\": [\"email\", \"phone\"]\n  }\n}"
             },
             {
               "name": "Not Found",
               "status": "OK",
               "code": 200,
               "_postman_previewlanguage": "json",
-              "body": "{\n  \"success\": true,\n  \"message\": \"Operation successful\",\n  \"errors\": null,\n  \"data\": {\n    \"exists\": false\n  }\n}"
+              "body": "{\n  \"success\": true,\n  \"message\": \"Operation successful\",\n  \"errors\": null,\n  \"data\": {\n    \"exists\": false,\n    \"available_channels\": []\n  }\n}"
             }
           ]
         },
@@ -949,7 +999,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"identifier\": \"user@example.com\"\n}",
+              "raw": "{\n  \"identifier\": \"user@example.com\",\n  \"type\": \"email\"\n}",
               "options": { "raw": { "language": "json" } }
             },
             "url": {
@@ -957,7 +1007,7 @@
               "host": ["{{base_url}}"],
               "path": ["api", "forgot-password"]
             },
-            "description": "Request a password reset OTP. Sends an OTP to the user's email or phone based on `IS_EMAIL_LOGIN` env.\n\nNo authentication required."
+            "description": "Request a password reset OTP.\n\n**Body:**\n- `identifier` — email, phone, or username.\n- `type` (optional) — `\"email\"` or `\"phone\"`. When provided, must be one of the user's populated channels (call `Check Identifier` first to discover `available_channels`).\n\n**Channel selection:**\n- `type` omitted → priority `email > phone` from the user's populated columns.\n- `type` provided → use that channel (or 422 if not populated).\n\nResponse includes the actual `channel` used. Phone delivery is SMS by default (or WhatsApp when `IS_OTP_WHATSAPP=true`).\n\n**Errors:**\n- 422 `errors.identifier` — user not found OR no deliverable channel populated.\n- 422 `errors.type` — requested `type` not populated for this user.\n\nRate-limited via `throttle:otp` (3/5min).\n\nNo authentication required."
           },
           "response": [
             {
@@ -965,7 +1015,14 @@
               "status": "OK",
               "code": 200,
               "_postman_previewlanguage": "json",
-              "body": "{\n  \"success\": true,\n  \"message\": \"Password reset code sent.\",\n  \"errors\": null,\n  \"data\": null\n}"
+              "body": "{\n  \"success\": true,\n  \"message\": \"Password reset code sent.\",\n  \"errors\": null,\n  \"data\": {\n    \"identifier\": \"user@example.com\",\n    \"channel\": \"email\",\n    \"otp_expires_in_minutes\": 5\n  }\n}"
+            },
+            {
+              "name": "User Not Found",
+              "status": "Unprocessable Entity",
+              "code": 422,
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"success\": false,\n  \"message\": \"User not found.\",\n  \"errors\": {\n    \"identifier\": [\n      \"User not found.\"\n    ]\n  },\n  \"data\": null\n}"
             }
           ]
         },
@@ -997,6 +1054,13 @@
               "code": 200,
               "_postman_previewlanguage": "json",
               "body": "{\n  \"success\": true,\n  \"message\": \"Code verified successfully.\",\n  \"errors\": null,\n  \"data\": null\n}"
+            },
+            {
+              "name": "User Not Found",
+              "status": "Unprocessable Entity",
+              "code": 422,
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"success\": false,\n  \"message\": \"User not found.\",\n  \"errors\": {\n    \"identifier\": [\n      \"User not found.\"\n    ]\n  },\n  \"data\": null\n}"
             }
           ]
         },
@@ -1028,6 +1092,13 @@
               "code": 200,
               "_postman_previewlanguage": "json",
               "body": "{\n  \"success\": true,\n  \"message\": \"Password changed successfully.\",\n  \"errors\": null,\n  \"data\": null\n}"
+            },
+            {
+              "name": "User Not Found",
+              "status": "Unprocessable Entity",
+              "code": 422,
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"success\": false,\n  \"message\": \"User not found.\",\n  \"errors\": {\n    \"identifier\": [\n      \"User not found.\"\n    ]\n  },\n  \"data\": null\n}"
             }
           ]
         }

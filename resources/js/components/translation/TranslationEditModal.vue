@@ -1,6 +1,6 @@
 <script setup>
 import { useForm } from '@inertiajs/vue3';
-import { watch } from 'vue';
+import { watch, computed } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { XIcon, Loader2, AlertCircle } from 'lucide-vue-next';
 import Input from '@/components/ui/input/Input.vue';
@@ -13,6 +13,26 @@ const props = defineProps({
     translation: Object,
     languages: Array,
 });
+
+// Detect Laravel-style `:placeholder` tokens (not `::`) in the original value of any locale.
+// Source of truth: the default language's existing value. Translators must keep these intact.
+const PLACEHOLDER_RE = /(?<!:):([a-zA-Z_][a-zA-Z0-9_]*)/g;
+
+const requiredPlaceholders = computed(() => {
+    if (!props.translation || !props.languages) return [];
+    const defaultLang = props.languages.find(l => l.is_default) || props.languages[0];
+    const source = props.translation?.[defaultLang?.code] || '';
+    return Array.from(new Set([...source.matchAll(PLACEHOLDER_RE)].map(m => m[1])));
+});
+
+const localePlaceholders = (value) => {
+    return Array.from(new Set([...(value || '').matchAll(PLACEHOLDER_RE)].map(m => m[1])));
+};
+
+const missingPlaceholders = (value) => {
+    const have = localePlaceholders(value);
+    return requiredPlaceholders.value.filter(p => !have.includes(p));
+};
 
 const emit = defineEmits(['close']);
 
@@ -53,6 +73,7 @@ const getGroupLabel = (group) => {
     const labels = {
         api: t('api_group'),
         app: t('app_group'),
+        web: t('web_group'),
     };
     return labels[group] || group;
 };
@@ -61,6 +82,7 @@ const getGroupBadgeClass = (group) => {
     const classes = {
         api: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
         app: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400',
+        web: 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400',
     };
     return classes[group] || classes.app;
 };
@@ -140,6 +162,15 @@ const submit = () => {
                                 </div>
                             </div>
 
+                            <!-- Required Placeholders Notice -->
+                            <div v-if="requiredPlaceholders.length" class="rounded-lg border border-amber-200 bg-amber-50 p-3 dark:border-amber-900/40 dark:bg-amber-900/20">
+                                <p class="text-xs font-semibold text-amber-700 dark:text-amber-400">{{ t('required_placeholders') }}</p>
+                                <p class="mt-1 text-xs text-amber-600 dark:text-amber-300">{{ t('required_placeholders_desc') }}</p>
+                                <div class="mt-2 flex flex-wrap gap-1.5">
+                                    <code v-for="p in requiredPlaceholders" :key="p" class="rounded bg-amber-100 px-1.5 py-0.5 font-mono text-xs text-amber-800 dark:bg-amber-900/40 dark:text-amber-200">:{{ p }}</code>
+                                </div>
+                            </div>
+
                             <!-- Dynamic Language Fields -->
                             <div v-for="lang in languages" :key="lang.code" class="space-y-2">
                                 <label class="block text-sm font-medium text-foreground">
@@ -152,6 +183,9 @@ const submit = () => {
                                     :dir="lang.direction"
                                 />
                                 <div v-if="form.errors[lang.code]" class="text-sm text-red-600">{{ form.errors[lang.code] }}</div>
+                                <div v-else-if="missingPlaceholders(form[lang.code]).length" class="text-xs text-amber-600 dark:text-amber-400">
+                                    {{ t('missing_placeholders') }}: <code class="font-mono">{{ missingPlaceholders(form[lang.code]).map(p => ':' + p).join(', ') }}</code>
+                                </div>
                             </div>
 
                             <!-- Modal Footer -->

@@ -75,6 +75,7 @@ class DocsController extends Controller
                     ['id' => 'api-overview', 'title' => 'Overview'],
                     ['id' => 'api-auth-endpoints', 'title' => 'Auth Endpoints'],
                     ['id' => 'api-user-endpoints', 'title' => 'User Endpoints'],
+                    ['id' => 'api-public-endpoints', 'title' => 'Public Endpoints'],
                     ['id' => 'api-responses', 'title' => 'Response Format'],
                 ],
             ],
@@ -156,6 +157,7 @@ class DocsController extends Controller
             'api-overview' => $this->getApiOverviewContent(),
             'api-auth-endpoints' => $this->getApiAuthEndpointsContent(),
             'api-user-endpoints' => $this->getApiUserEndpointsContent(),
+            'api-public-endpoints' => $this->getApiPublicEndpointsContent(),
             'api-responses' => $this->getApiResponsesContent(),
             'traits' => $this->getTraitsContent(),
             'has-image' => $this->getHasImageContent(),
@@ -405,10 +407,10 @@ APP_SETUP_COMPLETE=true
 
 ### Authentication
 ```env
-AUTH_IDENTIFIERS=email          # email, phone, username (comma-separated)
+AUTH_IDENTIFIERS=email          # email and/or phone (comma-separated). Username NOT allowed here.
 HAS_EMAIL_FIELD=true
 HAS_PHONE_FIELD=false
-HAS_USERNAME_FIELD=false
+HAS_USERNAME_FIELD=false        # Enables `username` field at register + login alias.
 IS_OTP_WHATSAPP=false
 ```
 
@@ -465,19 +467,18 @@ MD
             'content' => <<<'MD'
 # Dual Guard System
 
-The application uses two separate authentication guards:
+The application uses two Laravel guards on the **same `users` table**, distinguished by Spatie role + guard_name.
 
 ## Web Guard (`web`)
 
-Used for the admin panel.
+Admin panel. Session-based.
 
-- **Users:** Admin users with roles/permissions
-- **Roles:** `super_admin`, `fallback`, custom roles
-- **Middleware:** `auth`
-- **Session-based authentication**
+- **Users:** Admin users (any role on the `web` guard).
+- **Protected roles:** `super_admin` (full access), `fallback` (reassignment target when a role is deleted).
+- **Middleware:** `auth`, `EnsureUserIsActive`, `permission:*` (Spatie).
+- **Pages:** Inertia.js + Vue, served from `routes/web.php`.
 
 ```php
-// routes/web.php
 Route::middleware('auth')->group(function () {
     Route::get('/', [DashboardController::class, 'index']);
 });
@@ -485,17 +486,15 @@ Route::middleware('auth')->group(function () {
 
 ## API Guard (`api`)
 
-Used for the mobile app REST API.
+Mobile app REST API. Token-based via Sanctum.
 
-- **Users:** App users (different user pool)
-- **Role:** `user`
-- **Middleware:** `auth:sanctum`
-- **Token-based authentication** (Bearer token)
+- **Users:** App users with the `user` role on the `api` guard.
+- **Middleware:** `auth:sanctum`, `role:user`, `active`. Most write endpoints add `verified`.
+- **Auth flow:** `register` → `login` → token. See **API Authentication**.
 
 ```php
-// routes/api.php
 Route::middleware(['auth:sanctum', 'role:user', 'active'])->group(function () {
-    Route::get('/profile', [ProfileController::class, 'show']);
+    Route::get('/user', fn (Request $request) => $request->user());
 });
 ```
 
@@ -504,9 +503,14 @@ Route::middleware(['auth:sanctum', 'role:user', 'active'])->group(function () {
 | Aspect | Web Guard | API Guard |
 |--------|-----------|-----------|
 | Users | Admin users | App users |
-| Auth Method | Session | Bearer Token |
-| Permissions | Yes (Spatie) | No |
-| Middleware | `auth` | `auth:sanctum` |
+| Role | Any (e.g. `super_admin`) | `user` (api guard) |
+| Auth method | Session | Bearer token (Sanctum) |
+| Permissions | Yes (Spatie, web-guard) | No (role check only) |
+| Routes file | `routes/web.php` | `routes/api.php` |
+
+## Same Table, Different Audience
+
+Both guards use the `users` table. API auth flows (login, lookup, forgot-password, etc.) are scoped to the `user` api-guard role to avoid leaking admin records into mobile app responses.
 MD
         ];
     }
@@ -518,24 +522,34 @@ MD
             'content' => <<<'MD'
 # Admin Authentication
 
+This page covers the **admin panel** (web guard). For the mobile-app API auth, see **API Authentication**.
+
+## Stack
+
+- **Guard:** `web` (session-based)
+- **Pages:** Inertia.js + Vue
+- **Middleware:** `auth`, `EnsureUserIsActive`, `permission:*` (Spatie)
+- **Routes:** `routes/web.php`
+- **Login URL:** `/login`
+
 ## Login Flow
 
-1. User visits `/login`
-2. Submits email and password
-3. System validates credentials against `users` table
-4. Checks if user has web-guard role
-5. Creates session and redirects to dashboard
+1. User visits `/login` (Inertia page).
+2. Submits `email` + `password` to `POST /login`.
+3. `AuthController::login` validates credentials against the `users` table.
+4. `EnsureUserIsActive` middleware blocks deactivated accounts (`is_active=false`).
+5. Web guard creates a session; user is redirected to `/` (dashboard).
+
+Inertia shares `auth.user`, `auth.roles`, and `auth.permissions` on every response so the UI can render conditionally.
 
 ## Protected Routes
 
-All admin routes require authentication:
-
 ```php
 Route::middleware('auth')->group(function () {
-    // Dashboard - no permission required
+    // Dashboard — no permission required
     Route::get('/', [DashboardController::class, 'index']);
 
-    // Feature routes - permission required
+    // Feature routes — permission required
     Route::prefix('users')
         ->middleware('permission:users')
         ->group(function () {
@@ -589,71 +603,132 @@ MD
             'content' => <<<'MD'
 # API Authentication
 
-## Headers Required
+This page explains the **concepts** behind API auth. For exact request/response shapes, see **API Reference → Auth Endpoints / User Endpoints / Public Endpoints**.
 
-All API requests must include:
+## Headers
 
+Every request:
 ```http
 X-API-TOKEN: your-api-token
 Accept: application/json
 Content-Type: application/json
+Accept-Language: en      # or ar
 ```
 
-For protected routes, add:
+Protected routes also need:
 ```http
 Authorization: Bearer {token}
 ```
 
-## Registration
+## Auth Model
 
-```http
-POST /api/register
+- **Guard:** `api` (Sanctum). API users are scoped to the `user` role on the `api` guard. Admin/web-guard users are not reachable through API auth flows.
+- **Token:** Bearer token returned at the **top level** of the response AND duplicated inside `data.token`. Issued by `login` and `firebase-login`.
+- **Register does NOT issue a token** — it only creates the account and sends a verify OTP. The client must call `login` afterwards.
 
-{
-    "name": "John Doe",
-    "email": "john@example.com",    // Required if in AUTH_IDENTIFIERS
-    "phone": "+962791234567",       // Required if in AUTH_IDENTIFIERS
-    "password": "password123",
-    "password_confirmation": "password123"
-}
-```
+## Bootstrap: Auth Config
 
-## Login
+`GET /api/auth-config` exposes the live auth configuration so the mobile/web client can adapt its UI. Fetch on app boot. Returns: `identifiers`, `has_username_field`, `has_email_field`, `has_phone_field`, `social_providers`, `max_social_accounts`, `social_auth_available`, `is_otp_whatsapp`.
 
-```http
-POST /api/login
+## Identifier Model
 
-{
-    "identifier": "john@example.com",  // Can be email, phone, or username
-    "password": "password123"
-}
-```
-
-Response:
-```json
-{
-    "success": true,
-    "message": "Login successful",
-    "data": {
-        "user": { ... },
-        "token": "1|abc123..."
-    }
-}
-```
-
-## Auth Identifiers
-
-Configure which fields users can log in with:
+Configured via `.env`:
 
 ```env
-AUTH_IDENTIFIERS=email,phone
+AUTH_IDENTIFIERS=email,phone     # email and/or phone, comma-separated. Username NOT allowed here.
+HAS_USERNAME_FIELD=true          # Optional. When true: required at register, login alias, editable.
+HAS_EMAIL_FIELD=false            # Only when email is NOT an identifier (extra profile field).
+HAS_PHONE_FIELD=false            # Only when phone is NOT an identifier (extra profile field).
 ```
 
-- `email` - Login with email address
-- `phone` - Login with phone number
-- `username` - Login with username
+Behavior:
+- **Identifier (`email` / `phone`)** — primary login key. OTP-protected to change.
+- **Username** — separate column. When enabled it is required at register, doubles as a login alias (login `identifier` is also matched against the username column), and is editable directly via `update-profile` (no OTP).
+- Login lookup detects the value's kind (email format → email column; phone format → phone column; alpha → username column) and queries a single column. No OR-collisions.
 
-Multiple identifiers can be combined.
+Format rules:
+- Email values are lowercased on every write and lookup.
+- Username regex: `/^[A-Za-z][A-Za-z0-9_-]*$/` with `min:3`. Email/phone-shaped values are rejected.
+- Username uniqueness is scoped to api-guard users only.
+
+## Registration Flow
+
+1. Client `POST /api/register` with `identifier` (email or phone), `password`, `policy_agreed`, plus `username` when enabled.
+2. Server validates, creates the user, sends a `verify` OTP via the matching channel (email → EmailHelper; phone → SMS, or WhatsApp when `IS_OTP_WHATSAPP=true`).
+3. **No token** in response. Client calls `login` to receive a Bearer token.
+
+## Login + Verification Flow
+
+1. Client `POST /api/login` with `identifier` (email/phone/username) + password.
+2. Verified user → token + user.
+3. Unverified user → token + `is_verified=false` + a fresh `verify` OTP (reuses the most-recent OTP if it is < 60s old to avoid spam).
+4. Client calls `POST /api/verify-otp` with the OTP and the Bearer token. Account becomes verified.
+5. If the OTP expired, client calls `POST /api/send-otp` (auth required) to receive a new one. Rate-limited via `throttle:otp`.
+
+## Forgot Password Flow
+
+Client may inspect available delivery channels first, then choose one:
+
+1. (Optional) `POST /api/check-identifier` with `identifier` → response includes `available_channels` (e.g. `["email","phone"]`) listing which OTP destinations the user has populated.
+2. `POST /api/forgot-password` with `identifier` and optional `type` (`"email"` or `"phone"`).
+   - If `type` is omitted → channel auto-picked, priority `email > phone`.
+   - If `type` is provided → must be one of the user's populated channels; otherwise 422 `errors.type`.
+   - Response includes the actual `channel` used. Rate-limited via `throttle:otp`.
+3. `POST /api/verify-forgot-password-otp` with `identifier` + `otp`.
+4. `POST /api/change-forgot-password` with `identifier` + `otp` + new `password`. All existing tokens revoked.
+
+## Identifier Change Flow (Email or Phone)
+
+1. `POST /api/request-identifier-change` with `new_identifier` (auth + verified). Kind auto-detected; OTP sent via the matching channel. Rate-limited via `throttle:otp`.
+2. `POST /api/verify-identifier-change` with `new_identifier` + `otp`. Updates the column.
+
+Username is changed via `update-profile` directly (no OTP — no delivery channel).
+
+## Profile Updates
+
+`PUT /api/update-profile` (auth + verified):
+- `name` always editable.
+- `username` editable when `HAS_USERNAME_FIELD=true`.
+- `email`/`phone` editable only when they are **NOT** identifiers (i.e., enabled as `HAS_*_FIELD` extras).
+- Empty strings ignored.
+
+Identifier email/phone changes go through the OTP-protected identifier-change flow.
+
+## Error Format (Field-Keyed)
+
+Errors tied to a specific request input field are returned as **HTTP 422** with the message keyed under the param name. Frontend can show inline messages next to the matching input.
+
+```json
+{
+    "success": false,
+    "message": "Invalid OTP.",
+    "errors": { "otp": ["Invalid OTP."] },
+    "data": null
+}
+```
+
+Mapping:
+
+| Endpoint | Trigger | Error Key |
+|----------|---------|-----------|
+| login | invalid credentials | `password` |
+| register / login / forgot-password / verify-forgot-password-otp / change-forgot-password | identifier validation / not found | `identifier` |
+| verify-otp / verify-forgot-password-otp / change-forgot-password / verify-identifier-change | invalid OTP | `otp` |
+| change-password | wrong current password | `old_password` |
+| request-identifier-change / verify-identifier-change | new identifier validation | `new_identifier` |
+| firebase-login / link-social-account | Firebase / provider issues | `token` |
+| unlink-social-account | provider issues | `provider` |
+
+State / config errors (account inactive, unauthorized, social_auth_requires_email, etc.) return plain top-level `message` with `errors: null`.
+
+## Where to Find Endpoints
+
+- **API Reference → Auth Endpoints** — public auth-related endpoints (register, login, firebase-login, check-identifier, forgot-password flow).
+- **API Reference → User Endpoints** — authed endpoints (logout, send-otp, verify-otp, update-profile, change-password, identifier-change, social accounts, etc.).
+- **API Reference → Public Endpoints** — unrelated public APIs (translations, languages, pages).
+- **Authentication → Social Authentication** — Firebase social login concepts.
+- **Authentication → OTP Verification** — OTP types and flows in detail.
+- **Authentication → Rate Limiting** — limiter config and applied middleware.
 MD
         ];
     }
@@ -665,57 +740,39 @@ MD
             'content' => <<<'MD'
 # Social Authentication
 
-Firebase-based social login for mobile apps.
+Firebase-based social login for mobile apps. Endpoints, payloads, and error formats live in **API Reference → Auth Endpoints / User Endpoints**. This page documents the **concepts**.
 
 ## Requirements
 
-- `AUTH_IDENTIFIERS` must include `email`
-- Firebase credentials configured
-- Providers enabled in Firebase console
+- `AUTH_IDENTIFIERS` must include `email` (Firebase auth is keyed off the email claim).
+- Firebase project credentials at `storage/app/private/firebase-auth.json` (or `FIREBASE_CREDENTIALS` path).
+- Providers enabled in Firebase console.
 
 ## Configuration
 
 ```env
 SOCIAL_AUTH_PROVIDERS=google.com,apple.com,facebook.com
-SOCIAL_AUTH_MAX_ACCOUNTS=0  # 0 = unlimited
+SOCIAL_AUTH_MAX_ACCOUNTS=0     # 0 = unlimited; 1 = single linked provider; etc.
 ```
 
 ## Available Providers
 
-- `google.com` - Google Sign-In
-- `apple.com` - Apple Sign-In
-- `facebook.com` - Facebook Login
-- `twitter.com` - Twitter Login
-- `github.com` - GitHub Login
+- `google.com` — Google Sign-In
+- `apple.com` — Apple Sign-In
+- `facebook.com` — Facebook Login
+- `twitter.com` — Twitter Login
+- `github.com` — GitHub Login
 
-## Endpoints
+## Endpoints (Quick Reference)
 
-### Login/Register
-```http
-POST /api/firebase-login
+| Endpoint | Body | Auth |
+|----------|------|------|
+| `POST /api/firebase-login` | `token` (Firebase ID token), optional `fcm_token` | public |
+| `GET /api/social-accounts` | — | Bearer + verified |
+| `POST /api/link-social-account` | `token` | Bearer + verified |
+| `DELETE /api/unlink-social-account` | `provider` (e.g. `google.com`) | Bearer + verified |
 
-{
-    "id_token": "firebase-id-token"
-}
-```
-
-### Link Social Account (authenticated)
-```http
-POST /api/link-social-account
-
-{
-    "id_token": "firebase-id-token"
-}
-```
-
-### Unlink Social Account
-```http
-DELETE /api/unlink-social-account
-
-{
-    "provider": "google.com"
-}
-```
+Field-keyed errors use `errors.token` for Firebase / provider issues and `errors.provider` for unlink issues.
 
 ## Behavior Rules
 
@@ -734,24 +791,54 @@ MD
             'content' => <<<'MD'
 # OTP Verification
 
-## How It Works
+## OTP Types
 
-1. User registers with identifier (email/phone)
-2. OTP is generated and stored in `otps` table
-3. OTP is sent via appropriate channel
-4. User verifies OTP to activate account
+The system uses **three OTP types**, all stored in the `otps` table with a `type` column:
 
-## OTP Delivery Priority
+| Type | Purpose | Sender | Verifier |
+|------|---------|--------|----------|
+| `verify` | Activate a newly-registered or unverified account | `POST /api/send-otp` (auth + on register) | `POST /api/verify-otp` |
+| `reset_password` | Reset a forgotten password | `POST /api/forgot-password` (public) | `POST /api/verify-forgot-password-otp` + `POST /api/change-forgot-password` |
+| `change_identifier` | Confirm an email/phone identifier change for an authenticated user | `POST /api/request-identifier-change` (auth + verified) | `POST /api/verify-identifier-change` |
 
-When multiple identifiers are configured:
+## OTP Delivery
 
-1. **Email** - Sent via EmailHelper
-2. **Phone** - Sent via SMS or WhatsApp (based on `IS_OTP_WHATSAPP`)
-3. **Username only** - OTP stored but not delivered (testing mode)
+For `verify` and `reset_password` types — channel priority `email > phone` from the user's populated columns:
 
-## Endpoints
+1. **Email** — `EmailHelper::send`
+2. **Phone** — SMS (`SendSMS::send`) by default; WhatsApp (`SendWhatsapp::send`) when `IS_OTP_WHATSAPP=true`
 
-### Request OTP
+For `change_identifier` — the channel is determined by the kind of `new_identifier` (email format → email; phone format → phone). Email values are lowercased before storage and delivery.
+
+`AUTH_IDENTIFIERS` is always email and/or phone, so OTP-required flows always have a channel. Username is never an identifier; it is a separate field (when `HAS_USERNAME_FIELD=true`) used as a login alias only, never an OTP destination.
+
+## Account Verification Flow (`verify` type)
+
+1. User registers with email/phone identifier → unverified account is created and a `verify` OTP is sent.
+2. User calls `POST /api/login` → receives a Bearer token. If unverified, login also re-issues a fresh `verify` OTP.
+3. User calls `POST /api/verify-otp` with the OTP and the Bearer token to mark the account as verified.
+4. (Optional) If the OTP expired, the user can call `POST /api/send-otp` (auth required) to receive a new one.
+
+```http
+POST /api/send-otp
+Authorization: Bearer {token}
+```
+
+```http
+POST /api/verify-otp
+Authorization: Bearer {token}
+
+{
+    "otp": "123456"
+}
+```
+
+## Password Reset Flow (`reset_password` type)
+
+1. `POST /api/forgot-password` with `identifier` → OTP sent.
+2. `POST /api/verify-forgot-password-otp` with `identifier` + `otp` → OTP confirmed.
+3. `POST /api/change-forgot-password` with `identifier` + `otp` + new `password` → password updated, all existing tokens revoked.
+
 ```http
 POST /api/forgot-password
 
@@ -760,9 +847,8 @@ POST /api/forgot-password
 }
 ```
 
-### Verify OTP
 ```http
-POST /api/verify-otp
+POST /api/verify-forgot-password-otp
 
 {
     "identifier": "john@example.com",
@@ -770,9 +856,8 @@ POST /api/verify-otp
 }
 ```
 
-### Reset Password
 ```http
-POST /api/reset-password
+POST /api/change-forgot-password
 
 {
     "identifier": "john@example.com",
@@ -782,19 +867,37 @@ POST /api/reset-password
 }
 ```
 
+## Rate Limiting
+
+| Endpoint | Limiter | Default |
+|----------|---------|---------|
+| `POST /api/send-otp` | `throttle:otp` | 3 / 5 min |
+| `POST /api/forgot-password` | `throttle:otp` | 3 / 5 min |
+| `POST /api/request-identifier-change` | `throttle:otp` | 3 / 5 min |
+| `POST /api/verify-otp` | `throttle:api` | 60 / 1 min |
+| `POST /api/verify-forgot-password-otp` | `throttle:api` | 60 / 1 min |
+| `POST /api/change-forgot-password` | `throttle:api` | 60 / 1 min |
+| `POST /api/verify-identifier-change` | `throttle:api` | 60 / 1 min |
+
+Only **OTP-sending** endpoints are throttled aggressively (to prevent SMS/email spam). Verification endpoints use the standard API limit so users can retry codes freely.
+
 ## Testing Mode
 
-When `IS_TESTING=true`, OTP is included in the API response:
+When `IS_TESTING=true`, the OTP is included in the API response (top-level of `data`) on every send:
 
 ```json
 {
     "success": true,
     "message": "OTP sent",
+    "errors": null,
     "data": {
-        "otp": "123456"  // Only in testing mode
+        "otp_expires_in_minutes": 5,
+        "otp": "123456"
     }
 }
 ```
+
+Disable in production by setting `IS_TESTING=false`.
 MD
         ];
     }
@@ -812,9 +915,11 @@ The API uses three separate rate limiters to protect against abuse while allowin
 
 | Limiter | Purpose | Default | Middleware |
 |---------|---------|---------|------------|
-| `api` | General API endpoints | 60 req/1 min | `throttle:api` |
+| `api` | General API endpoints + OTP **verification** | 60 req/1 min | `throttle:api` |
 | `auth` | Login/register attempts | 5 req/1 min | `throttle:auth` |
-| `otp` | OTP/verification requests | 3 req/5 min | `throttle:otp` |
+| `otp` | OTP **sending** only (`send-otp`, `forgot-password`) | 3 req/5 min | `throttle:otp` |
+
+**Important:** `throttle:otp` is applied **only to OTP-sending endpoints** (`send-otp` and `forgot-password`) to protect against SMS/email spam. OTP **verification** endpoints (`verify-otp`, `verify-forgot-password-otp`, `change-forgot-password`) use the standard `throttle:api` so users can retry codes without getting locked out.
 
 ## Configuration
 
@@ -850,7 +955,7 @@ RateLimiter::for('api', function (Request $request) {
         ->response(function (Request $request, array $headers) {
             return response()->json([
                 'success' => false,
-                'message' => __('api.too_many_requests'),
+                'message' => Trans::get('api.too_many_requests'),
             ], 429, $headers);
         });
 });
@@ -867,13 +972,21 @@ Route::middleware('throttle:auth')->group(function () {
     Route::post('/login', [AppUserController::class, 'login']);
 });
 
-// OTP routes (strictest)
+// OTP-sending only (strictest)
 Route::middleware('throttle:otp')->group(function () {
     Route::post('/forgot-password', [AppUserController::class, 'forgotPassword']);
 });
 
-// Standard API routes
+// Authenticated send-otp also uses throttle:otp
+Route::middleware(['auth:sanctum'])->group(function () {
+    Route::post('/send-otp', [AppUserController::class, 'sendOtp'])
+        ->middleware('throttle:otp');
+});
+
+// OTP verification + everything else uses standard throttle:api
 Route::middleware('throttle:api')->group(function () {
+    Route::post('/verify-forgot-password-otp', [AppUserController::class, 'verifyForgotPasswordOtp']);
+    Route::post('/change-forgot-password', [AppUserController::class, 'changeForgotPassword']);
     Route::get('/translations', [TranslationController::class, 'index']);
 });
 ```
@@ -1334,6 +1447,17 @@ Authorization: Bearer {user-token}
 }
 ```
 
+## User Serialization
+
+In **API responses only**, the `User` model strips identifier-like fields (`email`, `phone`, `username`) when they are NOT configured — i.e., neither listed in `AUTH_IDENTIFIERS` nor enabled via `HAS_*_FIELD`. The mobile app only sees fields it can actually use.
+
+Examples:
+- `AUTH_IDENTIFIERS=email`, all `HAS_*_FIELD=false` → response contains `email` only (no `phone`, no `username`).
+- `AUTH_IDENTIFIERS=username`, `HAS_PHONE_FIELD=true` → response contains `username` and `phone` (no `email`).
+- `AUTH_IDENTIFIERS=email,phone,username` → all three appear.
+
+Admin/web responses (anything not under `api/*`) keep every column so the admin panel can manage all fields.
+
 ## Rate Limiting
 
 - Default: 60 requests per minute
@@ -1357,61 +1481,163 @@ MD
             'content' => <<<'MD'
 # Auth Endpoints
 
+## OTP Types
+
+The system uses **two OTP types**, stored in the same `otps` table but with different purposes:
+
+| Type | Purpose | Sent by | Verified by |
+|------|---------|---------|-------------|
+| `verify` | Activate a newly-registered (or unverified) account | `POST /api/send-otp` (auth required) | `POST /api/verify-otp` |
+| `reset_password` | Reset a forgotten password | `POST /api/forgot-password` (public) | `POST /api/verify-forgot-password-otp` + `POST /api/change-forgot-password` |
+
+**Rate limits:** only the **sending** endpoints (`send-otp` and `forgot-password`) use the strict `throttle:otp` limiter (default 3 req / 5 min). Verification endpoints use the normal `throttle:api` so users can retry codes freely.
+
 ## Public Endpoints
 
 ### Register
 ```http
 POST /api/register
+
+{
+    "policy_agreed": true,
+    "name": "John Doe",
+    "identifier": "user@example.com",
+    "username": "jdoe",
+    "password": "password123",
+    "password_confirmation": "password123",
+    "fcm_token": "optional"
+}
 ```
+Creates a user and sends a verify OTP. Does **not** issue a token.
+
+- `identifier` is always email or phone (kind auto-detected, must match `AUTH_IDENTIFIERS`). Email values are normalized to lowercase before storage and lookup.
+- `username` is **required when `HAS_USERNAME_FIELD=true`** — separate field, not an identifier, but the user can also log in with it. Format: must start with a letter, then letters/digits/`_`/`-`. Min length 3. Email/phone-shaped values are rejected.
+- `username` uniqueness is scoped to api-guard users only (admin users with the same column value do not conflict).
 
 ### Login
 ```http
 POST /api/login
+
+{
+    "identifier": "user@example.com",
+    "password": "password123",
+    "fcm_token": "optional",
+    "remember_me": true
+}
 ```
+Returns a Bearer `token` (top level + inside `data`). The `identifier` value is searched across configured email/phone identifiers and (when `HAS_USERNAME_FIELD=true`) the `username` column too — so users can log in with any of those values. On unverified accounts, also triggers a new verify OTP.
 
 ### Firebase Login
 ```http
 POST /api/firebase-login
+
+{
+    "token": "firebase-id-token",
+    "fcm_token": "optional"
+}
 ```
+Social auth (Google/Apple/etc.) via Firebase ID token. Auto-verified, returns a token.
+
+### Auth Config
+```http
+GET /api/auth-config
+```
+Returns the current auth configuration so the client can adapt its UI (which inputs to render, which channels are available, etc.). No body, no token, public.
+
+Response:
+```json
+{
+    "success": true,
+    "data": {
+        "identifiers": ["email", "phone"],
+        "has_username_field": true,
+        "has_email_field": false,
+        "has_phone_field": false,
+        "social_providers": ["google.com", "apple.com"],
+        "max_social_accounts": 0,
+        "social_auth_available": true,
+        "is_otp_whatsapp": false
+    }
+}
+```
+
+Fetch this on app boot. Use it to:
+- Build the register form (which fields are required vs optional vs hidden).
+- Label the single `identifier` input on register/login/forgot-password.
+- Decide whether to show username/social-login UI.
+- Decide whether the OTP body says "We sent a code to your email/phone".
+
+### Check Identifier
+```http
+POST /api/check-identifier
+
+{
+    "identifier": "user@example.com"
+}
+```
+Detects kind (email/phone/username) from the value and queries the matching column when configured (identifier OR `HAS_*_FIELD` extra). Scoped to api-guard users.
+
+Response:
+```json
+{
+    "success": true,
+    "data": {
+        "exists": true,
+        "available_channels": ["email", "phone"]
+    }
+}
+```
+
+`available_channels` lists which OTP delivery destinations are populated on the user record (`"email"`, `"phone"`, both, or neither). Used by the client to:
+- Decide which `type` to pass to `forgot-password`.
+- Pre-submit uniqueness checks before `register`, `update-profile` (username change), or `request-identifier-change`.
+
+When the user is not found: `{ "exists": false, "available_channels": [] }`.
 
 ### Forgot Password
 ```http
 POST /api/forgot-password
-```
-
-### Verify OTP
-```http
-POST /api/verify-otp
-```
-
-### Reset Password
-```http
-POST /api/reset-password
-```
-
-## Protected Endpoints
-
-### Logout
-```http
-POST /api/logout
-Authorization: Bearer {token}
-```
-
-### Refresh Token
-```http
-POST /api/refresh-token
-Authorization: Bearer {token}
-```
-
-### Verify Account
-```http
-POST /api/verify
-Authorization: Bearer {token}
 
 {
+    "identifier": "user@example.com",
+    "type": "email"      // optional — "email" or "phone"
+}
+```
+Sends a reset-password OTP. Channel selection:
+- `type` omitted → priority `email > phone` from the user's populated columns.
+- `type` provided → must be one of the user's populated channels (use `check-identifier` first to discover `available_channels`).
+
+Response includes the actual `channel` used so the client knows where to look. Rate-limited via `throttle:otp`.
+
+**Errors:**
+- 422 `errors.identifier` — user not found OR neither email nor phone populated on the user record.
+- 422 `errors.type` — requested `type` is not populated for this user.
+
+### Verify Forgot Password OTP
+```http
+POST /api/verify-forgot-password-otp
+
+{
+    "identifier": "user@example.com",
     "otp": "123456"
 }
 ```
+
+### Change Forgot Password
+```http
+POST /api/change-forgot-password
+
+{
+    "identifier": "user@example.com",
+    "otp": "123456",
+    "password": "newpassword",
+    "password_confirmation": "newpassword"
+}
+```
+
+## Protected Auth Endpoints
+
+See **User Endpoints** section for the full list of authenticated endpoints (`logout`, `send-otp`, `verify-otp`, `change-password`, `update-profile`, `request-identifier-change`, `verify-identifier-change`, `delete-account`, `social-accounts`, `link-social-account`, `unlink-social-account`, `user`).
 MD
         ];
     }
@@ -1423,65 +1649,127 @@ MD
             'content' => <<<'MD'
 # User Endpoints
 
-All require `Authorization: Bearer {token}`
+All endpoints below require `Authorization: Bearer {token}` and the `user` API role.
+
+## Account
+
+### Current User
+```http
+GET /api/user
+```
+Returns the authenticated user record.
+
+### Logout
+```http
+POST /api/logout
+```
+Revokes the current Bearer token.
+
+### Delete Account
+```http
+DELETE /api/delete-account
+```
+Requires verified account. **Permanently** deletes the user record (bypasses `SoftDeletes` via `forceDelete()`) and revokes all tokens. **Cannot be restored** from the admin trash filter — the row is removed from the database. Use this for GDPR / account-deletion compliance.
 
 ## Profile
-
-### Get Profile
-```http
-GET /api/profile
-```
 
 ### Update Profile
 ```http
 PUT /api/update-profile
 
 {
-    "name": "John Doe"
+    "name": "John Doe",
+    "phone": "+1234567890",
+    "username": "jdoe"
 }
 ```
+Requires verified account. Field rules:
 
-### Update Profile Image
-```http
-POST /api/update-profile-image
-Content-Type: multipart/form-data
+- **`name`** — always editable.
+- **`username`** — always editable when `HAS_USERNAME_FIELD=true` (username is never an identifier). Format: must start with a letter, then letters/digits/`_`/`-`. Min length 3. Email/phone-shaped values rejected.
+- **`email` / `phone`** — editable here **only when they are NOT identifiers**, i.e., enabled as `HAS_EMAIL_FIELD` / `HAS_PHONE_FIELD` extras. Email values are lowercased on save. When email/phone is an identifier, use `request-identifier-change` (OTP-protected).
+- Empty strings are ignored (not written to DB).
 
-image: [file]
-```
+## Password
 
 ### Change Password
 ```http
-PUT /api/change-password
+POST /api/change-password
 
 {
-    "current_password": "old123",
-    "password": "new123",
-    "password_confirmation": "new123"
+    "old_password": "current_password",
+    "password": "new_password",
+    "password_confirmation": "new_password"
 }
 ```
+Requires verified account. Wrong `old_password` returns `errors.old_password` (422). Revokes all other tokens, keeps the current one.
 
-### Delete Account
+## Identifier Change Flow
+
+Used for changing the user's **email or phone identifier** — both are always OTP-protected. Username is not an identifier and is changed via `update-profile` directly.
+
+### Request Identifier Change
 ```http
-DELETE /api/delete-account
-```
+POST /api/request-identifier-change
 
-## Social Accounts (verified users only)
+{
+    "new_identifier": "newemail@example.com"
+}
+```
+Requires verified account. The kind of `new_identifier` (email / phone) is auto-detected and must match one of the configured identifiers in `AUTH_IDENTIFIERS`. Sends an OTP via the matching channel (email → `EmailHelper`; phone → SMS, or WhatsApp when `IS_OTP_WHATSAPP=true`). Email values are lowercased before storage. Rate-limited via `throttle:otp`.
+
+Errors:
+- 422 `errors.new_identifier` — invalid format, not a configured identifier, or fails uniqueness/format rules.
+
+### Verify Identifier Change
+```http
+POST /api/verify-identifier-change
+
+{
+    "new_identifier": "newemail@example.com",
+    "otp": "123456"
+}
+```
+Confirms the OTP and updates the user's email or phone column. Invalid OTP returns `errors.otp` (422).
+
+## OTP (Account Verification)
+
+### Send OTP
+```http
+POST /api/send-otp
+```
+No body. Sends a fresh `verify` OTP via the user's primary identifier channel (email/phone). Rate-limited via `throttle:otp`.
+
+### Verify OTP
+```http
+POST /api/verify-otp
+
+{
+    "otp": "123456"
+}
+```
+Marks the authenticated user as verified. Required before any `verified` route. Invalid OTP returns `errors.otp` (422).
+
+## Social Accounts
+
+All require verified account.
 
 ### List Linked Accounts
 ```http
 GET /api/social-accounts
 ```
 
-### Link Account
+### Link Social Account
 ```http
 POST /api/link-social-account
 
 {
-    "id_token": "firebase-token"
+    "token": "firebase-id-token"
 }
 ```
+Links a social provider to the current user. Constraint failures return `errors.token` (422): invalid token, provider not allowed, account already linked elsewhere, provider already linked to this user, email mismatch, max accounts reached.
 
-### Unlink Account
+### Unlink Social Account
 ```http
 DELETE /api/unlink-social-account
 
@@ -1489,6 +1777,166 @@ DELETE /api/unlink-social-account
     "provider": "google.com"
 }
 ```
+Unlinks a provider. Returns `errors.provider` (422) if the provider is not linked or if it is the only login method (no password and no other social accounts).
+MD
+        ];
+    }
+
+    private function getApiPublicEndpointsContent(): array
+    {
+        return [
+            'title' => 'Public Endpoints',
+            'content' => <<<'MD'
+# Public Endpoints
+
+These endpoints require only the `X-API-TOKEN` header (no Bearer token). All use `throttle:api` rate limiting.
+
+## Translations
+
+Available only when `HAS_TRANSLATIONS=true`. Translations are split into **groups**:
+
+- `api` — backend API response messages (seeded by `TranslationSeeder`, also editable in the CMS). **Server-controlled.** Cannot be created/modified via API.
+- `app` — strings the mobile app contributes / consumes.
+- `web` — strings the web frontend contributes / consumes.
+
+The API endpoints below operate on `app` and `web` only. Pick the group via the `group` parameter (default `app`).
+
+### Fetching Translations
+
+```http
+GET /api/translations?group=app
+Accept-Language: en
+```
+
+Returns all keys for the chosen group in the **current locale** (`Accept-Language`). `group` is optional and accepts `app` or `web` (default `app`).
+
+Response:
+```json
+{
+    "success": true,
+    "data": {
+        "group": "app",
+        "locale": "en",
+        "translations": {
+            "welcome_screen_title": "Welcome",
+            "tap_to_continue": "Tap to continue",
+            ...
+        }
+    }
+}
+```
+
+The client fetches this on boot and on language switch, then merges into its i18n store.
+
+### Adding Translations
+
+```http
+POST /api/translations
+Accept-Language: en
+
+{
+    "group": "app",
+    "translations": {
+        "welcome_screen_title": "Welcome",
+        "tap_to_continue": "Tap to continue"
+    }
+}
+```
+
+- `group` (optional, default `app`): `app` or `web`.
+- `translations` (required): flat object of `key → value` pairs.
+
+Behavior:
+- New key → created in the chosen group. Header's locale gets the value; **all other active locales are seeded as `null`** (admin can fill them later in the CMS).
+- Existing key → only the header's locale value is updated. Other locales are untouched.
+- `api`-group keys are server-controlled and cannot be created/modified here.
+
+Re-call with `Accept-Language: ar` and the same key/group to populate the Arabic value:
+```http
+POST /api/translations
+Accept-Language: ar
+
+{
+    "group": "app",
+    "translations": {
+        "welcome_screen_title": "مرحباً"
+    }
+}
+```
+
+Response:
+```json
+{
+    "success": true,
+    "data": {
+        "group": "app",
+        "locale": "en",
+        "created": 1,
+        "updated": 1
+    }
+}
+```
+
+This lets app/web developers add new strings without redeploying the backend. Admins can later refine the values in the CMS.
+
+### Adding Translations from a Seeder (developers)
+
+For server-controlled `api` keys (anything used by `Trans::get('api.*')`), add to `database/seeders/TranslationSeeder.php`:
+
+```php
+'my_new_message' => [
+    'en' => 'Welcome, :name!',
+    'ar' => 'مرحباً، :name!',
+],
+```
+
+Then re-run:
+```bash
+php artisan db:seed --class=TranslationSeeder
+```
+
+The seeder uses `firstOrCreate`, so existing keys are not overwritten.
+
+### Placeholders (`:name`, `:count`, …)
+
+Translation values may contain Laravel-style placeholders like `:name` or `:count`. These are filled in at render time via `Trans::get('api.welcome', ['name' => $user->name])`.
+
+**CMS rule:** the admin Translations page rejects any save where a locale value is missing a placeholder that exists in the default-language value. The edit modal also shows a "Required placeholders" badge listing the tokens that must remain. Admins can type freely around the placeholder, but they cannot delete or rename it. This protects runtime substitutions from breaking when content editors localize strings.
+
+### List Languages
+
+```http
+GET /api/languages
+```
+
+Returns active languages with `code`, `name`, `native_name`, `direction` (`ltr`/`rtl`), and `is_default`.
+
+## Pages (CMS)
+
+Static content pages managed via the admin panel.
+
+### List Active Pages
+```http
+GET /api/pages
+```
+Returns all active pages with translated `title` and `content`.
+
+### Get Page by Slug
+```http
+GET /api/pages/{slug}
+```
+Returns a single page by slug (e.g. `terms`, `privacy`). Returns 404 if the page doesn't exist or is inactive.
+
+## Authentication-Adjacent
+
+These are also public but documented in **Auth Endpoints**:
+- `POST /api/register`
+- `POST /api/login`
+- `POST /api/firebase-login`
+- `POST /api/check-identifier`
+- `POST /api/forgot-password`
+- `POST /api/verify-forgot-password-otp`
+- `POST /api/change-forgot-password`
 MD
         ];
     }
@@ -1510,7 +1958,29 @@ return ApiResponse::success($data, 'Message');
 
 // Error
 return ApiResponse::error('Error message', $errors, 422);
+
+// Success with Bearer token (auth endpoints)
+return ApiResponse::success($data, 'Logged in', $token);
 ```
+
+## Token Responses
+
+Endpoints that issue a Bearer token (`login`, `firebase-login`) return the token at the **top level** of the response AND duplicated inside `data.token`:
+
+```json
+{
+    "success": true,
+    "message": "Login successful",
+    "errors": null,
+    "token": "1|abc123...",
+    "data": {
+        "user": { ... },
+        "token": "1|abc123..."
+    }
+}
+```
+
+`register` does **not** return a token — call `login` afterwards.
 
 ## HTTP Status Codes
 
@@ -1540,6 +2010,35 @@ return ApiResponse::error('Error message', $errors, 422);
     }
 }
 ```
+
+## Field-Keyed Errors (Frontend Convention)
+
+Any error tied to a specific request input field is returned as HTTP **422** with the error keyed under the **same name as the input parameter**. The frontend can look up `errors.{paramName}` to show inline messages next to the matching input.
+
+```json
+{
+    "success": false,
+    "message": "Invalid OTP.",
+    "errors": {
+        "otp": ["Invalid OTP."]
+    },
+    "data": null
+}
+```
+
+Examples:
+
+| Endpoint | Trigger | Error Key |
+|----------|---------|-----------|
+| `login` | invalid credentials | `password` |
+| `login` / `forgot-password` / `verify-forgot-password-otp` / `change-forgot-password` / `register` | identifier validation / user not found | `identifier` |
+| `verify-otp` / `verify-forgot-password-otp` / `change-forgot-password` / `verify-identifier-change` | invalid OTP | `otp` |
+| `change-password` | wrong current password | `old_password` |
+| `request-identifier-change` / `verify-identifier-change` | invalid format / wrong kind / unique-fail | `new_identifier` |
+| `firebase-login` / `link-social-account` | invalid token, provider issues, email mismatch, etc. | `token` |
+| `unlink-social-account` | provider not linked, cannot unlink last | `provider` |
+
+State / config errors (account inactive, unauthorized access, feature disabled, etc.) remain plain top-level error messages with `errors: null`.
 
 ## Validation Errors
 

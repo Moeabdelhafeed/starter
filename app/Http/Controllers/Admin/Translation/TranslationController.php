@@ -7,6 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Language;
 use App\Models\TranslationKey;
 use Illuminate\Http\Request;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 
 class TranslationController extends Controller
@@ -14,7 +15,7 @@ class TranslationController extends Controller
     /**
      * Available translation groups.
      */
-    protected array $groups = ['all', 'api', 'app'];
+    protected array $groups = ['all', 'api', 'app', 'web'];
 
     public function index(Request $request)
     {
@@ -81,6 +82,30 @@ class TranslationController extends Controller
 
         $translation = TranslationKey::findOrFail($request->id);
 
+        // Detect placeholder tokens (Laravel `:name` style) in the default-language value.
+        // The default language is treated as the source of truth — every other locale must
+        // preserve the same placeholders so the runtime substitution still works.
+        $defaultCode = Language::default()->first()?->code ?? 'en';
+        $defaultValue = $request->input($defaultCode, '');
+        $requiredPlaceholders = $this->extractPlaceholders($defaultValue);
+
+        $errors = [];
+        foreach ($activeLanguages as $code) {
+            $value = $request->input($code, '');
+            $localePlaceholders = $this->extractPlaceholders($value);
+
+            $missing = array_diff($requiredPlaceholders, $localePlaceholders);
+            if (! empty($missing)) {
+                $errors[$code] = __('admin.translation_missing_placeholders', [
+                    'placeholders' => implode(', ', array_map(fn ($p) => ':'.$p, $missing)),
+                ]);
+            }
+        }
+
+        if (! empty($errors)) {
+            throw ValidationException::withMessages($errors);
+        }
+
         foreach ($activeLanguages as $code) {
             $translation->values()->updateOrCreate(
                 ['locale' => $code],
@@ -94,6 +119,18 @@ class TranslationController extends Controller
         return redirect()->back()->with([
             'success' => __('admin.updated_successfully'),
         ]);
+    }
+
+    /**
+     * Extract `:placeholder` tokens from a translation value.
+     *
+     * @return array<int, string>
+     */
+    private function extractPlaceholders(string $value): array
+    {
+        preg_match_all('/(?<!:):([a-zA-Z_][a-zA-Z0-9_]*)/', $value, $matches);
+
+        return array_values(array_unique($matches[1] ?? []));
     }
 
     public function destroy(TranslationKey $translation)

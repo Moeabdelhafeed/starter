@@ -1927,10 +1927,6 @@ const sendTestFcm = () => {
                                     :class="authForm.identifiers.includes('phone') ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:bg-muted/80'">
                                     {{ t('phone') }}
                                 </Button>
-                                <Button type="button" @click="toggleIdentifier('username')"
-                                    :class="authForm.identifiers.includes('username') ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:bg-muted/80'">
-                                    {{ t('username') }}
-                                </Button>
                             </div>
                         </div>
 
@@ -1949,16 +1945,14 @@ const sendTestFcm = () => {
                                     <Checkbox v-model="authForm.has_phone_field" />
                                     {{ t('phone') }}
                                 </label>
-                                <label v-if="!authForm.identifiers.includes('username')"
-                                    class="flex items-center gap-2 text-sm text-foreground">
-                                    <Checkbox v-model="authForm.has_username_field" />
-                                    {{ t('username') }}
+                                <label class="flex flex-col gap-1 text-sm text-foreground">
+                                    <span class="flex items-center gap-2">
+                                        <Checkbox v-model="authForm.has_username_field" />
+                                        {{ t('username') }}
+                                    </span>
+                                    <span class="ms-7 text-xs text-muted-foreground">{{ t('username_login_alias_note') }}</span>
                                 </label>
                             </div>
-                            <p v-if="authForm.identifiers.length === 3"
-                                class="mt-2 text-xs text-muted-foreground italic">
-                                {{ t('all_fields_are_identifiers') }}
-                            </p>
                         </div>
 
                         <div class="pt-2">

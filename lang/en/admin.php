@@ -2,6 +2,7 @@
 
 return [
     'updated_successfully' => 'Updated successfully.',
+    'translation_missing_placeholders' => 'This value is missing required placeholders: :placeholders. They must remain in the text.',
     'created_successfully' => 'Created successfully.',
     'deleted_successfully' => 'Deleted successfully.',
     'restored_successfully' => 'Restored successfully.',

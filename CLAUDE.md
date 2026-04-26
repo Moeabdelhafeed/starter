@@ -58,16 +58,25 @@ resources/js/
 - Protected: `middleware(['auth:sanctum', 'role:user', 'active'])`.
 - Verified-only routes add `->middleware('verified')`.
 - App user routes are conditional: `env('APP_USERS') === true`.
-- Responses use `ApiResponse::success($data)` / `ApiResponse::error($message)`.
+- Responses use `ApiResponse::success($data, $message, $token = null)` / `ApiResponse::error($message, $errors, $status)`.
+- When `$token` is passed to `ApiResponse::success()`, it is included **both** at the top level (`response.token`) AND inside `data.token`. Use this for any endpoint that issues a Bearer token (`login`, `firebase-login`).
+- `POST /api/register` does **not** issue a token. It creates the user and sends a verification OTP. The client must call `POST /api/login` afterwards to obtain a token (login on an unverified account triggers another verify OTP and returns a token usable with `verify-otp`).
+- **Auto-verify on `username` identifier:** when the resolved identifier kind is `username` (no OTP delivery channel), `register` sets `verified_at = now()` immediately and skips OTP. The user can call `login` and receive a token without the verify-OTP step. Email/phone identifiers still go through the normal OTP flow.
 
 **API Rate Limiting:**
 Three custom rate limiters are defined in `AppServiceProvider::configureRateLimiting()`:
 
 | Limiter | Purpose | Default | Middleware |
 |---------|---------|---------|------------|
-| `api` | General API endpoints | 60 req/1 min | `throttle:api` |
+| `api` | General API endpoints + OTP **verification** | 60 req/1 min | `throttle:api` |
 | `auth` | Login/register attempts | 5 req/1 min | `throttle:auth` |
-| `otp` | OTP/verification requests | 3 req/5 min | `throttle:otp` |
+| `otp` | OTP **sending** only (`send-otp`, `forgot-password`) | 3 req/5 min | `throttle:otp` |
+
+`throttle:otp` is applied **only to OTP-sending endpoints** to prevent SMS/email spam. OTP **verification** (`verify-otp`, `verify-forgot-password-otp`, `change-forgot-password`) uses standard `throttle:api` so users can retry codes without lockout.
+
+There are **two OTP types** stored in the `otps` table:
+- `verify` — activate account (sent via `POST /api/send-otp`, consumed by `POST /api/verify-otp`)
+- `reset_password` — password reset (sent via `POST /api/forgot-password`, consumed by `verify-forgot-password-otp` + `change-forgot-password`)
 
 Rate limits are configurable via `.env` variables (see Environment Variables section) or through the DevSettings CMS under "Validation Settings > API Rate Limiting".
 
@@ -641,8 +650,33 @@ Run: `php artisan db:seed --class=TranslationSeeder`
 - Cache is cleared automatically when translations are updated in CMS
 
 **Groups:**
-- `api` — API response messages (editable in CMS)
-- `app` — App translations added via API or CMS (copied to new languages from default)
+- `api` — API response messages. **Server-controlled.** Editable in the CMS, but cannot be created/modified via API.
+- `app` — Mobile-app strings.
+- `web` — Web frontend strings.
+
+The public translation endpoints work on `app` and `web` only. The group is selected via a `group` parameter (default `app`).
+
+**`POST /api/translations` body:**
+
+```json
+{
+    "group": "app",
+    "translations": {
+        "key1": "value1",
+        "key2": "value2"
+    }
+}
+```
+
+- `group` (optional, default `app`): `app` or `web`. Other values rejected.
+- Locale comes from `Accept-Language`.
+- New key → created in the chosen group. Header's locale gets the value; all other active locales are seeded as `null` (admin fills them later in the CMS).
+- Existing key → only the header's locale value is updated. Other locales are untouched.
+- Calling with the same key/group under a different `Accept-Language` populates that locale.
+
+**`GET /api/translations?group=app`** — fetch keys for the chosen group in the current locale. Returns `{ group, locale, translations: { key: value, ... } }`.
+
+**Placeholder protection in CMS:** Translation values may contain Laravel `:placeholder` tokens (e.g. `:name`, `:domains`). When admins edit a translation in the Translations CMS, the controller extracts placeholders from the **default-language value** and rejects any locale value that omits one of them (HTTP 422 with `errors.{locale}` per missing locale). The frontend edit modal also surfaces a "Required placeholders" badge listing the tokens and shows inline missing-placeholder warnings as the admin types. Admins can type freely around the placeholder but cannot delete or rename it without saving failing.
 
 ---
 
@@ -667,25 +701,88 @@ When creating a new feature, follow this order:
 
 ## Authentication Configuration
 
-The app user (mobile API) auth system supports **multiple login identifiers** and optional extra fields, all configured via `.env`:
+The app user (mobile API) auth system uses **email and/or phone as identifiers**, with username as a separate optional field that doubles as a login alias:
 
-- `AUTH_IDENTIFIERS` — comma-separated list of fields users can log in with (e.g. `email`, `email,phone`, `email,phone,username`). At least one required.
-- `HAS_EMAIL_FIELD` — whether email is available as an extra profile field (ignored if `email` is an identifier — always available).
-- `HAS_PHONE_FIELD` — whether phone is available as an extra profile field (ignored if `phone` is an identifier — always available).
-- `HAS_USERNAME_FIELD` — whether username is available as an extra profile field (ignored if `username` is an identifier — always available).
+- `AUTH_IDENTIFIERS` — comma-separated list of identifiers. **Allowed values: `email`, `phone`** (comma-separated, e.g. `email`, `phone`, `email,phone`). Username is **not** allowed here. Defaults to `email` if empty/invalid.
+- `HAS_EMAIL_FIELD` — when `true` AND email is not an identifier, exposes `email` as an optional profile field.
+- `HAS_PHONE_FIELD` — when `true` AND phone is not an identifier, exposes `phone` as an optional profile field.
+- `HAS_USERNAME_FIELD` — when `true`, the `username` field is **required at register**, **searchable at login** (login alias), and editable via `update-profile`. Username is never an identifier; it is always a separate column.
 
-These are configurable in the DevSettings page under "Authentication Config". The admin AppUser table, edit modal, and API endpoints all adapt dynamically based on these settings.
+DevSettings UI under "Authentication Config" lets you toggle these. Admin AppUser table, edit modal, and API endpoints adapt dynamically.
 
-**Registration:** Each identifier field is required by name (e.g. if `AUTH_IDENTIFIERS=email,phone`, both `email` and `phone` are required). Non-identifier fields that are enabled via `HAS_*_FIELD` are optional.
+**Registration:** Request body always includes `policy_agreed`, `name`, `identifier` (email or phone), `password`, `password_confirmation`. When `HAS_USERNAME_FIELD=true`, `username` is also required. Optional non-identifier extras (`email`/`phone` when `HAS_*_FIELD=true` and not identifier) keep their own keys.
 
-**Login:** The `identifier` field in the login request is searched across all configured identifier columns. Users can log in with any of their identifiers.
+`identifier` resolution against `AUTH_IDENTIFIERS`:
+- **Single identifier configured** → value validated against that field's rules.
+- **Multiple identifiers (`email,phone`)** → kind detected from format (email pattern → email, `+` and digits → phone) and validated against the matching field. Falls back to the first configured identifier on detection failure.
+
+**Login:** `identifier` is searched across configured email/phone identifier columns AND the `username` column when `HAS_USERNAME_FIELD=true`. Kind is detected from the value's format and only the matching column is queried (no OR-collisions). Users can log in with any of those values.
+
+**Email case normalization:** the `User` model lowercases `email` on every write (via `setEmailAttribute`). Lookup methods (`findUserByIdentifier`, `checkIdentifier`, identifier-change) lowercase email values before query/storage. Cross-DB safe (MySQL/PostgreSQL).
+
+**Username format:** when enabled, must match `/^[A-Za-z][A-Za-z0-9_-]*$/` with `min:3`. Email/phone-shaped values are rejected. Uniqueness is scoped to api-guard users only (via `whereExists` on `model_has_roles` + `roles`).
+
+**Identifier error format:** Auth endpoints (`register`, `login`, `forgot-password`, `verify-forgot-password-otp`, `change-forgot-password`) return identifier-validation errors and `user not found` as HTTP **422** with errors keyed under `identifier`:
+
+```json
+{
+    "success": false,
+    "message": "...",
+    "errors": { "identifier": ["..."] },
+    "data": null
+}
+```
+
+**Field-keyed error convention (frontend display rule):** Any API error tied to a specific request input field is returned as HTTP **422** with the error keyed under the **same name as the input parameter**. The frontend should look up `errors.{paramName}` to show inline messages next to the matching input.
+
+Mapping per endpoint:
+
+| Endpoint | Trigger | Error Key |
+|----------|---------|-----------|
+| `POST /api/login` | invalid credentials | `errors.password` |
+| `POST /api/login`, `forgot-password`, `verify-forgot-password-otp`, `change-forgot-password`, `register` | user not found / identifier validation | `errors.identifier` |
+| `POST /api/verify-otp`, `verify-forgot-password-otp`, `change-forgot-password`, `verify-identifier-change` | invalid OTP | `errors.otp` |
+| `POST /api/change-password` | wrong current password | `errors.old_password` |
+| `POST /api/request-identifier-change`, `verify-identifier-change` | invalid format / wrong kind / unique-fail | `errors.new_identifier` |
+| `POST /api/firebase-login`, `link-social-account` | invalid Firebase token, provider not allowed, email mismatch, account exists with password, social max-accounts reached, social account already linked, social provider already linked, missing email in token | `errors.token` |
+| `DELETE /api/unlink-social-account` | provider not linked, cannot unlink last social account | `errors.provider` |
+
+State/config errors (`account_is_inactive`, `unauthorized_access`, `social_auth_requires_email`, `email_change_not_available`, `user_role_not_found`, `policy_not_agreed`) stay as plain top-level error messages with `errors: null` since they are not tied to a single input field.
+
+Validation errors thrown by Laravel's request validation (`$request->validate(...)`) follow the same format automatically — keys match the rule field names.
 
 **OTP delivery priority:** When multiple identifiers are configured, OTP is sent via the first available channel:
 1. `email` (if email is an identifier) — sent via EmailHelper.
 2. `phone` (if phone is an identifier) — sent via SMS or WhatsApp (based on `IS_OTP_WHATSAPP`).
 3. `username` only — OTP stored but not delivered (available in testing mode via API response).
 
-**API update-profile endpoint** (`PUT /api/update-profile`): Lets users update `name` and any non-identifier fields that are enabled. Identifier fields cannot be changed through this endpoint.
+**User serialization (API only):** `User::toArray()` strips `email` / `phone` / `username` from API responses when they are NOT configured — i.e. neither listed in `AUTH_IDENTIFIERS` nor enabled via `HAS_*_FIELD`. This keeps mobile-app payloads free of irrelevant columns. Admin/web requests (anything not under `api/*`) keep all columns intact so the admin panel can still manage every field.
+
+**API update-profile endpoint** (`PUT /api/update-profile`):
+- `name` — always editable.
+- `username` — always editable when `HAS_USERNAME_FIELD=true` (username is never an identifier).
+- `email` / `phone` — editable here **only when NOT an identifier** (enabled as `HAS_EMAIL_FIELD` / `HAS_PHONE_FIELD` extras). When email/phone is an identifier, use `request-identifier-change` instead.
+
+**API identifier-change flow** (`POST /api/request-identifier-change` + `POST /api/verify-identifier-change`):
+- Used for **email and phone identifier changes only** (always OTP-protected).
+- Body: `new_identifier`. Kind auto-detected (email or phone) and must match one of the configured identifiers in `AUTH_IDENTIFIERS`.
+- `request-identifier-change` sends an OTP via the matching channel (email → `EmailHelper`; phone → SMS, or WhatsApp when `IS_OTP_WHATSAPP=true`). Rate-limited via `throttle:otp` (3/5min).
+- `verify-identifier-change` confirms the OTP and updates the column.
+- Username changes go through `update-profile` (no OTP).
+- Field-keyed errors under `new_identifier` (validation) or `otp` (invalid OTP).
+
+**Auth config endpoint:** `GET /api/auth-config` (public, throttle:api) exposes the live auth configuration so mobile/web clients can adapt their UI on boot. Returns `identifiers`, `has_username_field`, `has_email_field`, `has_phone_field`, `social_providers`, `max_social_accounts`, `social_auth_available`, `is_otp_whatsapp`. Conditional on `APP_USERS=true`.
+
+**Account deletion is permanent:** `DELETE /api/delete-account` calls `forceDelete()` on the user (bypasses `SoftDeletes`). The row is removed from the DB and cannot be restored from the admin trash filter. Use for GDPR / right-to-erasure compliance. Admin panel deletions of app users still go through soft delete.
+
+**Forgot-password channel:** `forgot-password` takes `identifier` plus an optional `type` (`"email"` or `"phone"`).
+- When `type` is omitted → channel auto-picked using priority `email > phone` from the user's populated columns.
+- When `type` is provided → must be one of the user's populated channels (else 422 `errors.type`).
+- Response includes the actual `channel` used so the client knows where the OTP went.
+
+**Check-identifier reuse:** `POST /api/check-identifier` detects kind and queries the matching column scoped to api-guard users (supports identifier columns AND `HAS_*_FIELD` extras). Response includes:
+- `exists` — whether a user matched.
+- `available_channels` — array listing which OTP delivery channels (`"email"`, `"phone"`) are populated on that user. The client uses this to decide which `type` to pass to `forgot-password`, and as a pre-submit uniqueness check before `register`, `update-profile` (username), or `request-identifier-change`.
 
 ---
 

@@ -17,32 +17,31 @@ if (env('APP_USERS') === true) {
         Route::post('/firebase-login', [AppUserController::class, 'firebaseLogin']);
     });
 
-    // OTP routes (very strict rate limit)
+    // OTP-sending routes (strict rate limit — protect from spam)
     Route::middleware('throttle:otp')->group(function () {
         Route::post('/forgot-password', [AppUserController::class, 'forgotPassword']);
-        Route::post('/verify-forgot-password-otp', [AppUserController::class, 'verifyForgotPasswordOtp']);
-        Route::post('/change-forgot-password', [AppUserController::class, 'changeForgotPassword']);
     });
 
-    // Public routes with standard rate limit
+    // Public OTP-verification + identifier checks (standard rate limit — let users retry codes)
     Route::middleware('throttle:api')->group(function () {
+        Route::get('/auth-config', [AppUserController::class, 'authConfig']);
         Route::post('/check-identifier', [AppUserController::class, 'checkIdentifier']);
+        Route::post('/verify-forgot-password-otp', [AppUserController::class, 'verifyForgotPasswordOtp']);
+        Route::post('/change-forgot-password', [AppUserController::class, 'changeForgotPassword']);
     });
 
     // Protected routes
     Route::middleware(['auth:sanctum', 'role:user', 'active', 'throttle:api'])->group(function () {
         Route::post('/logout', [AppUserController::class, 'logout']);
 
-        // OTP verification (stricter limit)
-        Route::middleware('throttle:otp')->group(function () {
-            Route::post('/send-otp', [AppUserController::class, 'sendOtp']);
-            Route::post('/verify-otp', [AppUserController::class, 'verifyOtp']);
-        });
+        // OTP-sending (strict rate limit). Verification stays on standard throttle:api.
+        Route::post('/send-otp', [AppUserController::class, 'sendOtp'])->middleware('throttle:otp');
+        Route::post('/verify-otp', [AppUserController::class, 'verifyOtp']);
 
         Route::post('/change-password', [AppUserController::class, 'changePassword'])->middleware('verified');
         Route::put('/update-profile', [AppUserController::class, 'updateProfile'])->middleware('verified');
-        Route::post('/request-email-change', [AppUserController::class, 'requestEmailChange'])->middleware('verified');
-        Route::post('/verify-email-change', [AppUserController::class, 'verifyEmailChange'])->middleware('verified');
+        Route::post('/request-identifier-change', [AppUserController::class, 'requestIdentifierChange'])->middleware(['verified', 'throttle:otp']);
+        Route::post('/verify-identifier-change', [AppUserController::class, 'verifyIdentifierChange'])->middleware('verified');
         Route::delete('/delete-account', [AppUserController::class, 'deleteAccount'])->middleware('verified');
         Route::get('/social-accounts', [AppUserController::class, 'getSocialAccounts'])->middleware('verified');
         Route::post('/link-social-account', [AppUserController::class, 'linkSocialAccount'])->middleware('verified');

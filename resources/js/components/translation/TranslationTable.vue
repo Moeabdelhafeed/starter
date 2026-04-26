@@ -17,6 +17,7 @@ const getGroupBadgeClass = (group) => {
     const classes = {
         api: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
         app: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400',
+        web: 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400',
     };
     return classes[group] || classes.app;
 };
@@ -25,6 +26,7 @@ const getGroupLabel = (group) => {
     const labels = {
         api: t('api_group'),
         app: t('app_group'),
+        web: t('web_group'),
     };
     return labels[group] || group;
 };

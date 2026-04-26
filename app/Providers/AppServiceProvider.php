@@ -2,6 +2,7 @@
 
 namespace App\Providers;
 
+use App\Helpers\Trans;
 use Carbon\CarbonImmutable;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
@@ -64,7 +65,7 @@ class AppServiceProvider extends ServiceProvider
                 ->response(function (Request $request, array $headers) {
                     return response()->json([
                         'success' => false,
-                        'message' => __('api.too_many_requests'),
+                        'message' => Trans::get('api.too_many_requests'),
                     ], 429, $headers);
                 });
         });
@@ -79,7 +80,7 @@ class AppServiceProvider extends ServiceProvider
                 ->response(function (Request $request, array $headers) {
                     return response()->json([
                         'success' => false,
-                        'message' => __('api.too_many_login_attempts'),
+                        'message' => Trans::get('api.too_many_login_attempts'),
                     ], 429, $headers);
                 });
         });
@@ -94,7 +95,7 @@ class AppServiceProvider extends ServiceProvider
                 ->response(function (Request $request, array $headers) {
                     return response()->json([
                         'success' => false,
-                        'message' => __('api.too_many_otp_requests'),
+                        'message' => Trans::get('api.too_many_otp_requests'),
                     ], 429, $headers);
                 });
         });
