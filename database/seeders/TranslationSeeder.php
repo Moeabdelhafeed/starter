@@ -83,6 +83,14 @@ class TranslationSeeder extends Seeder
             'en' => 'Account deleted successfully.',
             'ar' => 'تم حذف الحساب بنجاح.',
         ],
+        'account_restored' => [
+            'en' => 'Welcome back. Your account has been restored.',
+            'ar' => 'مرحبًا بعودتك. تمت استعادة حسابك.',
+        ],
+        'account_suspended' => [
+            'en' => 'Your account is suspended. Please contact support.',
+            'ar' => 'تم تعليق حسابك. يرجى التواصل مع الدعم.',
+        ],
 
         // OTP & Verification
         'otp_sent' => [
@@ -108,6 +116,22 @@ class TranslationSeeder extends Seeder
         'otp_subject_change_identifier' => [
             'en' => 'Change Identifier Verification',
             'ar' => 'التحقق من تغيير المعرّف',
+        ],
+        'email_otp_greeting' => [
+            'en' => 'Hello :name,',
+            'ar' => 'مرحباً :name،',
+        ],
+        'email_otp_intro' => [
+            'en' => 'Your verification code is:',
+            'ar' => 'رمز التحقق الخاص بك هو:',
+        ],
+        'email_otp_expiry' => [
+            'en' => 'This code will expire in 5 minutes.',
+            'ar' => 'هذا الرمز سوف تنتهي صلاحيته خلال 5 دقائق.',
+        ],
+        'email_otp_ignore' => [
+            'en' => "If you didn't request this code, please ignore this email.",
+            'ar' => 'إذا لم تكن قد طلبت هذا الرمز، يرجى تجاهل هذا البريد الإلكتروني.',
         ],
         'otp_not_available' => [
             'en' => 'OTP not available for this identifier type.',

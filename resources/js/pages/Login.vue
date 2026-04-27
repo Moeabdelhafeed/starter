@@ -3,10 +3,10 @@
  * Login Page Component
  * Handles user authentication and locale switching using Inertia.js and Vue 3.
  */
-import { Head, Link, useForm, usePage } from '@inertiajs/vue3';
+import { Head, useForm, usePage } from '@inertiajs/vue3';
 import { ref, computed, onMounted } from 'vue';
 import { useI18n } from 'vue-i18n';
-import { BookOpen, Copy, Check } from 'lucide-vue-next';
+import { Copy, Check } from 'lucide-vue-next';
 import Button from '../components/ui/button/Button.vue';
 import Input from '../components/ui/input/Input.vue';
 
@@ -182,13 +182,6 @@ const changeLocale = () => {
                     </div>
                 </div>
 
-                <Link
-                    :href="route('docs')"
-                    class="flex w-full items-center justify-center gap-2 rounded-md border bg-card px-4 py-2 text-sm font-medium text-foreground transition hover:bg-muted"
-                >
-                    <BookOpen class="size-4" />
-                    {{ t('documentation') }}
-                </Link>
             </div>
         </div>
 

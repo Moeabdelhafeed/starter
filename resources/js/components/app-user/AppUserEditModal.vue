@@ -28,20 +28,21 @@ const form = useForm({
     password: '',
 });
 
-watch(
-    () => props.user,
-    (newUser) => {
-        if (newUser) {
-            form.id = newUser.id;
-            form.name = newUser.name;
-            form.email = newUser.email || '';
-            form.phone = newUser.phone || '';
-            form.username = newUser.username || '';
-            form.password = '';
-        }
-    },
-    { immediate: true },
-);
+const populateForm = () => {
+    const newUser = props.user;
+    if (!newUser) return;
+    form.id = newUser.id;
+    form.name = newUser.name;
+    form.email = newUser.email || '';
+    form.phone = newUser.phone || '';
+    form.username = newUser.username || '';
+    form.password = '';
+};
+
+watch(() => props.user, populateForm, { immediate: true });
+watch(() => props.isOpen, (open) => {
+    if (open) populateForm();
+});
 
 const close = () => {
     emit('close');

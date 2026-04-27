@@ -23,7 +23,7 @@ app/Http/Controllers/
 └── Api/            # Mobile app REST API
 
 app/Models/         # Eloquent models
-app/Traits/         # HasImage, HasVideo, LogsActivity, HasTranslations, HasSoftDeleteActions, NotifiesAdmin
+app/Traits/         # HasImage, HasVideo, LogsActivity, HasTranslations, HasSoftDeleteActions, NotifiesAdmin, BlocksRestoreIfParentTrashed
 app/Helpers/        # ApiResponse, EmailHelper, FCMHelper, SendSMS, SendWhatsapp
 
 resources/js/
@@ -64,13 +64,14 @@ resources/js/
 - **Auto-verify on `username` identifier:** when the resolved identifier kind is `username` (no OTP delivery channel), `register` sets `verified_at = now()` immediately and skips OTP. The user can call `login` and receive a token without the verify-OTP step. Email/phone identifiers still go through the normal OTP flow.
 
 **API Rate Limiting:**
-Three custom rate limiters are defined in `AppServiceProvider::configureRateLimiting()`:
+Four custom rate limiters are defined in `AppServiceProvider::configureRateLimiting()`:
 
 | Limiter | Purpose | Default | Middleware |
 |---------|---------|---------|------------|
 | `api` | General API endpoints + OTP **verification** | 60 req/1 min | `throttle:api` |
 | `auth` | Login/register attempts | 5 req/1 min | `throttle:auth` |
 | `otp` | OTP **sending** only (`send-otp`, `forgot-password`) | 3 req/5 min | `throttle:otp` |
+| `translations` | Translations + languages endpoints (`/translations`, `/languages`) | **unlimited** when `IS_TESTING=true`; otherwise same as `api` | `throttle:translations` |
 
 `throttle:otp` is applied **only to OTP-sending endpoints** to prevent SMS/email spam. OTP **verification** (`verify-otp`, `verify-forgot-password-otp`, `change-forgot-password`) uses standard `throttle:api` so users can retry codes without lockout.
 
@@ -167,6 +168,23 @@ When using this trait on a new model, add translations for the model name to bot
 ```
 
 The key format is `model_{snake_case_class_name}`. The system stores translation keys (not translated text) and translates on-the-fly based on the viewing admin's locale.
+
+**`BlocksRestoreIfParentTrashed`** — use on any soft-deletable child model whose parent must be alive for the row to make sense:
+```php
+use App\Traits\BlocksRestoreIfParentTrashed;
+use Illuminate\Database\Eloquent\SoftDeletes;
+
+class Post extends Model {
+    use SoftDeletes, BlocksRestoreIfParentTrashed;
+
+    protected array $blockRestoreIfTrashed = ['user'];
+
+    public function user() { return $this->belongsTo(User::class); }
+}
+```
+- On admin restore, hooks `restoring` and checks each declared relation via `withTrashed()`.
+- If any parent is trashed, throws `ValidationException` keyed under the relation name with `admin.cannot_restore_with_trashed_parent`. Admin UI surfaces it as a flash error.
+- Bulk-restore should wrap each row in try/catch so one blocked row doesn't abort the batch.
 
 **`HasTranslations`** — use on any model that needs translatable fields:
 ```php
@@ -773,7 +791,13 @@ Validation errors thrown by Laravel's request validation (`$request->validate(..
 
 **Auth config endpoint:** `GET /api/auth-config` (public, throttle:api) exposes the live auth configuration so mobile/web clients can adapt their UI on boot. Returns `identifiers`, `has_username_field`, `has_email_field`, `has_phone_field`, `social_providers`, `max_social_accounts`, `social_auth_available`, `is_otp_whatsapp`. Conditional on `APP_USERS=true`.
 
-**Account deletion is permanent:** `DELETE /api/delete-account` calls `forceDelete()` on the user (bypasses `SoftDeletes`). The row is removed from the DB and cannot be restored from the admin trash filter. Use for GDPR / right-to-erasure compliance. Admin panel deletions of app users still go through soft delete.
+**Account deletion (user-initiated, restorable):** `DELETE /api/delete-account` sets `users.account_deleted_at = now()` and revokes all tokens. The row stays in DB. `POST /api/check-identifier` returns `pending_deletion: true` so the client can prompt the user. `POST /api/login` with valid credentials clears `account_deleted_at` and returns `account_restored: true`. Purge runs via the global `PurgeDeletedUsersAfterResponse` middleware: every HTTP request fires `Artisan::call('users:purge-deleted')` in the middleware's `terminate()` hook (after the response is sent to the client), throttled to once per hour with a cache lock and capped at 50 rows per run. No cron, no queue worker. The command calls `forceDelete()` on accounts older than the retention window, triggering `User::$cascadeOnDelete`. Retention is configurable via `ACCOUNT_DELETION_RETENTION_DAYS` env var or DevSettings → "Account Deletion Retention" (default 30 days). Admin soft-delete (Laravel `SoftDeletes` / `deleted_at`) is independent and unchanged — admin-trashed rows are NOT auto-purged; admin-trashed users see `suspended: true` from `check-identifier` and a 403 `api.account_suspended` from login.
+
+**Cascade declarations on User:**
+- `protected array $cascadeOnDelete = [];` — relations to delete alongside the user. Admin soft-delete stamps each cascaded child's `deleted_at` with the parent's exact timestamp (bypasses child model events). Force-delete (admin or middleware purge) cascades to `forceDelete()` on the relations.
+- `protected array $cascadeOnRestore = [];` — relations to restore alongside the user when admin restores from trash. Matches children whose `deleted_at` equals the parent's pre-restore `deleted_at`, so children trashed independently of the user are left alone. Captured via the `restoring` event before Laravel clears `deleted_at`, applied in the `restored` event.
+
+Pair with [BlocksRestoreIfParentTrashed](app/Traits/BlocksRestoreIfParentTrashed.php) on the child model so admins can't restore an orphaned child while its parent is still trashed.
 
 **Forgot-password channel:** `forgot-password` takes `identifier` plus an optional `type` (`"email"` or `"phone"`).
 - When `type` is omitted → channel auto-picked using priority `email > phone` from the user's populated columns.
@@ -958,6 +982,7 @@ Key `.env` flags that affect behavior:
 - `RATE_LIMIT_API` / `RATE_LIMIT_API_DECAY` — general API rate limit (requests per decay minutes, default: 60/1).
 - `RATE_LIMIT_AUTH` / `RATE_LIMIT_AUTH_DECAY` — authentication rate limit (default: 5/1).
 - `RATE_LIMIT_OTP` / `RATE_LIMIT_OTP_DECAY` — OTP request rate limit (default: 3/5).
+- `ACCOUNT_DELETION_RETENTION_DAYS` — days a user-initiated soft deletion is retained before permanent purge (default: 30).
 
 ---
 
@@ -978,34 +1003,6 @@ When adding new API endpoints, always update this collection file to keep it in 
 - `public/favicon.ico` ↔ `resources/js/resources/favicon.ico`
 
 The DevSettings logo/favicon upload handles both locations automatically.
-
----
-
-## Documentation System
-
-In-app documentation accessible at `/docs` (local environment only).
-
-### Features
-
-- **Side Navigation:** Collapsible sections with icons
-- **Search:** Filter documentation in real-time
-- **Markdown Rendering:** Code blocks, tables, lists
-- **Responsive:** Works on mobile with collapsible menu
-
-### Sections Covered
-
-- Getting Started (installation, configuration, directory structure)
-- Authentication (dual guard, admin auth, API auth, social auth, OTP)
-- Features (users & roles, translations, activity logs, pages, soft deletes)
-- API Reference (endpoints, responses, authentication)
-- Traits (HasImage, HasVideo, HasTranslations, LogsActivity, HasSoftDeleteActions)
-- Frontend (Vue components, UI components, modals, forms, RTL)
-- Broadcasting (Pusher setup, events, listening)
-- Deployment (environment setup, SSH deployment, production config)
-
-### Access
-
-Available via Navbar → Documentation (only when `APP_ENV=local`).
 
 ---
 

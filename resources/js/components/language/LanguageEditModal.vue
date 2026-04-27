@@ -28,21 +28,22 @@ const form = useForm({
     _method: 'PUT',
 });
 
-watch(
-    () => props.language,
-    (newLang) => {
-        if (newLang) {
-            form.code = newLang.code;
-            form.name = newLang.name;
-            form.native_name = newLang.native_name;
-            form.direction = newLang.direction;
-            form.is_active = newLang.is_active;
-            form.is_default = newLang.is_default;
-            form.image = null;
-        }
-    },
-    { immediate: true },
-);
+const populateForm = () => {
+    const newLang = props.language;
+    if (!newLang) return;
+    form.code = newLang.code;
+    form.name = newLang.name;
+    form.native_name = newLang.native_name;
+    form.direction = newLang.direction;
+    form.is_active = newLang.is_active;
+    form.is_default = newLang.is_default;
+    form.image = null;
+};
+
+watch(() => props.language, populateForm, { immediate: true });
+watch(() => props.isOpen, (open) => {
+    if (open) populateForm();
+});
 
 const close = () => {
     emit('close');

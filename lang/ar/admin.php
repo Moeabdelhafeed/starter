@@ -39,6 +39,8 @@ return [
     'branch_exists' => 'الفرع :branch موجود بالفعل.',
     'validation_config_updated' => 'تم تحديث إعدادات التحقق بنجاح.',
     'rate_limit_config_updated' => 'تم تحديث إعدادات تحديد المعدل بنجاح.',
+    'account_deletion_config_updated' => 'تم تحديث مدة الاحتفاظ بحذف الحساب بنجاح.',
+    'cannot_restore_with_trashed_parent' => 'لا يمكن الاستعادة: العنصر المرتبط (:relation) محذوف. استعِد العنصر الأصلي أولاً.',
     'pusher_config_updated' => 'تم تحديث إعدادات Pusher بنجاح.',
     'production_pusher_config_updated' => 'تم تحديث إعدادات Pusher للإنتاج بنجاح.',
     'broadcast_test_sent' => 'تم إرسال البث التجريبي بنجاح.',

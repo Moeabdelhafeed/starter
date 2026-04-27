@@ -16,7 +16,6 @@ import {
     Moon,
     UserIcon,
     FileText,
-    BookOpen,
 } from 'lucide-vue-next';
 import NotificationBell from '@/components/notification/NotificationBell.vue';
 import { computed, ref, onMounted } from 'vue';
@@ -289,17 +288,6 @@ const isRouteActive = (name) => {
                     >
                         <UserIcon class="size-5 text-muted-foreground" />
                         <span class="text-sm text-foreground">{{ t('profile') }}</span>
-                    </Button>
-                </Link>
-
-                <Link v-if="page.props.is_local" :href="route('docs')" class="w-full">
-                    <Button
-                        variant="ghost"
-                        :class="{ 'bg-primary/10': isRouteActive('docs') }"
-                        class="h-10 w-full cursor-pointer justify-start gap-3 hover:bg-primary/10 hover:text-primary"
-                    >
-                        <BookOpen class="size-5 text-muted-foreground" />
-                        <span class="text-sm text-foreground">{{ t('documentation') }}</span>
                     </Button>
                 </Link>
 

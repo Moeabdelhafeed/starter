@@ -34,6 +34,11 @@ const missingPlaceholders = (value) => {
     return requiredPlaceholders.value.filter(p => !have.includes(p));
 };
 
+const hasAnyMissingPlaceholders = computed(() => {
+    if (!requiredPlaceholders.value.length || !props.languages) return false;
+    return props.languages.some(lang => missingPlaceholders(form[lang.code] || '').length > 0);
+});
+
 const emit = defineEmits(['close']);
 
 const buildFormData = () => {
@@ -48,18 +53,19 @@ const buildFormData = () => {
 
 const form = useForm(buildFormData());
 
-watch(
-    () => props.translation,
-    (newTrans) => {
-        if (newTrans) {
-            form.id = newTrans.id;
-            props.languages?.forEach(lang => {
-                form[lang.code] = newTrans[lang.code] || '';
-            });
-        }
-    },
-    { immediate: true },
-);
+const populateForm = () => {
+    const newTrans = props.translation;
+    if (!newTrans) return;
+    form.id = newTrans.id;
+    props.languages?.forEach(lang => {
+        form[lang.code] = newTrans[lang.code] || '';
+    });
+};
+
+watch(() => props.translation, populateForm, { immediate: true });
+watch(() => props.isOpen, (open) => {
+    if (open) populateForm();
+});
 
 const close = () => {
     emit('close');
@@ -193,7 +199,7 @@ const submit = () => {
                                 <Button type="button" variant="outline" @click="close" class="flex-1">
                                     {{ t('cancel') }}
                                 </Button>
-                                <Button type="submit" :disabled="form.processing" class="flex-1">
+                                <Button type="submit" :disabled="form.processing || hasAnyMissingPlaceholders" class="flex-1">
                                     <Loader2 v-if="form.processing" class="me-2 h-4 w-4 animate-spin" />
                                     {{ form.processing ? t('saving') : t('save') }}
                                 </Button>

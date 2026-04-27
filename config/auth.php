@@ -114,4 +114,17 @@ return [
 
     'password_timeout' => env('AUTH_PASSWORD_TIMEOUT', 10800),
 
+    /*
+    |--------------------------------------------------------------------------
+    | Account Deletion Retention
+    |--------------------------------------------------------------------------
+    |
+    | Days a user-initiated soft deletion (account_deleted_at) is retained
+    | before the PurgeDeletedUsersAfterResponse middleware permanently
+    | force-deletes the row.
+    |
+    */
+
+    'account_deletion_retention_days' => (int) env('ACCOUNT_DELETION_RETENTION_DAYS', 30),
+
 ];

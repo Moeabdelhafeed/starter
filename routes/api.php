@@ -54,16 +54,18 @@ if (env('APP_USERS') === true) {
 
 }
 
-// Public routes with standard rate limit
-Route::middleware('throttle:api')->group(function () {
-    // Translation routes (conditional)
-    if (filter_var(env('HAS_TRANSLATIONS', true), FILTER_VALIDATE_BOOLEAN)) {
+// Translation + language routes — bypass throttling when IS_TESTING=true
+// so bulk seeding from the client is not blocked.
+if (filter_var(env('HAS_TRANSLATIONS', true), FILTER_VALIDATE_BOOLEAN)) {
+    Route::middleware('throttle:translations')->group(function () {
         Route::get('/translations', [TranslationController::class, 'index']);
         Route::post('/translations', [TranslationController::class, 'store']);
-
-        // Language routes
         Route::get('/languages', [ApiLanguageController::class, 'index']);
-    }
+    });
+}
+
+// Public routes with standard rate limit
+Route::middleware('throttle:api')->group(function () {
 
     // Page routes
     Route::get('/pages', [ApiPageController::class, 'index']);

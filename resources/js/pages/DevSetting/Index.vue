@@ -26,6 +26,7 @@ const props = defineProps({
     validationConfig: Object,
     pusherConfig: Object,
     rateLimitConfig: Object,
+    accountDeletionConfig: Object,
     git: Object,
     productionDb: Object,
     productionMail: Object,
@@ -572,6 +573,19 @@ const submitRateLimiting = () => {
         preserveScroll: true,
         preserveState: true,
         reset: ['rateLimitConfig', 'success', 'error'],
+    });
+};
+
+// Account Deletion Retention
+const accountDeletionForm = useForm({
+    retention_days: props.accountDeletionConfig?.retention_days || 30,
+});
+
+const submitAccountDeletion = () => {
+    accountDeletionForm.put(route('dev_settings.account_deletion'), {
+        preserveScroll: true,
+        preserveState: true,
+        reset: ['accountDeletionConfig', 'success', 'error'],
     });
 };
 
@@ -2178,6 +2192,32 @@ const sendTestFcm = () => {
                             <Button type="submit" :disabled="rateLimitForm.processing">
                                 <Loader2 v-if="rateLimitForm.processing" class="me-2 h-4 w-4 animate-spin" />
                                 {{ rateLimitForm.processing ? t('saving') : t('save_rate_limit_config') }}
+                            </Button>
+                        </div>
+                    </form>
+                </div>
+
+                <!-- Account Deletion Retention -->
+                <div v-if="activeSection === 'validation'" class="rounded-3xl border bg-card p-6">
+                    <div class="mb-6 flex items-center gap-3">
+                        <Shield class="size-5 text-orange-500" />
+                        <div>
+                            <h2 class="text-lg font-semibold text-foreground">{{ t('account_deletion_config') }}</h2>
+                            <p class="text-sm text-muted-foreground">{{ t('account_deletion_config_desc') }}</p>
+                        </div>
+                    </div>
+
+                    <form @submit.prevent="submitAccountDeletion" class="space-y-6">
+                        <div class="rounded-xl border bg-muted/30 p-4">
+                            <label class="block text-sm font-medium text-foreground mb-2">{{ t('retention_days') }}</label>
+                            <p class="text-xs text-muted-foreground mb-3">{{ t('retention_days_desc') }}</p>
+                            <Input v-model.number="accountDeletionForm.retention_days" type="number" min="1" max="365" class="h-9 max-w-xs" />
+                        </div>
+
+                        <div class="pt-2">
+                            <Button type="submit" :disabled="accountDeletionForm.processing">
+                                <Loader2 v-if="accountDeletionForm.processing" class="me-2 h-4 w-4 animate-spin" />
+                                {{ accountDeletionForm.processing ? t('saving') : t('save_account_deletion_config') }}
                             </Button>
                         </div>
                     </form>

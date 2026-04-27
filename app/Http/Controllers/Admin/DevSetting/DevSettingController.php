@@ -133,6 +133,9 @@ class DevSettingController extends Controller
                     'decay' => (int) env('RATE_LIMIT_OTP_DECAY', 5),
                 ],
             ],
+            'accountDeletionConfig' => [
+                'retention_days' => (int) env('ACCOUNT_DELETION_RETENTION_DAYS', 30),
+            ],
         ]);
     }
 
@@ -325,6 +328,19 @@ class DevSettingController extends Controller
         Artisan::call('config:clear');
 
         return redirect()->back()->with('success', __('admin.rate_limit_config_updated'));
+    }
+
+    public function updateAccountDeletionConfig(Request $request)
+    {
+        $validated = $request->validate([
+            'retention_days' => ['required', 'integer', 'min:1', 'max:365'],
+        ]);
+
+        $this->setEnvValue('ACCOUNT_DELETION_RETENTION_DAYS', (string) $validated['retention_days']);
+
+        Artisan::call('config:clear');
+
+        return redirect()->back()->with('success', __('admin.account_deletion_config_updated'));
     }
 
     public function updatePusher(Request $request)

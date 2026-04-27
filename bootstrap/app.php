@@ -3,6 +3,7 @@
 use App\Http\Middleware\EnsureUserIsActive;
 use App\Http\Middleware\EnsureUserIsVerified;
 use App\Http\Middleware\HandleInertiaRequests;
+use App\Http\Middleware\PurgeDeletedUsersAfterResponse;
 use App\Http\Middleware\SetLocaleMiddleware;
 use App\Http\Middleware\WebLocale;
 use App\Http\Middleware\XApiTokenMiddlleware;
@@ -37,11 +38,13 @@ return Application::configure(basePath: dirname(__DIR__))
             EnsureUserIsActive::class,
             HandleInertiaRequests::class,
             AddLinkHeadersForPreloadedAssets::class,
+            PurgeDeletedUsersAfterResponse::class,
         ]);
 
         $middleware->api(append: [
             SetLocaleMiddleware::class,
             XApiTokenMiddlleware::class,
+            PurgeDeletedUsersAfterResponse::class,
         ]);
 
         $middleware->alias([

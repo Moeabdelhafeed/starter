@@ -11,6 +11,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Support\Carbon;
 use Laravel\Sanctum\HasApiTokens;
 use Spatie\Permission\Traits\HasRoles;
 
@@ -54,7 +55,97 @@ class User extends Authenticatable
         'password',
         'is_active',
         'fcm_token',
+        'account_deleted_at',
     ];
+
+    /**
+     * Relations to delete alongside the user.
+     * Add relation method names here, e.g. ['posts', 'comments'].
+     * Soft-delete on admin trash; force-delete on permanent purge.
+     */
+    protected array $cascadeOnDelete = [];
+
+    /**
+     * Relations to restore alongside the user when admin restores from trash.
+     * Only rows whose deleted_at matches the parent's deleted_at are restored,
+     * so children trashed independently of the user are left alone.
+     */
+    protected array $cascadeOnRestore = [];
+
+    protected ?Carbon $cascadeRestoreDeletedAt = null;
+
+    protected static function booted(): void
+    {
+        static::deleted(function (User $user): void {
+            if ($user->isForceDeleting()) {
+                return;
+            }
+            $user->cascadeDelete(force: false);
+        });
+
+        static::forceDeleted(function (User $user): void {
+            $user->cascadeDelete(force: true);
+        });
+
+        static::restoring(function (User $user): void {
+            // deleted_at is still set here; capture it for the restored hook
+            // so cascadeRestore can match children stamped with the same timestamp.
+            $user->cascadeRestoreDeletedAt = $user->deleted_at;
+        });
+
+        static::restored(function (User $user): void {
+            $user->cascadeRestore();
+        });
+    }
+
+    public function cascadeDelete(bool $force = false): void
+    {
+        foreach ($this->cascadeOnDelete as $relation) {
+            $query = $this->{$relation}();
+
+            if ($force) {
+                $query->forceDelete();
+
+                continue;
+            }
+
+            // Stamp children with parent's exact deleted_at so cascadeRestore can match.
+            // Bypasses child model events — declarative cascade is the contract here.
+            $query->update(['deleted_at' => $this->deleted_at]);
+        }
+    }
+
+    public function cascadeRestore(): void
+    {
+        $deletedAt = $this->cascadeRestoreDeletedAt;
+        $this->cascadeRestoreDeletedAt = null;
+
+        if (! $deletedAt) {
+            return;
+        }
+
+        foreach ($this->cascadeOnRestore as $relation) {
+            $this->{$relation}()
+                ->onlyTrashed()
+                ->where('deleted_at', $deletedAt)
+                ->restore();
+        }
+    }
+
+    public function isPendingDeletion(): bool
+    {
+        return $this->account_deleted_at !== null;
+    }
+
+    public function markAccountDeleted(): void
+    {
+        $this->forceFill(['account_deleted_at' => now()])->save();
+    }
+
+    public function restoreAccount(): void
+    {
+        $this->forceFill(['account_deleted_at' => null])->save();
+    }
 
     public function otps()
     {
@@ -103,6 +194,7 @@ class User extends Authenticatable
     {
         return [
             'verified_at' => 'datetime',
+            'account_deleted_at' => 'datetime',
             'password' => 'hashed',
         ];
     }

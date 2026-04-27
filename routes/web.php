@@ -5,7 +5,6 @@ use App\Http\Controllers\Admin\AppUser\AppUserController;
 use App\Http\Controllers\Admin\Auth\AuthController;
 use App\Http\Controllers\Admin\Dashboard\DashboardController;
 use App\Http\Controllers\Admin\DevSetting\DevSettingController;
-use App\Http\Controllers\Admin\Docs\DocsController;
 use App\Http\Controllers\Admin\Language\LanguageController;
 use App\Http\Controllers\Admin\Locale\LocaleController;
 use App\Http\Controllers\Admin\Notification\NotificationController;
@@ -18,11 +17,6 @@ use Illuminate\Support\Facades\Route;
 
 // locale
 Route::post('/set-locale', [LocaleController::class, 'setLocale'])->name('locale.post');
-
-// documentation (local env only, publicly accessible)
-if (app()->environment('local')) {
-    Route::get('/docs', [DocsController::class, 'index'])->name('docs');
-}
 
 // guest
 Route::middleware('guest')->group(function () {
@@ -136,6 +130,7 @@ Route::middleware('auth')->group(function () {
             Route::put('/social-auth', [DevSettingController::class, 'updateSocialAuth'])->name('dev_settings.social_auth');
             Route::put('/validation', [DevSettingController::class, 'updateValidation'])->name('dev_settings.validation');
             Route::put('/rate-limiting', [DevSettingController::class, 'updateRateLimiting'])->name('dev_settings.rate_limiting');
+            Route::put('/account-deletion', [DevSettingController::class, 'updateAccountDeletionConfig'])->name('dev_settings.account_deletion');
             Route::put('/pusher', [DevSettingController::class, 'updatePusher'])->name('dev_settings.pusher');
             Route::put('/production-pusher', [DevSettingController::class, 'updateProductionPusher'])->name('dev_settings.production_pusher');
             Route::post('/test-broadcast', [DevSettingController::class, 'testBroadcast'])->name('dev_settings.test_broadcast');

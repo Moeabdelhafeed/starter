@@ -33,21 +33,22 @@ const form = useForm({
 
 const currentImageUrl = ref(null);
 
-watch(
-    () => props.user,
-    (newUser) => {
-        if (newUser) {
-            form.id = newUser.id;
-            form.name = newUser.name;
-            form.email = newUser.email;
-            form.password = '';
-            form.role = newUser.roles.length > 0 ? newUser.roles[0].name : '';
-            form.image = null;
-            currentImageUrl.value = newUser.image?.image_api || null;
-        }
-    },
-    { immediate: true },
-);
+const populateForm = () => {
+    const newUser = props.user;
+    if (!newUser) return;
+    form.id = newUser.id;
+    form.name = newUser.name;
+    form.email = newUser.email;
+    form.password = '';
+    form.role = newUser.roles.length > 0 ? newUser.roles[0].name : '';
+    form.image = null;
+    currentImageUrl.value = newUser.image?.image_api || null;
+};
+
+watch(() => props.user, populateForm, { immediate: true });
+watch(() => props.isOpen, (open) => {
+    if (open) populateForm();
+});
 
 const handleImageChange = (e) => {
     form.image = e.target.files[0] || null;

@@ -173,7 +173,7 @@ class AppUserController extends Controller
 
         $request->validate($rules);
 
-        $user = $this->findUserByIdentifier($request->identifier);
+        $user = $this->findUserByIdentifier($request->identifier, withTrashed: true);
 
         if (! $user) {
             return ApiResponse::error(
@@ -181,6 +181,10 @@ class AppUserController extends Controller
                 ['identifier' => [Trans::get('api.user_not_found')]],
                 422,
             );
+        }
+
+        if ($user->trashed()) {
+            return ApiResponse::error(Trans::get('api.account_suspended'), null, 403);
         }
 
         if (! $user->is_active) {
@@ -197,6 +201,12 @@ class AppUserController extends Controller
 
         if (! $user->hasRole('user', 'api')) {
             return ApiResponse::error(Trans::get('api.unauthorized_access'), null, 403);
+        }
+
+        $accountRestored = false;
+        if ($user->isPendingDeletion()) {
+            $user->restoreAccount();
+            $accountRestored = true;
         }
 
         if ($request->fcm_token) {
@@ -236,7 +246,8 @@ class AppUserController extends Controller
         return ApiResponse::success([
             'user' => $user->fresh(),
             'is_verified' => true,
-        ], Trans::get('api.login_successful'), $token);
+            'account_restored' => $accountRestored,
+        ], Trans::get($accountRestored ? 'api.account_restored' : 'api.login_successful'), $token);
     }
 
     public function authConfig()
@@ -277,19 +288,19 @@ class AppUserController extends Controller
         }
 
         if (! $column) {
-            return ApiResponse::success(['exists' => false, 'available_channels' => []]);
+            return ApiResponse::success(['exists' => false, 'pending_deletion' => false, 'suspended' => false, 'available_channels' => []]);
         }
 
         if ($column === 'email') {
             $value = strtolower($value);
         }
 
-        $user = User::where($column, $value)
+        $user = User::withTrashed()->where($column, $value)
             ->whereHas('roles', fn ($q) => $q->where('name', 'user')->where('guard_name', 'api'))
             ->first();
 
         if (! $user) {
-            return ApiResponse::success(['exists' => false, 'available_channels' => []]);
+            return ApiResponse::success(['exists' => false, 'pending_deletion' => false, 'suspended' => false, 'available_channels' => []]);
         }
 
         // Tell the client which OTP delivery channels are populated on the user record.
@@ -304,6 +315,8 @@ class AppUserController extends Controller
 
         return ApiResponse::success([
             'exists' => true,
+            'pending_deletion' => $user->isPendingDeletion(),
+            'suspended' => $user->trashed(),
             'available_channels' => $channels,
         ]);
     }
@@ -532,9 +545,7 @@ class AppUserController extends Controller
     {
         $user = $request->user();
         $user->tokens()->delete();
-
-        // Permanently delete (bypasses SoftDeletes). Account cannot be restored.
-        $user->forceDelete();
+        $user->markAccountDeleted();
 
         return ApiResponse::success(null, Trans::get('api.account_deleted_successfully'));
     }
@@ -780,7 +791,7 @@ class AppUserController extends Controller
         return null;
     }
 
-    private function findUserByIdentifier(string $value): ?User
+    private function findUserByIdentifier(string $value, bool $withTrashed = false): ?User
     {
         $value = trim($value);
         $identifiers = $this->getAuthIdentifiers();
@@ -805,7 +816,9 @@ class AppUserController extends Controller
             $value = strtolower($value);
         }
 
-        return User::where($column, $value)
+        $query = $withTrashed ? User::withTrashed() : User::query();
+
+        return $query->where($column, $value)
             ->whereHas('roles', fn ($q) => $q->where('name', 'user')->where('guard_name', 'api'))
             ->first();
     }

@@ -480,7 +480,7 @@
                       "host": ["{{base_url}}"],
                       "path": ["api", "delete-account"]
                     },
-                    "description": "**Permanently** deletes the authenticated user's record (bypasses `SoftDeletes` via `forceDelete()`) and revokes all tokens. **Cannot be restored** — the DB row is gone. Use for GDPR / account-deletion compliance.\n\nRequires: Bearer token + verified account."
+                    "description": "Marks the authenticated user as pending deletion (sets `users.account_deleted_at = now()`) and revokes all tokens. The row stays in DB for the retention window (default 30 days, configurable via `ACCOUNT_DELETION_RETENTION_DAYS` or DevSettings). Logging in with valid credentials before retention expires restores the account (`account_restored: true` in the login response). After retention the row is permanently force-deleted by the global `PurgeDeletedUsersAfterResponse` middleware on the next inbound HTTP request.\n\nRequires: Bearer token + verified account."
                   },
                   "response": [
                     {
@@ -969,7 +969,7 @@
               "host": ["{{base_url}}"],
               "path": ["api", "check-identifier"]
             },
-            "description": "Detects kind (email / phone / username) from the value and queries the matching column when configured (identifier OR `HAS_*_FIELD` extra). Scoped to api-guard users.\n\nResponse:\n```\n{\n  \"exists\": true|false,\n  \"available_channels\": [\"email\", \"phone\"]\n}\n```\n\n`available_channels` lists which OTP delivery channels are populated on the user record. Use this to:\n- Pick a `type` for `forgot-password`.\n- Pre-submit uniqueness checks (register / update-profile username / request-identifier-change).\n\nNo authentication required."
+            "description": "Detects kind (email / phone / username) from the value and queries the matching column when configured (identifier OR `HAS_*_FIELD` extra). Scoped to api-guard users; queries `withTrashed()` so admin-suspended rows are detectable.\n\nResponse:\n```\n{\n  \"exists\": true|false,\n  \"pending_deletion\": true|false,\n  \"suspended\": true|false,\n  \"available_channels\": [\"email\", \"phone\"]\n}\n```\n\n- `pending_deletion: true` — the user requested account deletion. Logging in with valid credentials restores the account.\n- `suspended: true` — admin soft-deleted the user. Login returns 403 `api.account_suspended`. Only admin restore (or admin force-delete) frees the identifier; re-register is rejected by the unique rule.\n- `available_channels` — OTP delivery channels populated on the user record. Use to pick a `type` for `forgot-password` and for pre-submit uniqueness checks.\n\nNo authentication required."
           },
           "response": [
             {

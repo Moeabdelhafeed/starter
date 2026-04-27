@@ -22,17 +22,18 @@ const form = useForm({
     permissions: [],
 });
 
-watch(
-    () => props.role,
-    (newRole) => {
-        if (newRole) {
-            form.id = newRole.id;
-            form.name = newRole.name;
-            form.permissions = newRole.permissions ? newRole.permissions.map((p) => p.name) : [];
-        }
-    },
-    { immediate: true },
-);
+const populateForm = () => {
+    const newRole = props.role;
+    if (!newRole) return;
+    form.id = newRole.id;
+    form.name = newRole.name;
+    form.permissions = newRole.permissions ? newRole.permissions.map((p) => p.name) : [];
+};
+
+watch(() => props.role, populateForm, { immediate: true });
+watch(() => props.isOpen, (open) => {
+    if (open) populateForm();
+});
 
 const close = () => {
     emit('close');

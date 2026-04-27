@@ -39,6 +39,8 @@ return [
     'branch_exists' => 'Branch :branch already exists.',
     'validation_config_updated' => 'Validation configuration updated successfully.',
     'rate_limit_config_updated' => 'Rate limiting configuration updated successfully.',
+    'account_deletion_config_updated' => 'Account deletion retention updated successfully.',
+    'cannot_restore_with_trashed_parent' => 'Cannot restore: the related :relation is in trash. Restore it first.',
     'pusher_config_updated' => 'Pusher configuration updated successfully.',
     'production_pusher_config_updated' => 'Production Pusher configuration updated successfully.',
     'broadcast_test_sent' => 'Test broadcast sent successfully.',
