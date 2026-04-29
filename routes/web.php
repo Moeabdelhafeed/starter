@@ -13,6 +13,7 @@ use App\Http\Controllers\Admin\Profile\ProfileController;
 use App\Http\Controllers\Admin\Roles\RolesController;
 use App\Http\Controllers\Admin\Translation\TranslationController;
 use App\Http\Controllers\Admin\User\UserController;
+use Illuminate\Support\Facades\Broadcast;
 use Illuminate\Support\Facades\Route;
 
 // locale
@@ -23,6 +24,13 @@ Route::middleware('guest')->group(function () {
     Route::get('/login', [AuthController::class, 'index'])->name('login');
     Route::post('/login', [AuthController::class, 'login'])->name('login.post');
 });
+
+// Web channel-auth endpoint for Pusher private channels. Uses session auth.
+// Mobile clients still hit the api-prefixed endpoint registered via
+// withBroadcasting() in bootstrap/app.php. Throttled to absorb Pusher
+// reconnect storms without inviting abuse.
+Route::post('/broadcasting/auth', fn () => Broadcast::auth(request()))
+    ->middleware(['auth', 'throttle:60,1']);
 
 // authenticated
 Route::middleware('auth')->group(function () {
@@ -54,6 +62,7 @@ Route::middleware('auth')->group(function () {
     // users
     Route::prefix('users')->middleware('permission:users')->group(function () {
         Route::get('/', [UserController::class, 'index'])->name('users');
+        Route::get('/export', [UserController::class, 'export'])->name('users.export');
         Route::post('/', [UserController::class, 'store'])->name('users.store');
         Route::put('/bulk-update', [UserController::class, 'bulkUpdate'])->name('users.bulk-update');
         Route::delete('/bulk-destroy', [UserController::class, 'bulkDestroy'])->name('users.bulk-destroy');
@@ -78,6 +87,7 @@ Route::middleware('auth')->group(function () {
     // activity logs
     Route::prefix('activity-logs')->middleware('permission:activity_logs')->group(function () {
         Route::get('/', [ActivityLogController::class, 'index'])->name('activity_logs');
+        Route::get('/export', [ActivityLogController::class, 'export'])->name('activity_logs.export');
         Route::delete('/bulk-destroy', [ActivityLogController::class, 'bulkDestroy'])->name('activity_logs.bulk-destroy');
         Route::delete('/{id}', [ActivityLogController::class, 'destroy'])->name('activity_logs.destroy');
     });
@@ -104,6 +114,7 @@ Route::middleware('auth')->group(function () {
     if (env('APP_USERS') === true) {
         Route::prefix('app-users')->middleware('permission:app_users')->group(function () {
             Route::get('/', [AppUserController::class, 'index'])->name('app_users');
+            Route::get('/export', [AppUserController::class, 'export'])->name('app_users.export');
             Route::put('/bulk-update', [AppUserController::class, 'bulkUpdate'])->name('app_users.bulk-update');
             Route::delete('/bulk-destroy', [AppUserController::class, 'bulkDestroy'])->name('app_users.bulk-destroy');
             Route::post('/bulk-restore', [AppUserController::class, 'bulkRestore'])->name('app_users.bulk-restore');
@@ -131,6 +142,7 @@ Route::middleware('auth')->group(function () {
             Route::put('/validation', [DevSettingController::class, 'updateValidation'])->name('dev_settings.validation');
             Route::put('/rate-limiting', [DevSettingController::class, 'updateRateLimiting'])->name('dev_settings.rate_limiting');
             Route::put('/account-deletion', [DevSettingController::class, 'updateAccountDeletionConfig'])->name('dev_settings.account_deletion');
+            Route::put('/sessions', [DevSettingController::class, 'updateSessionsConfig'])->name('dev_settings.sessions');
             Route::put('/pusher', [DevSettingController::class, 'updatePusher'])->name('dev_settings.pusher');
             Route::put('/production-pusher', [DevSettingController::class, 'updateProductionPusher'])->name('dev_settings.production_pusher');
             Route::post('/test-broadcast', [DevSettingController::class, 'testBroadcast'])->name('dev_settings.test_broadcast');

@@ -47,6 +47,9 @@ if (env('APP_USERS') === true) {
         Route::post('/link-social-account', [AppUserController::class, 'linkSocialAccount'])->middleware('verified');
         Route::delete('/unlink-social-account', [AppUserController::class, 'unlinkSocialAccount'])->middleware('verified');
 
+        Route::get('/devices', [AppUserController::class, 'devices'])->middleware('verified');
+        Route::delete('/devices/{deviceId}', [AppUserController::class, 'revokeDevice'])->middleware('verified');
+
         Route::get('/user', function (Request $request) {
             return ApiResponse::success($request->user());
         });

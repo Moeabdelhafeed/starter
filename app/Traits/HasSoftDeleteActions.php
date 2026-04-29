@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Http\Request;
+use Illuminate\Validation\ValidationException;
 
 /**
  * Provides soft delete action methods for admin controllers.
@@ -28,7 +29,14 @@ trait HasSoftDeleteActions
     public function restore(Request $request, $id)
     {
         $model = $this->getModelClass()::withTrashed()->findOrFail($id);
-        $model->restore();
+
+        try {
+            $model->restore();
+        } catch (ValidationException $e) {
+            $msg = $e->validator->errors()->first() ?: __('admin.restore_failed');
+
+            return redirect()->back()->with('error', $msg);
+        }
 
         return redirect()->back()->with('success', __('admin.restored_successfully'));
     }
@@ -55,6 +63,10 @@ trait HasSoftDeleteActions
 
     /**
      * Restore multiple soft-deleted models.
+     *
+     * Iterates per-row and catches ValidationException so a single blocked
+     * row (e.g. BlocksRestoreIfParentTrashed firing) doesn't abort the batch.
+     * Reports the count of restored vs skipped.
      */
     public function bulkRestore(Request $request)
     {
@@ -63,9 +75,28 @@ trait HasSoftDeleteActions
             'ids.*' => ['integer'],
         ]);
 
-        $this->getModelClass()::withTrashed()
+        $models = $this->getModelClass()::withTrashed()
             ->whereIn('id', $validated['ids'])
-            ->restore();
+            ->get();
+
+        $restored = 0;
+        $skipped = 0;
+
+        foreach ($models as $model) {
+            try {
+                $model->restore();
+                $restored++;
+            } catch (ValidationException $e) {
+                $skipped++;
+            }
+        }
+
+        if ($skipped > 0) {
+            return redirect()->back()->with(
+                'success',
+                __('admin.bulk_restore_partial', ['restored' => $restored, 'skipped' => $skipped])
+            );
+        }
 
         return redirect()->back()->with('success', __('admin.restored_successfully'));
     }

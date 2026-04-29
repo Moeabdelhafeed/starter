@@ -4,6 +4,9 @@ import { onMounted, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import Navbar from '../components/Shared/Navbar.vue';
 import { AlertCircle, CheckCircle, X } from 'lucide-vue-next';
+import { useDeviceRevocation } from '@/composables/useDeviceRevocation';
+
+useDeviceRevocation();
 
 const page = usePage();
 const { locale } = useI18n();

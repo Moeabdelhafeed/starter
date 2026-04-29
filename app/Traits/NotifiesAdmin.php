@@ -2,6 +2,7 @@
 
 namespace App\Traits;
 
+use App\Events\AdminNotificationCreated;
 use App\Models\AdminNotification;
 
 trait NotifiesAdmin
@@ -116,7 +117,7 @@ trait NotifiesAdmin
 
         $name = $this->name ?? $this->title ?? $this->email ?? "#{$this->getKey()}";
 
-        AdminNotification::create([
+        $notification = AdminNotification::create([
             'type' => $this->getNotificationType(),
             'title_key' => $this->getNotificationTitleKey($event),
             'message_key' => $this->getNotificationMessageKey($event),
@@ -128,5 +129,8 @@ trait NotifiesAdmin
                 'name' => $name,
             ]),
         ]);
+
+        // Push live to any subscribed admin via Pusher.
+        broadcast(new AdminNotificationCreated($notification));
     }
 }

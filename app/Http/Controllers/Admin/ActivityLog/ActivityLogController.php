@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin\ActivityLog;
 
 use App\Http\Controllers\Controller;
 use App\Models\ActivityLog;
+use App\Traits\Exportable;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 
@@ -43,7 +44,29 @@ class ActivityLogController extends Controller
                 ->map(fn ($t) => ['value' => $t, 'label' => class_basename($t)]),
             'causers' => ActivityLog::distinct()->whereNotNull('causer_email')->pluck('causer_email', 'causer_name')
                 ->map(fn ($email, $name) => ['value' => $email, 'label' => $name])->values(),
+            'hasExport' => in_array(Exportable::class, class_uses_recursive(ActivityLog::class)),
         ]);
+    }
+
+    public function export(Request $request)
+    {
+        $search = $request->input('search');
+        $action = $request->input('action');
+        $subjectType = $request->input('subject_type');
+        $causerEmail = $request->input('causer');
+
+        return ActivityLog::query()
+            ->when($search, function ($query, $search) {
+                $query->where(function ($q) use ($search) {
+                    $q->where('causer_name', 'like', "%{$search}%")
+                        ->orWhere('causer_email', 'like', "%{$search}%");
+                });
+            })
+            ->when($action, fn ($q, $action) => $q->where('action', $action))
+            ->when($subjectType, fn ($q, $type) => $q->where('subject_type', $type))
+            ->when($causerEmail, fn ($q, $email) => $q->where('causer_email', $email))
+            ->orderByDesc('created_at')
+            ->exportCsv('activity-logs-'.now()->format('Y-m-d-His').'.csv');
     }
 
     public function destroy($id)

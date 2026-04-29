@@ -45,7 +45,9 @@ class HandleInertiaRequests extends Middleware
                 'permissions' => $request->user() ? $request->user()->getAllPermissions()->pluck('name') : [],
             ],
             'notifications' => [
-                'unread_count' => $request->user() ? AdminNotification::unread()->count() : 0,
+                'unread_count' => $request->user()
+                    ? AdminNotification::forUser($request->user())->unread()->count()
+                    : 0,
             ],
             'locale' => ['code' => app()->getLocale(), 'dir' => app()->getLocale() == 'ar' ? 'rtl' : 'ltr', 'name' => app()->getLocale() == 'ar' ? 'عربي' : 'English'],
             'success' => session('success'),
@@ -53,6 +55,8 @@ class HandleInertiaRequests extends Middleware
             'app_users' => env('APP_USERS'),
             'has_translations' => filter_var(env('HAS_TRANSLATIONS', true), FILTER_VALIDATE_BOOLEAN),
             'is_local' => app()->environment('local'),
+            'is_testing' => filter_var(env('IS_TESTING', false), FILTER_VALIDATE_BOOLEAN),
+            'multi_session' => (bool) config('auth.multi_session_enabled'),
             'admin_credentials' => (app()->environment('local') && ! $request->user()) ? [
                 'email' => env('ADMIN_EMAIL'),
                 'password' => env('ADMIN_PASSWORD'),

@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin\AppUser;
 
 use App\Http\Controllers\Controller;
 use App\Models\User;
+use App\Traits\Exportable;
 use App\Traits\HasSoftDeleteActions;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -19,6 +20,7 @@ class AppUserController extends Controller
         $search = $request->input('search');
         $isActive = $request->input('is_active');
         $isVerified = $request->input('is_verified');
+        $pendingDeletion = $request->input('pending_deletion');
         $trashed = $request->input('trashed');
 
         $users = User::query()->whereHas('roles', function ($query) {
@@ -44,6 +46,8 @@ class AppUserController extends Controller
                     $query->whereNull('verified_at');
                 }
             })
+            ->when($pendingDeletion === 'only', fn ($q) => $q->whereNotNull('account_deleted_at'))
+            ->when($pendingDeletion === 'exclude', fn ($q) => $q->whereNull('account_deleted_at'))
             ->latest()
             ->paginate(10)
             ->withQueryString();
@@ -55,9 +59,36 @@ class AppUserController extends Controller
                 'is_active' => $isActive,
                 'is_verified' => $isVerified,
                 'trashed' => $trashed,
+                'pending_deletion' => $pendingDeletion,
             ],
             'hasSoftDeletes' => true,
+            'hasExport' => in_array(Exportable::class, class_uses_recursive(User::class)),
         ]);
+    }
+
+    public function export(Request $request)
+    {
+        $search = $request->input('search');
+        $isActive = $request->input('is_active');
+        $isVerified = $request->input('is_verified');
+
+        return User::query()->whereHas('roles', function ($q) {
+            $q->where('guard_name', 'api');
+        })
+            ->when($search, function ($query, $search) {
+                $query->where(function ($q) use ($search) {
+                    $q->where('name', 'like', "%{$search}%")
+                        ->orWhere('email', 'like', "%{$search}%")
+                        ->orWhere('phone', 'like', "%{$search}%")
+                        ->orWhere('username', 'like', "%{$search}%");
+                });
+            })
+            ->when($isActive !== null && $isActive !== 'all', fn ($q) => $q->where('is_active', $isActive))
+            ->when($isVerified !== null && $isVerified !== 'all', function ($query) use ($isVerified) {
+                $isVerified == '1' ? $query->whereNotNull('verified_at') : $query->whereNull('verified_at');
+            })
+            ->latest()
+            ->exportCsv('app-users-'.now()->format('Y-m-d-His').'.csv');
     }
 
     public function update(Request $request, User $user)

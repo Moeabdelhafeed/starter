@@ -17,3 +17,11 @@ use Illuminate\Support\Facades\Broadcast;
 Broadcast::channel('user.{userId}', function ($user, $userId) {
     return (int) $user->id === (int) $userId;
 });
+
+// Per-permission AdminNotification channels. Convention: notification `type`
+// matches a Spatie permission name. Subscribe is allowed only when the user
+// holds that permission — Pusher won't deliver payloads to unauthorized
+// admins, closing the DevTools data-leak side-channel.
+Broadcast::channel('admin.notifications.{type}', function ($user, $type) {
+    return $user && method_exists($user, 'can') && $user->can($type);
+});

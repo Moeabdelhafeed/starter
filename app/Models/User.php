@@ -3,6 +3,7 @@
 namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
+use App\Traits\Exportable;
 use App\Traits\HasImage;
 use App\Traits\LogsActivity;
 use App\Traits\NotifiesAdmin;
@@ -18,7 +19,7 @@ use Spatie\Permission\Traits\HasRoles;
 class User extends Authenticatable
 {
     /** @use HasFactory<UserFactory> */
-    use HasApiTokens, HasFactory, HasImage, HasRoles, LogsActivity, Notifiable, NotifiesAdmin, SoftDeletes;
+    use Exportable, HasApiTokens, HasFactory, HasImage, HasRoles, LogsActivity, Notifiable, NotifiesAdmin, SoftDeletes;
 
     /**
      * Events that trigger admin notifications.
@@ -54,9 +55,13 @@ class User extends Authenticatable
         'phone',
         'password',
         'is_active',
-        'fcm_token',
         'account_deleted_at',
     ];
+
+    /**
+     * Columns included in CSV export. See Traits\Exportable.
+     */
+    protected array $exportable = ['id', 'name', 'email', 'phone', 'username', 'is_active', 'verified_at', 'created_at'];
 
     /**
      * Relations to delete alongside the user.
@@ -104,7 +109,18 @@ class User extends Authenticatable
             $query = $this->{$relation}();
 
             if ($force) {
-                $query->forceDelete();
+                // Iterate so HasImage / HasVideo / boot-event hooks fire on each
+                // child — bare `forceDelete()` on a hasMany skips them and leaks
+                // storage files + image/video table rows.
+                $query->withTrashed()->get()->each(function ($child) {
+                    if (method_exists($child, 'deleteImage')) {
+                        $child->deleteImage();
+                    }
+                    if (method_exists($child, 'deleteVideo')) {
+                        $child->deleteVideo();
+                    }
+                    $child->forceDelete();
+                });
 
                 continue;
             }
@@ -112,6 +128,16 @@ class User extends Authenticatable
             // Stamp children with parent's exact deleted_at so cascadeRestore can match.
             // Bypasses child model events — declarative cascade is the contract here.
             $query->update(['deleted_at' => $this->deleted_at]);
+        }
+
+        // Parent's own files on force-delete: clean before the row is gone.
+        if ($force) {
+            if (method_exists($this, 'deleteImage')) {
+                $this->deleteImage();
+            }
+            if (method_exists($this, 'deleteVideo')) {
+                $this->deleteVideo();
+            }
         }
     }
 
@@ -150,6 +176,25 @@ class User extends Authenticatable
     public function otps()
     {
         return $this->hasMany(Otp::class);
+    }
+
+    public function devices()
+    {
+        return $this->hasMany(UserDevice::class);
+    }
+
+    /**
+     * Active FCM tokens across every logged-in device. Use this for any
+     * push-notification send so multi-session users get notified everywhere.
+     *
+     * @return array<int, string>
+     */
+    public function fcmTokens(): array
+    {
+        return $this->devices()
+            ->whereNotNull('fcm_token')
+            ->pluck('fcm_token')
+            ->all();
     }
 
     public function socialAccounts()
@@ -211,6 +256,10 @@ class User extends Authenticatable
         if (! request()->is('api/*')) {
             return $array;
         }
+
+        // Lets the client branch UI between "Set password" (social-only) and
+        // "Change password" without exposing the password column itself.
+        $array['has_password'] = $this->password !== null;
 
         foreach (['email', 'phone', 'username'] as $field) {
             if (! self::isAuthFieldEnabled($field)) {

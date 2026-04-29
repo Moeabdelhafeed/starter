@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\AppUser;
 
+use App\Events\DeviceRevoked;
 use App\Helpers\ApiResponse;
 use App\Helpers\EmailHelper;
 use App\Helpers\SendSMS;
@@ -13,13 +14,16 @@ use App\Models\SocialAccount;
 use App\Models\User;
 use App\Rules\AllowedEmailDomain;
 use App\Rules\AllowedPhoneCountry;
+use Illuminate\Database\QueryException;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\Unique;
 use Kreait\Firebase\Contract\Auth as FirebaseAuth;
 use Kreait\Firebase\Exception\Auth\FailedToVerifyToken;
+use Laravel\Sanctum\PersonalAccessToken;
 use Spatie\Permission\Models\Role;
 
 class AppUserController extends Controller
@@ -97,14 +101,9 @@ class AppUserController extends Controller
             return ApiResponse::error(Trans::get('api.user_role_not_found'), null, 500);
         }
 
-        if ($request->fcm_token) {
-            User::where('fcm_token', $request->fcm_token)->update(['fcm_token' => null]);
-        }
-
         $userData = [
             'name' => $request->name,
             'password' => Hash::make($request->password),
-            'fcm_token' => $request->fcm_token,
             $detectedField => $request->identifier,
         ];
 
@@ -209,14 +208,9 @@ class AppUserController extends Controller
             $accountRestored = true;
         }
 
-        if ($request->fcm_token) {
-            User::where('fcm_token', $request->fcm_token)->update(['fcm_token' => null]);
-            $user->fcm_token = $request->fcm_token;
-            $user->save();
-        }
-
         if ($user->verified_at === null) {
             $token = $user->createToken('user_token', ['*'], now()->addDays(1))->plainTextToken;
+            $tokenId = $this->trackDevice($user, $token, $request);
 
             // Reuse a recent verify OTP (< 60s old) to avoid spamming SMS/email when
             // the client calls login immediately after register.
@@ -230,6 +224,7 @@ class AppUserController extends Controller
             $responseData = [
                 'user' => $user->fresh(),
                 'is_verified' => false,
+                'token_id' => $tokenId,
                 'otp_expires_in_minutes' => 5,
             ];
 
@@ -242,11 +237,13 @@ class AppUserController extends Controller
 
         $days = $request->remember_me ? 30 : 1;
         $token = $user->createToken('user_token', ['*'], now()->addDays($days))->plainTextToken;
+        $tokenId = $this->trackDevice($user, $token, $request);
 
         return ApiResponse::success([
             'user' => $user->fresh(),
             'is_verified' => true,
             'account_restored' => $accountRestored,
+            'token_id' => $tokenId,
         ], Trans::get($accountRestored ? 'api.account_restored' : 'api.login_successful'), $token);
     }
 
@@ -263,6 +260,7 @@ class AppUserController extends Controller
             'max_social_accounts' => (int) env('SOCIAL_AUTH_MAX_ACCOUNTS', 0),
             'social_auth_available' => in_array('email', $identifiers, true),
             'is_otp_whatsapp' => filter_var(env('IS_OTP_WHATSAPP', false), FILTER_VALIDATE_BOOLEAN),
+            'multi_session' => (bool) config('auth.multi_session_enabled'),
         ]);
     }
 
@@ -326,6 +324,48 @@ class AppUserController extends Controller
         $request->user()->currentAccessToken()->delete();
 
         return ApiResponse::success(null, Trans::get('api.logout_successful'));
+    }
+
+    /**
+     * List the authenticated user's active devices. The current device is
+     * flagged so the client can highlight it / disable its revoke button.
+     */
+    public function devices(Request $request)
+    {
+        $currentTokenId = $request->user()->currentAccessToken()?->id;
+
+        $devices = $request->user()->devices()
+            ->orderByDesc('last_seen_at')
+            ->get()
+            ->map(fn ($d) => [
+                'id' => $d->id,
+                'device_name' => $d->device_name,
+                'platform' => $d->platform,
+                'ip' => $d->ip,
+                'user_agent' => $d->user_agent,
+                'last_seen_at' => $d->last_seen_at,
+                'created_at' => $d->created_at,
+                'is_current' => $d->personal_access_token_id === $currentTokenId,
+            ]);
+
+        return ApiResponse::success(['devices' => $devices]);
+    }
+
+    /**
+     * Revoke a specific device. Deletes the underlying Sanctum token (FK
+     * cascade drops the device row) and broadcasts `device.revoked` so the
+     * kicked client clears its local creds.
+     */
+    public function revokeDevice(Request $request, int $deviceId)
+    {
+        $device = $request->user()->devices()->findOrFail($deviceId);
+        $tokenId = $device->personal_access_token_id;
+
+        $request->user()->tokens()->where('id', $tokenId)->delete();
+
+        broadcast(new DeviceRevoked($request->user()->id, (int) $tokenId));
+
+        return ApiResponse::success(null, Trans::get('api.device_revoked'));
     }
 
     public function verifyOtp(Request $request)
@@ -518,14 +558,17 @@ class AppUserController extends Controller
 
     public function changePassword(Request $request)
     {
+        $user = $request->user();
+        $hasPassword = $user->password !== null;
+
         $request->validate([
-            'old_password' => 'required|string',
+            // Social-only accounts (no password set yet) can call this endpoint
+            // without `old_password` to set their initial password.
+            'old_password' => $hasPassword ? 'required|string' : 'nullable|string',
             'password' => 'required|string|min:8|max:255|confirmed',
         ]);
 
-        $user = $request->user();
-
-        if (! Hash::check($request->old_password, $user->password)) {
+        if ($hasPassword && ! Hash::check($request->old_password, $user->password)) {
             return ApiResponse::error(
                 Trans::get('api.invalid_old_password'),
                 ['old_password' => [Trans::get('api.invalid_old_password')]],
@@ -538,7 +581,9 @@ class AppUserController extends Controller
 
         $user->tokens()->where('id', '!=', $user->currentAccessToken()->id)->delete();
 
-        return ApiResponse::success(null, Trans::get('api.password_changed_successfully'));
+        return ApiResponse::success(null, Trans::get(
+            $hasPassword ? 'api.password_changed_successfully' : 'api.password_set_successfully'
+        ));
     }
 
     public function deleteAccount(Request $request)
@@ -574,6 +619,29 @@ class AppUserController extends Controller
         }
 
         $user = $request->user();
+
+        // Block identifier changes on accounts that are pending self-deletion
+        // or admin-trashed — the row is in a frozen state, no field edits.
+        if ($user->isPendingDeletion() || $user->trashed()) {
+            return ApiResponse::error(
+                Trans::get('api.account_in_frozen_state'),
+                ['new_identifier' => [Trans::get('api.account_in_frozen_state')]],
+                403,
+            );
+        }
+
+        // Email change wipes social accounts (linked under the old email).
+        // If the user has no password set, they would be locked out — force
+        // them to set a password before changing email. Phone change does
+        // not touch social accounts so it's always allowed.
+        if ($kind === 'email' && $user->password === null && $user->socialAccounts()->exists()) {
+            return ApiResponse::error(
+                Trans::get('api.set_password_before_email_change'),
+                ['new_identifier' => [Trans::get('api.set_password_before_email_change')]],
+                422,
+            );
+        }
+
         $rule = match ($kind) {
             'email' => $this->getEmailValidationRule(true, $user->id),
             'phone' => $this->getPhoneValidationRule(true, $user->id),
@@ -626,7 +694,7 @@ class AppUserController extends Controller
         return ApiResponse::success($responseData, Trans::get('api.identifier_change_otp_sent'));
     }
 
-    public function verifyIdentifierChange(Request $request)
+    public function verifyIdentifierChange(Request $request, FirebaseAuth $firebaseAuth)
     {
         $identifiers = $this->getAuthIdentifiers();
 
@@ -656,6 +724,22 @@ class AppUserController extends Controller
             return ApiResponse::error(__('admin.account_is_inactive'), null, 403);
         }
 
+        if ($user->isPendingDeletion() || $user->trashed()) {
+            return ApiResponse::error(
+                Trans::get('api.account_in_frozen_state'),
+                ['new_identifier' => [Trans::get('api.account_in_frozen_state')]],
+                403,
+            );
+        }
+
+        if ($kind === 'email' && $user->password === null && $user->socialAccounts()->exists()) {
+            return ApiResponse::error(
+                Trans::get('api.set_password_before_email_change'),
+                ['new_identifier' => [Trans::get('api.set_password_before_email_change')]],
+                422,
+            );
+        }
+
         $otpRecord = $user->otps()
             ->where('otp', $request->otp)
             ->where('identifier', $newIdentifier)
@@ -676,7 +760,30 @@ class AppUserController extends Controller
 
         $otpRecord->delete();
 
-        return ApiResponse::success(['user' => $user->fresh()], Trans::get('api.identifier_changed_successfully'));
+        // Email identifier change invalidates every linked social provider —
+        // the social accounts were authorized against the old email. Wipe them
+        // so the user re-links explicitly with the new email. Also revoke
+        // the Firebase refresh tokens so the old social tokens can't be used
+        // by an in-flight session to silently re-link before the user notices.
+        $unlinkedProviders = [];
+        if ($kind === 'email') {
+            $rows = $user->socialAccounts()->get(['provider', 'provider_id']);
+            $unlinkedProviders = $rows->pluck('provider')->all();
+            $user->socialAccounts()->delete();
+
+            foreach ($rows as $row) {
+                try {
+                    $firebaseAuth->revokeRefreshTokens($row->provider_id);
+                } catch (\Throwable $e) {
+                    report($e); // non-fatal — local row already deleted
+                }
+            }
+        }
+
+        return ApiResponse::success([
+            'user' => $user->fresh()->load('socialAccounts'),
+            'unlinked_providers' => $unlinkedProviders,
+        ], Trans::get('api.identifier_changed_successfully'));
     }
 
     public function updateProfile(Request $request)
@@ -789,6 +896,40 @@ class AppUserController extends Controller
         }
 
         return null;
+    }
+
+    /**
+     * Records a `user_devices` row for the just-issued Sanctum token. When
+     * single-session mode is on, revokes every other token belonging to the
+     * user and broadcasts `device.revoked` so existing clients clear their
+     * local creds.
+     *
+     * Returns the resolved PersonalAccessToken id so callers can echo it back
+     * to the client (clients store it locally to detect kicks targeting them).
+     */
+    private function trackDevice(User $user, string $plainToken, Request $request): int
+    {
+        $accessToken = PersonalAccessToken::findToken($plainToken);
+
+        if (! config('auth.multi_session_enabled')) {
+            $siblings = $user->tokens()->where('id', '!=', $accessToken->id)->get();
+            foreach ($siblings as $sibling) {
+                broadcast(new DeviceRevoked($user->id, (int) $sibling->id));
+                $sibling->delete(); // FK cascade drops user_devices row
+            }
+        }
+
+        $user->devices()->create([
+            'personal_access_token_id' => $accessToken->id,
+            'fcm_token' => $request->input('fcm_token'),
+            'device_name' => $request->input('device_name'),
+            'platform' => $request->input('platform'),
+            'ip' => $request->ip(),
+            'user_agent' => substr((string) $request->userAgent(), 0, 512),
+            'last_seen_at' => now(),
+        ]);
+
+        return (int) $accessToken->id;
     }
 
     private function findUserByIdentifier(string $value, bool $withTrashed = false): ?User
@@ -975,9 +1116,7 @@ class AppUserController extends Controller
             return ApiResponse::error(Trans::get('api.user_role_not_found'), null, 500);
         }
 
-        if ($request->fcm_token) {
-            User::where('fcm_token', $request->fcm_token)->update(['fcm_token' => null]);
-        }
+        $providerAlreadyLinked = false;
 
         // Find existing social account by provider_id
         $socialAccount = SocialAccount::where('provider', $provider)
@@ -987,9 +1126,7 @@ class AppUserController extends Controller
         if ($socialAccount) {
             // Social account already linked - login as that user
             $user = $socialAccount->user;
-            $user->update([
-                'fcm_token' => $request->fcm_token ?? $user->fcm_token,
-            ]);
+            $providerAlreadyLinked = true;
 
             if (! $user->is_active) {
                 return ApiResponse::error(__('admin.account_is_inactive'), null, 403);
@@ -1014,9 +1151,6 @@ class AppUserController extends Controller
             if ($existingUser) {
                 // Account exists but no password (social-only) - link this provider
                 $user = $existingUser;
-                $user->update([
-                    'fcm_token' => $request->fcm_token ?? $user->fcm_token,
-                ]);
 
                 // Check if user already has this provider linked
                 if (! $user->hasSocialProvider($provider)) {
@@ -1029,12 +1163,24 @@ class AppUserController extends Controller
                         );
                     }
 
-                    $user->socialAccounts()->create([
-                        'provider' => $provider,
-                        'provider_id' => $uid,
-                        'email' => $email,
-                        'name' => $name,
-                    ]);
+                    try {
+                        DB::transaction(function () use ($user, $provider, $uid, $email, $name) {
+                            $user->socialAccounts()->create([
+                                'provider' => $provider,
+                                'provider_id' => $uid,
+                                'email' => $email,
+                                'name' => $name,
+                            ]);
+                        });
+                    } catch (QueryException $e) {
+                        if ($e->getCode() === '23000') {
+                            $providerAlreadyLinked = true;
+                        } else {
+                            throw $e;
+                        }
+                    }
+                } else {
+                    $providerAlreadyLinked = true;
                 }
 
                 if (! $user->is_active) {
@@ -1046,7 +1192,6 @@ class AppUserController extends Controller
                     'name' => $name ?? explode('@', $email)[0],
                     'email' => $email,
                     'phone' => $phone,
-                    'fcm_token' => $request->fcm_token,
                     'is_active' => true,
                 ];
 
@@ -1078,12 +1223,19 @@ class AppUserController extends Controller
         }
 
         $token = $user->createToken('user_token', ['*'], now()->addDays(30))->plainTextToken;
+        $tokenId = $this->trackDevice($user, $token, $request);
+
+        $fresh = $user->fresh()->load('socialAccounts');
 
         return ApiResponse::success([
-            'user' => $user->fresh()->load('socialAccounts'),
+            'user' => $fresh,
             'is_verified' => true,
+            'token_id' => $tokenId,
             'is_new_user' => $user->wasRecentlyCreated,
-        ], Trans::get('api.login_successful'), $token);
+            'provider' => $provider,
+            'provider_already_linked' => $providerAlreadyLinked,
+            'linked_providers' => $fresh->socialAccounts->pluck('provider')->all(),
+        ], Trans::get($providerAlreadyLinked ? 'api.social_provider_already_linked' : 'api.login_successful'), $token);
     }
 
     public function linkSocialAccount(Request $request, FirebaseAuth $firebaseAuth)
@@ -1165,13 +1317,29 @@ class AppUserController extends Controller
             );
         }
 
-        // Link the social account
-        $user->socialAccounts()->create([
-            'provider' => $provider,
-            'provider_id' => $uid,
-            'email' => $email,
-            'name' => $name,
-        ]);
+        // Link the social account inside a transaction so concurrent calls
+        // race-cleanly against the DB unique indexes (provider, provider_id) and
+        // (user_id, provider). One winner, one 422.
+        try {
+            DB::transaction(function () use ($user, $provider, $uid, $email, $name) {
+                $user->socialAccounts()->create([
+                    'provider' => $provider,
+                    'provider_id' => $uid,
+                    'email' => $email,
+                    'name' => $name,
+                ]);
+            });
+        } catch (QueryException $e) {
+            // 23000 = integrity constraint violation (duplicate unique index).
+            if ($e->getCode() === '23000') {
+                return ApiResponse::error(
+                    Trans::get('api.social_account_already_linked'),
+                    ['token' => [Trans::get('api.social_account_already_linked')]],
+                    422,
+                );
+            }
+            throw $e;
+        }
 
         return ApiResponse::success([
             'user' => $user->fresh()->load('socialAccounts'),
@@ -1197,18 +1365,47 @@ class AppUserController extends Controller
             );
         }
 
-        // Check if user has password or other social accounts
-        $otherSocialAccounts = $user->socialAccounts()->where('provider', '!=', $request->provider)->count();
+        // Re-check conditions inside a transaction with row lock so a concurrent
+        // unlink can't drop the second-to-last provider while we drop the last.
+        try {
+            DB::transaction(function () use ($user, $request) {
+                $locked = $user->socialAccounts()
+                    ->where('provider', $request->provider)
+                    ->lockForUpdate()
+                    ->first();
 
-        if (! $user->password && $otherSocialAccounts === 0) {
-            return ApiResponse::error(
-                Trans::get('api.cannot_unlink_social_only'),
-                ['provider' => [Trans::get('api.cannot_unlink_social_only')]],
-                422,
-            );
+                if (! $locked) {
+                    abort(422, 'race');
+                }
+
+                $otherCount = $user->socialAccounts()
+                    ->where('provider', '!=', $request->provider)
+                    ->lockForUpdate()
+                    ->count();
+
+                if (! $user->password && $otherCount === 0) {
+                    abort(422, 'last');
+                }
+
+                $locked->delete();
+            });
+        } catch (\Throwable $e) {
+            if ($e->getMessage() === 'last') {
+                return ApiResponse::error(
+                    Trans::get('api.cannot_unlink_social_only'),
+                    ['provider' => [Trans::get('api.cannot_unlink_social_only')]],
+                    422,
+                );
+            }
+            if ($e->getMessage() === 'race') {
+                return ApiResponse::error(
+                    Trans::get('api.social_provider_not_linked'),
+                    ['provider' => [Trans::get('api.social_provider_not_linked')]],
+                    422,
+                );
+            }
+            throw $e;
         }
-
-        $socialAccount->delete();
 
         return ApiResponse::success([
             'user' => $user->fresh()->load('socialAccounts'),

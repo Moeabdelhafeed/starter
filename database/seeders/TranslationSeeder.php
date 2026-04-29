@@ -87,6 +87,30 @@ class TranslationSeeder extends Seeder
             'en' => 'Welcome back. Your account has been restored.',
             'ar' => 'مرحبًا بعودتك. تمت استعادة حسابك.',
         ],
+        'social_provider_already_linked' => [
+            'en' => 'This provider is already linked to your account. Logged in.',
+            'ar' => 'هذا المزود مرتبط بحسابك بالفعل. تم تسجيل الدخول.',
+        ],
+        'password_set_successfully' => [
+            'en' => 'Password set successfully.',
+            'ar' => 'تم تعيين كلمة المرور بنجاح.',
+        ],
+        'set_password_before_email_change' => [
+            'en' => 'Set a password before changing your email — your linked social accounts will be unlinked.',
+            'ar' => 'قم بتعيين كلمة مرور قبل تغيير البريد الإلكتروني — سيتم إلغاء ربط حساباتك الاجتماعية.',
+        ],
+        'account_in_frozen_state' => [
+            'en' => 'Your account is in a frozen state and cannot be edited. Please log in to restore it or contact support.',
+            'ar' => 'حسابك في حالة مجمدة ولا يمكن تعديله. يرجى تسجيل الدخول لاستعادته أو التواصل مع الدعم.',
+        ],
+        'device_revoked' => [
+            'en' => 'Device signed out.',
+            'ar' => 'تم تسجيل خروج الجهاز.',
+        ],
+        'session_kicked' => [
+            'en' => 'Signed out from another device.',
+            'ar' => 'تم تسجيل الخروج من جهاز آخر.',
+        ],
         'account_suspended' => [
             'en' => 'Your account is suspended. Please contact support.',
             'ar' => 'تم تعليق حسابك. يرجى التواصل مع الدعم.',

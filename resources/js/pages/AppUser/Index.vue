@@ -13,6 +13,7 @@ import RestoreModal from '@/components/Shared/RestoreModal.vue';
 import ForceDeleteModal from '@/components/Shared/ForceDeleteModal.vue';
 import BulkRestoreModal from '@/components/Shared/BulkRestoreModal.vue';
 import BulkForceDeleteModal from '@/components/Shared/BulkForceDeleteModal.vue';
+import ExportButton from '@/components/Shared/ExportButton.vue';
 
 defineOptions({
     layout: Default,
@@ -24,6 +25,10 @@ const props = defineProps({
     users: Object,
     filters: Object,
     hasSoftDeletes: {
+        type: Boolean,
+        default: false,
+    },
+    hasExport: {
         type: Boolean,
         default: false,
     },
@@ -166,6 +171,10 @@ const confirmBulkForceDelete = (done) => {
                 @force-delete="handleBulkForceDelete"
                 @clear="selectedIds = []"
             />
+
+            <div v-if="hasExport" class="flex w-full items-center justify-end rounded-xl border bg-card p-4">
+                <ExportButton route-name="app_users.export" :filters="filters" :show="hasExport" />
+            </div>
 
             <!-- Table Component -->
             <AppUserTable

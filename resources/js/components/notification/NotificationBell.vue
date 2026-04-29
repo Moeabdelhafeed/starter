@@ -1,9 +1,9 @@
 <script setup>
-import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
+import { ref, onMounted, onUnmounted, watch } from 'vue';
 import { usePage, router } from '@inertiajs/vue3';
 import { useI18n } from 'vue-i18n';
 import { Bell, Check, CheckCheck, X, User, Activity, Clock } from 'lucide-vue-next';
-import Button from '@/components/ui/button/Button.vue';
+import { useAdminNotifications } from '@/composables/useAdminNotifications';
 
 const props = defineProps({
     navbarOpen: {
@@ -11,6 +11,8 @@ const props = defineProps({
         default: true,
     },
 });
+
+const emit = defineEmits(['close']);
 
 const { t } = useI18n();
 const page = usePage();
@@ -26,7 +28,14 @@ watch(() => props.navbarOpen, (newVal) => {
 const notifications = ref([]);
 const isLoading = ref(false);
 
-const unreadCount = computed(() => page.props.notifications?.unread_count || 0);
+// Shared admin-notifications state (Echo subscription lives in the composable).
+const { unreadCount, incoming, decrementUnread } = useAdminNotifications();
+
+// Mirror live arrivals into the local list so the open sidebar updates.
+watch(incoming, (list) => {
+    if (list.length === 0) return;
+    notifications.value.unshift(...list.splice(0));
+}, { deep: true });
 
 const toggleSidebar = () => {
     isOpen.value = !isOpen.value;
@@ -52,17 +61,46 @@ const fetchNotifications = async () => {
     }
 };
 
-const markAsRead = (notification) => {
-    router.post(route('notifications.mark_read', notification.id), {}, {
-        preserveState: true,
-        preserveScroll: true,
-        onSuccess: () => {
-            const index = notifications.value.findIndex(n => n.id === notification.id);
-            if (index !== -1) {
-                notifications.value[index].read_at = new Date().toISOString();
-            }
-        },
-    });
+const markAsRead = async (notification) => {
+    // Plain fetch — avoids Inertia partial reload (which flashes shared props
+    // and momentarily un-styles the page during nav).
+    try {
+        await fetch(route('notifications.mark_read', notification.id), {
+            method: 'POST',
+            headers: {
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
+                'Accept': 'application/json',
+            },
+            credentials: 'same-origin',
+        });
+    } catch (e) {
+        // Ignore — UI already optimistically updated below.
+    }
+
+    const index = notifications.value.findIndex(n => n.id === notification.id);
+    if (index !== -1) {
+        notifications.value[index].read_at = new Date().toISOString();
+    }
+    decrementUnread();
+};
+
+// Notification click → navigate to target route with ?highlight={id}
+// so the destination page can glow the related row.
+const openNotification = (notification) => {
+    if (!notification.read_at) {
+        markAsRead(notification);
+    }
+
+    // Close sidebar + signal navbar to collapse on mobile.
+    closeSidebar();
+    emit('close');
+
+    if (notification.target?.route) {
+        router.get(route(notification.target.route, { highlight: notification.target.highlight }), {}, {
+            preserveState: false,
+            preserveScroll: false,
+        });
+    }
 };
 
 const markAllAsRead = () => {
@@ -142,7 +180,7 @@ onUnmounted(() => {
             class="relative flex h-10 w-10 items-center justify-center rounded-lg transition-colors hover:bg-primary/10">
             <Bell class="size-5 text-muted-foreground" />
             <span v-if="unreadCount > 0"
-                class="absolute -end-0.5 -top-0.5 flex size-5 items-center justify-center rounded-full bg-red-500 text-[10px] font-medium text-white">
+                class="absolute -end-0.5 -top-0.5 flex size-5 items-center justify-center rounded-full bg-red-500 text-[10px] font-semibold leading-none text-white shadow-md">
                 {{ unreadCount > 99 ? '99+' : unreadCount }}
             </span>
         </button>
@@ -207,7 +245,11 @@ onUnmounted(() => {
                     <div v-else class="divide-y divide-border">
                         <div v-for="notification in notifications" :key="notification.id"
                             class="flex gap-3 p-4 transition-colors"
-                            :class="notification.read_at ? 'bg-background' : 'bg-primary/5'">
+                            :class="[
+                                notification.read_at ? 'bg-background' : 'bg-primary/5',
+                                notification.target?.route ? 'cursor-pointer hover:bg-primary/10' : '',
+                            ]"
+                            @click="notification.target?.route && openNotification(notification)">
                             <!-- Type Icon -->
                             <div
                                 :class="[getTypeColor(notification.type), 'flex size-10 shrink-0 items-center justify-center rounded-lg']">

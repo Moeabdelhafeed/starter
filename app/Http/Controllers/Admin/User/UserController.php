@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin\User;
 use App\Http\Controllers\Controller;
 use App\Models\Role;
 use App\Models\User;
+use App\Traits\Exportable;
 use App\Traits\HasSoftDeleteActions;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -54,7 +55,29 @@ class UserController extends Controller
                 'trashed' => $trashed,
             ],
             'hasSoftDeletes' => true,
+            'hasExport' => in_array(Exportable::class, class_uses_recursive(User::class)),
         ]);
+    }
+
+    public function export(Request $request)
+    {
+        $search = $request->input('search');
+        $role = $request->input('role');
+        $isActive = $request->input('is_active');
+
+        return User::query()->whereHas('roles', function ($q) {
+            $q->where('guard_name', 'web');
+        })
+            ->when($search, function ($query, $search) {
+                $query->where(function ($q) use ($search) {
+                    $q->where('name', 'like', "%{$search}%")
+                        ->orWhere('email', 'like', "%{$search}%");
+                });
+            })
+            ->when($role, fn ($q) => $q->role($role))
+            ->when($isActive !== null && $isActive !== 'all', fn ($q) => $q->where('is_active', $isActive))
+            ->latest()
+            ->exportCsv('users-'.now()->format('Y-m-d-His').'.csv');
     }
 
     public function update(Request $request, User $user)

@@ -6,6 +6,9 @@ import Button from '@/components/ui/button/Button.vue';
 import Checkbox from '@/components/ui/checkbox/Checkbox.vue';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { UserIcon } from 'lucide-vue-next';
+import { useHighlight } from '@/composables/useHighlight';
+
+const { isHighlighted } = useHighlight();
 
 const { t } = useI18n();
 const page = usePage();
@@ -82,7 +85,8 @@ const toggleStatus = (user) => {
 
             <TableBody>
                 <InfiniteScroll class="contents" preserve-url data="users">
-                    <TableRow v-for="user in users.data" :key="user.id">
+                    <TableRow v-for="user in users.data" :key="user.id"
+                        :class="isHighlighted(user.id) ? 'animate-pulse ring-2 ring-primary/70 bg-primary/10' : ''">
                         <TableCell class="py-4">
                             <Checkbox :modelValue="selectedIds" @update:modelValue="emit('update:selectedIds', $event)" :value="user.id" />
                         </TableCell>

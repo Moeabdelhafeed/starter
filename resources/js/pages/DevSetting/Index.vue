@@ -1,7 +1,7 @@
 <script setup>
 import Default from '@/layouts/default.vue';
 import { Head, useForm, router } from '@inertiajs/vue3';
-import { ref, computed } from 'vue';
+import { ref, computed, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { Loader2, Hammer, Sun, Moon, Flame, CheckCircle, XCircle, Send, ImageIcon, Clipboard, Check, ShieldCheck, GitBranch, Database, Rocket, Mail, Link2, Server, KeyRound, RefreshCw, Download, GitPullRequest, GitCommit, Plus, ChevronDown, ChevronRight, FileCode, FilePlus, FileEdit, ArrowUpCircle, ArrowDownCircle, Shield, X, Search, Settings, Palette, Bell, Lock, Globe, ToggleLeft, Users } from 'lucide-vue-next';
 import Checkbox from '@/components/ui/checkbox/Checkbox.vue';
@@ -27,6 +27,7 @@ const props = defineProps({
     pusherConfig: Object,
     rateLimitConfig: Object,
     accountDeletionConfig: Object,
+    sessionsConfig: Object,
     git: Object,
     productionDb: Object,
     productionMail: Object,
@@ -41,18 +42,39 @@ const props = defineProps({
 });
 
 // Sidebar Navigation
-const activeSection = ref('general');
-
 const menuItems = [
     { id: 'general', icon: Settings, label: 'general_settings' },
     { id: 'deployment', icon: Rocket, label: 'deployment' },
     { id: 'authentication', icon: Lock, label: 'authentication' },
-    { id: 'notifications', icon: Bell, label: 'notifications' },
+    { id: 'sessions', icon: KeyRound, label: 'sessions_settings' },
+    { id: 'notifications', icon: Bell, label: 'fcm_notifications' },
+    { id: 'pusher', icon: Send, label: 'broadcasting' },
     { id: 'validation', icon: ShieldCheck, label: 'validation_settings' },
     { id: 'mail', icon: Mail, label: 'mail_settings' },
     { id: 'appearance', icon: Palette, label: 'appearance' },
     { id: 'environment', icon: ToggleLeft, label: 'environment' },
 ];
+
+const validSections = menuItems.map((m) => m.id);
+
+const sectionFromHash = () => {
+    const hash = (typeof window !== 'undefined' ? window.location.hash : '').replace(/^#/, '');
+    return validSections.includes(hash) ? hash : 'general';
+};
+
+const activeSection = ref(sectionFromHash());
+
+if (typeof window !== 'undefined') {
+    window.addEventListener('hashchange', () => {
+        activeSection.value = sectionFromHash();
+    });
+
+    watch(activeSection, (val) => {
+        if (window.location.hash.replace(/^#/, '') !== val) {
+            history.replaceState(null, '', `#${val}`);
+        }
+    });
+}
 
 // Convert oklch to approximate hex for the color picker display
 const oklchToHex = (oklch) => {
@@ -586,6 +608,19 @@ const submitAccountDeletion = () => {
         preserveScroll: true,
         preserveState: true,
         reset: ['accountDeletionConfig', 'success', 'error'],
+    });
+};
+
+// Multi-session toggle
+const sessionsForm = useForm({
+    multi_session_enabled: Boolean(props.sessionsConfig?.multi_session_enabled),
+});
+
+const submitSessions = () => {
+    sessionsForm.put(route('dev_settings.sessions'), {
+        preserveScroll: true,
+        preserveState: true,
+        reset: ['sessionsConfig', 'success', 'error'],
     });
 };
 
@@ -1577,6 +1612,40 @@ const sendTestFcm = () => {
                     </div>
                 </div>
 
+                <!-- Sessions / Multi-Device -->
+                <div v-if="activeSection === 'sessions'" class="rounded-3xl border bg-card p-6">
+                    <div class="mb-6 flex items-center gap-3">
+                        <KeyRound class="size-5 text-emerald-500" />
+                        <div>
+                            <h2 class="text-lg font-semibold text-foreground">{{ t('sessions_settings') }}</h2>
+                            <p class="text-sm text-muted-foreground">{{ t('sessions_settings_desc') }}</p>
+                        </div>
+                    </div>
+
+                    <form @submit.prevent="submitSessions" class="space-y-6">
+                        <label class="flex cursor-pointer items-start gap-4 rounded-xl border bg-muted/30 p-4">
+                            <input
+                                type="checkbox"
+                                v-model="sessionsForm.multi_session_enabled"
+                                class="mt-1 size-4 cursor-pointer accent-primary"
+                            />
+                            <div class="flex-1">
+                                <p class="text-sm font-medium text-foreground">{{ t('multi_session_enabled') }}</p>
+                                <p class="mt-1 text-xs text-muted-foreground">
+                                    {{ sessionsForm.multi_session_enabled ? t('multi_session_desc') : t('single_session_desc') }}
+                                </p>
+                            </div>
+                        </label>
+
+                        <div class="pt-2">
+                            <Button type="submit" :disabled="sessionsForm.processing">
+                                <Loader2 v-if="sessionsForm.processing" class="me-2 h-4 w-4 animate-spin" />
+                                {{ sessionsForm.processing ? t('saving') : t('save_sessions_config') }}
+                            </Button>
+                        </div>
+                    </form>
+                </div>
+
                 <!-- Production Database -->
                 <div v-if="activeSection === 'deployment'" class="rounded-3xl border bg-card p-6">
                     <div class="mb-6 flex items-center gap-3">
@@ -2224,7 +2293,7 @@ const sendTestFcm = () => {
                 </div>
 
                 <!-- Pusher Broadcasting -->
-                <div v-if="activeSection === 'notifications'" class="rounded-3xl border bg-card p-6">
+                <div v-if="activeSection === 'pusher'" class="rounded-3xl border bg-card p-6">
                     <div class="mb-6 flex items-center gap-3">
                         <Send class="size-5 text-purple-500" />
                         <div>

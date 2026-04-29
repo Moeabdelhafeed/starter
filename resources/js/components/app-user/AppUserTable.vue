@@ -6,6 +6,9 @@ import Button from '@/components/ui/button/Button.vue';
 import Checkbox from '@/components/ui/checkbox/Checkbox.vue';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { CheckCircle, XCircle } from 'lucide-vue-next';
+import { useHighlight } from '@/composables/useHighlight';
+
+const { isHighlighted } = useHighlight();
 
 const { t } = useI18n();
 const page = usePage();
@@ -83,7 +86,8 @@ const toggleStatus = (user) => {
 
             <TableBody>
                 <InfiniteScroll class="contents" preserve-url data="users">
-                    <TableRow v-for="user in users.data" :key="user.id">
+                    <TableRow v-for="user in users.data" :key="user.id"
+                        :class="isHighlighted(user.id) ? 'animate-pulse ring-2 ring-primary/70 bg-primary/10' : ''">
                         <TableCell class="py-4">
                             <Checkbox :modelValue="selectedIds" @update:modelValue="emit('update:selectedIds', $event)" :value="user.id" />
                         </TableCell>
@@ -107,7 +111,7 @@ const toggleStatus = (user) => {
                         </TableCell>
 
                         <TableCell>
-                            <div class="flex items-center gap-1.5">
+                            <div class="flex flex-wrap items-center gap-1.5">
                                 <div
                                     v-if="user.verified_at"
                                     class="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2.5 py-0.5 text-xs font-medium text-emerald-600"
@@ -121,6 +125,14 @@ const toggleStatus = (user) => {
                                 >
                                     <XCircle class="size-3" />
                                     {{ t('not_verified') }}
+                                </div>
+                                <div
+                                    v-if="user.account_deleted_at"
+                                    class="inline-flex items-center gap-1 rounded-full bg-orange-500/10 px-2.5 py-0.5 text-xs font-medium text-orange-600"
+                                    :title="t('pending_deletion_hint')"
+                                >
+                                    <XCircle class="size-3" />
+                                    {{ t('pending_deletion') }}
                                 </div>
                             </div>
                         </TableCell>

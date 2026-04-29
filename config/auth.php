@@ -127,4 +127,19 @@ return [
 
     'account_deletion_retention_days' => (int) env('ACCOUNT_DELETION_RETENTION_DAYS', 30),
 
+    /*
+    |--------------------------------------------------------------------------
+    | Multi-Session Mode
+    |--------------------------------------------------------------------------
+    |
+    | true  → users may keep multiple Sanctum tokens (one per device). Each
+    |          login adds a new `user_devices` row. Devices API + UI exposed.
+    | false → every login revokes the user's prior tokens and broadcasts a
+    |          `device.revoked` Pusher event so kicked clients clear their
+    |          local token. Single active session per user.
+    |
+    */
+
+    'multi_session_enabled' => filter_var(env('MULTI_SESSION_ENABLED', true), FILTER_VALIDATE_BOOLEAN),
+
 ];

@@ -18,6 +18,7 @@ import {
     FileText,
 } from 'lucide-vue-next';
 import NotificationBell from '@/components/notification/NotificationBell.vue';
+import { useAdminNotifications } from '@/composables/useAdminNotifications';
 import { computed, ref, onMounted } from 'vue';
 import { useI18n } from 'vue-i18n';
 import Button from '@/components/ui/button/Button.vue';
@@ -38,6 +39,13 @@ const isSidebarOpen = computed(() => {
     if (isMouseOver.value) return true;
     return currentLocale.value.code == 'en' ? x.value < 30 : x.value > width.value - 30;
 });
+
+// Live unread count — drives the badge on the open-arrow when navbar is closed.
+const { unreadCount: navbarUnread, leaveAll: leaveNotificationChannels } = useAdminNotifications();
+
+const handleLogout = () => {
+    leaveNotificationChannels();
+};
 
 const openAccordions = ref({
     usersAndRoles: false,
@@ -110,9 +118,17 @@ const isRouteActive = (name) => {
             class="fixed inset-0 z-[50] bg-black/40 backdrop-blur-sm transition-all duration-300"
         ></div>
 
-        <ChevronRight
-            class="fixed start-2 top-1/2 z-[30] size-8 -translate-y-1/2 text-foreground ltr:rotate-180"
-        />
+        <div class="fixed start-2 top-1/2 z-[30] -translate-y-1/2">
+            <div class="relative">
+                <ChevronRight class="size-8 text-foreground ltr:rotate-180" />
+                <span
+                    v-if="navbarUnread > 0 && !isSidebarOpen"
+                    class="absolute -end-1 -top-1 flex size-5 items-center justify-center rounded-full bg-red-500 text-[10px] font-semibold leading-none text-white shadow-md ring-2 ring-background"
+                >
+                    {{ navbarUnread > 99 ? '99+' : navbarUnread }}
+                </span>
+            </div>
+        </div>
 
         <div
             @mouseenter="isMouseOver = true"
@@ -126,7 +142,7 @@ const isRouteActive = (name) => {
                     <h2 class="flex flex-1 items-center justify-center text-lg font-semibold text-foreground">
                         <img src="/images/logo.png" class="w-[60%]" />
                     </h2>
-                    <NotificationBell :navbar-open="isSidebarOpen" />
+                    <NotificationBell :navbar-open="isSidebarOpen" @close="isMouseOver = false" />
                 </div>
             </div>
 
@@ -317,7 +333,7 @@ const isRouteActive = (name) => {
                     </div>
                 </Button>
 
-                <Link :href="route('logout')" method="post" as="button" class="w-full">
+                <Link :href="route('logout')" method="post" as="button" class="w-full" @click="handleLogout">
                     <Button variant="ghost" class="group w-full justify-start gap-3 hover:bg-red-50 hover:text-red-600">
                         <LogOut class="size-5 text-muted-foreground group-hover:text-red-600" />
                         <div class="flex flex-col items-start">

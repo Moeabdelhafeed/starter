@@ -19,7 +19,7 @@ class AdminNotification extends Model
         'read_at',
     ];
 
-    protected $appends = ['title', 'message'];
+    protected $appends = ['title', 'message', 'target'];
 
     protected function casts(): array
     {
@@ -70,11 +70,51 @@ class AdminNotification extends Model
     }
 
     /**
+     * Resolve the admin route the notification points at, plus a highlight id
+     * the target page can use to glow the related row.
+     *
+     * Returns null when the type is not in `config/admin_notifications.php`.
+     */
+    public function getTargetAttribute(): ?array
+    {
+        $routeName = config('admin_notifications.routes.'.$this->type);
+
+        if (! $routeName) {
+            return null;
+        }
+
+        return [
+            'route' => $routeName,
+            'highlight' => $this->notifiable_id,
+        ];
+    }
+
+    /**
      * Scope a query to only include unread notifications.
      */
     public function scopeUnread($query)
     {
         return $query->whereNull('read_at');
+    }
+
+    /**
+     * Scope a query to notifications whose `type` the given user has permission for.
+     * Convention: notification type === Spatie permission name (e.g. `app_users`).
+     * Pass a Spatie HasRoles user. Without permissions ⇒ empty result set.
+     */
+    public function scopeForUser($query, $user)
+    {
+        if (! $user) {
+            return $query->whereRaw('1 = 0');
+        }
+
+        $permissions = $user->getAllPermissions()->pluck('name')->all();
+
+        if (empty($permissions)) {
+            return $query->whereRaw('1 = 0');
+        }
+
+        return $query->whereIn('type', $permissions);
     }
 
     /**

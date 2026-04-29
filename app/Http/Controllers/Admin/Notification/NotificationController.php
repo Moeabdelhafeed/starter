@@ -12,11 +12,14 @@ class NotificationController extends Controller
      */
     public function recent()
     {
-        $notifications = AdminNotification::latest()
+        $user = auth()->user();
+
+        $notifications = AdminNotification::forUser($user)
+            ->latest()
             ->take(10)
             ->get();
 
-        $unreadCount = AdminNotification::unread()->count();
+        $unreadCount = AdminNotification::forUser($user)->unread()->count();
 
         return response()->json([
             'notifications' => $notifications,
@@ -29,6 +32,8 @@ class NotificationController extends Controller
      */
     public function markAsRead(AdminNotification $notification)
     {
+        abort_unless(auth()->user()?->can($notification->type), 403);
+
         $notification->markAsRead();
 
         return back()->with('success', __('admin.notification_marked_read'));
@@ -39,7 +44,7 @@ class NotificationController extends Controller
      */
     public function markAllAsRead()
     {
-        AdminNotification::unread()->update(['read_at' => now()]);
+        AdminNotification::forUser(auth()->user())->unread()->update(['read_at' => now()]);
 
         return back()->with('success', __('admin.all_notifications_marked_read'));
     }

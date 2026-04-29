@@ -10,6 +10,7 @@ import ActivityLogViewModal from '@/components/activity-log/ActivityLogViewModal
 import DeleteModal from '@/components/Shared/DeleteModal.vue';
 import BulkActions from '@/components/Shared/BulkActions.vue';
 import BulkDeleteModal from '@/components/Shared/BulkDeleteModal.vue';
+import ExportButton from '@/components/Shared/ExportButton.vue';
 import { router } from '@inertiajs/vue3';
 
 defineOptions({
@@ -24,6 +25,10 @@ const props = defineProps({
     actions: Array,
     subjectTypes: Array,
     causers: Array,
+    hasExport: {
+        type: Boolean,
+        default: false,
+    },
 });
 
 const isViewModalOpen = ref(false);
@@ -75,8 +80,12 @@ const confirmBulkDelete = (done) => {
                 @clear="selectedIds = []"
             />
 
+            <div v-if="hasExport" class="flex w-full items-center justify-end rounded-xl border bg-card p-4">
+                <ExportButton route-name="activity_logs.export" :filters="filters" :show="hasExport" />
+            </div>
+
             <!-- Table Component -->
-            <ActivityLogTable 
+            <ActivityLogTable
                 v-model:selected-ids="selectedIds" 
                 :logs="logs" 
                 @view="openViewModal" 

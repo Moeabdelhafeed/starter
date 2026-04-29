@@ -18,6 +18,7 @@ import RestoreModal from '@/components/Shared/RestoreModal.vue';
 import ForceDeleteModal from '@/components/Shared/ForceDeleteModal.vue';
 import BulkRestoreModal from '@/components/Shared/BulkRestoreModal.vue';
 import BulkForceDeleteModal from '@/components/Shared/BulkForceDeleteModal.vue';
+import ExportButton from '@/components/Shared/ExportButton.vue';
 
 defineOptions({
     layout: Default,
@@ -30,6 +31,10 @@ const props = defineProps({
     filters: Object,
     roles: Array,
     hasSoftDeletes: {
+        type: Boolean,
+        default: false,
+    },
+    hasExport: {
         type: Boolean,
         default: false,
     },
@@ -180,11 +185,12 @@ const confirmBulkForceDelete = (done) => {
             />
 
             <!-- Create User Button -->
-            <div class="flex w-full items-center justify-between rounded-xl border bg-card p-4">
+            <div class="flex w-full items-center justify-between gap-3 rounded-xl border bg-card p-4">
                 <Button @click="openCreateModal">
                     <Plus class="me-2" />
                     {{ t('create_user') }}
                 </Button>
+                <ExportButton route-name="users.export" :filters="filters" :show="hasExport" />
             </div>
 
             <!-- Table Component -->

@@ -747,6 +747,65 @@
                   "body": "{\n  \"success\": true,\n  \"message\": \"Logout successful.\",\n  \"errors\": null,\n  \"data\": null\n}"
                 }
               ]
+            },
+            {
+              "name": "List Devices",
+              "request": {
+                "method": "GET",
+                "header": [
+                  { "key": "Accept-Language", "value": "en", "type": "text" },
+                  { "key": "X-API-TOKEN", "value": "{{x-api-token}}", "type": "text" },
+                  { "key": "Accept", "value": "application/json", "type": "text" }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/devices",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "devices"]
+                },
+                "description": "Returns the authenticated user's active devices — one row per Sanctum token. Each row carries `device_name`, `platform`, `ip`, `user_agent`, `last_seen_at`, and an `is_current` boolean so the client can highlight (or block revoke on) the device making the request.\n\nUse `auth_config.multi_session` to decide whether to render the Active Devices screen at all. Requires: Bearer token + verified."
+              },
+              "response": [
+                {
+                  "name": "Success",
+                  "status": "OK",
+                  "code": 200,
+                  "_postman_previewlanguage": "json",
+                  "body": "{\n  \"success\": true,\n  \"message\": \"Operation successful\",\n  \"errors\": null,\n  \"data\": {\n    \"devices\": [\n      {\n        \"id\": 12,\n        \"device_name\": \"iPhone 15\",\n        \"platform\": \"ios\",\n        \"ip\": \"203.0.113.7\",\n        \"user_agent\": \"MyApp/1.4 iOS/18\",\n        \"last_seen_at\": \"2026-04-29T09:15:00.000000Z\",\n        \"created_at\": \"2026-04-26T08:01:00.000000Z\",\n        \"is_current\": true\n      },\n      {\n        \"id\": 9,\n        \"device_name\": \"Pixel 8\",\n        \"platform\": \"android\",\n        \"ip\": \"203.0.113.42\",\n        \"user_agent\": \"MyApp/1.4 Android/15\",\n        \"last_seen_at\": \"2026-04-28T22:40:00.000000Z\",\n        \"created_at\": \"2026-04-20T14:00:00.000000Z\",\n        \"is_current\": false\n      }\n    ]\n  }\n}"
+                }
+              ]
+            },
+            {
+              "name": "Revoke Device",
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  { "key": "Accept-Language", "value": "en", "type": "text" },
+                  { "key": "X-API-TOKEN", "value": "{{x-api-token}}", "type": "text" },
+                  { "key": "Accept", "value": "application/json", "type": "text" }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/devices/9",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "devices", "9"]
+                },
+                "description": "Revokes a specific device. Drops its underlying Sanctum token (FK cascade removes the `user_devices` row) and broadcasts `device.revoked` on `private-user.{userId}` with `{ token_id }` so the kicked client clears its local creds.\n\n404 if the device id doesn't belong to the authenticated user.\n\nRequires: Bearer token + verified."
+              },
+              "response": [
+                {
+                  "name": "Success",
+                  "status": "OK",
+                  "code": 200,
+                  "_postman_previewlanguage": "json",
+                  "body": "{\n  \"success\": true,\n  \"message\": \"Device signed out.\",\n  \"errors\": null,\n  \"data\": null\n}"
+                },
+                {
+                  "name": "Not Found",
+                  "status": "Not Found",
+                  "code": 404,
+                  "_postman_previewlanguage": "json",
+                  "body": "{\n  \"message\": \"No query results for model [App\\\\Models\\\\UserDevice] 9\"\n}"
+                }
+              ]
             }
           ],
           "auth": {
@@ -772,7 +831,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"policy_agreed\": true,\n  \"name\": \"Test User\",\n  \"identifier\": \"user@example.com\",\n  \"username\": \"testuser\",\n  \"password\": \"password123\",\n  \"password_confirmation\": \"password123\",\n  \"fcm_token\": \"fake_fcm_token_123\"\n}",
+              "raw": "{\n  \"policy_agreed\": true,\n  \"name\": \"Test User\",\n  \"identifier\": \"user@example.com\",\n  \"username\": \"testuser\",\n  \"password\": \"password123\",\n  \"password_confirmation\": \"password123\",\n  \"fcm_token\": \"fake_fcm_token_123\",\n  \"device_name\": \"iPhone 15 Pro\",\n  \"platform\": \"ios\"\n}",
               "options": { "raw": { "language": "json" } }
             },
             "url": {
@@ -817,7 +876,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"identifier\": \"user@example.com\",\n  \"password\": \"password123\",\n  \"fcm_token\": \"fake_fcm_token_123\",\n  \"remember_me\": true\n}",
+              "raw": "{\n  \"identifier\": \"user@example.com\",\n  \"password\": \"password123\",\n  \"fcm_token\": \"fake_fcm_token_123\",\n  \"remember_me\": true,\n  \"device_name\": \"iPhone 15 Pro\",\n  \"platform\": \"ios\"\n}",
               "options": { "raw": { "language": "json" } }
             },
             "url": {
@@ -825,7 +884,7 @@
               "host": ["{{base_url}}"],
               "path": ["api", "login"]
             },
-            "description": "Login an existing app user.\n\n**Required fields:** `identifier`, `password`\n\n**Optional:** `fcm_token`, `remember_me`\n\nThe `identifier` field is searched across all configured identifier columns (set via `AUTH_IDENTIFIERS` env, e.g. `email,phone`). Users can log in with any of their configured identifiers.\n\nReturns a Bearer token on success."
+            "description": "Login an existing app user.\n\n**Required fields:** `identifier`, `password`\n\n**Optional:**\n- `fcm_token` — mobile only. Web admin must omit.\n- `remember_me` — 30-day token instead of 1-day.\n- `device_name` — free-form label shown in the Active Devices UI (e.g. `iPhone 15 Pro`, `Mohammad's MacBook`).\n- `platform` — `ios` | `android` | `web`. Server falls back to User-Agent parsing if omitted.\n\nThe `identifier` field is searched across all configured identifier columns (set via `AUTH_IDENTIFIERS` env, e.g. `email,phone`). Users can log in with any of their configured identifiers.\n\nReturns a Bearer token plus `data.token_id` — the client should persist this id alongside the token so it can identify itself when receiving the `device.revoked` Pusher event on `private-user.{userId}`.\n\nIn single-session mode (`MULTI_SESSION_ENABLED=false`), the new login revokes the user's prior tokens and broadcasts `device.revoked` for each one. In multi-session mode, all tokens stack."
           },
           "response": [
             {
@@ -833,7 +892,7 @@
               "status": "OK",
               "code": 200,
               "_postman_previewlanguage": "json",
-              "body": "{\n  \"success\": true,\n  \"message\": \"Login successful.\",\n  \"errors\": null,\n  \"token\": \"2|xyz456tokenhere\",\n  \"data\": {\n    \"user\": {\n      \"id\": 1,\n      \"name\": \"Test User\",\n      \"email\": \"user@example.com\",\n      \"phone\": null,\n      \"is_active\": true,\n      \"verified_at\": \"2026-04-01T12:00:00.000000Z\"\n    },\n    \"is_verified\": true,\n    \"token\": \"2|xyz456tokenhere\"\n  }\n}"
+              "body": "{\n  \"success\": true,\n  \"message\": \"Login successful.\",\n  \"errors\": null,\n  \"token\": \"2|xyz456tokenhere\",\n  \"data\": {\n    \"user\": {\n      \"id\": 1,\n      \"name\": \"Test User\",\n      \"email\": \"user@example.com\",\n      \"phone\": null,\n      \"is_active\": true,\n      \"verified_at\": \"2026-04-01T12:00:00.000000Z\",\n      \"has_password\": true\n    },\n    \"is_verified\": true,\n    \"account_restored\": false,\n    \"token_id\": 17,\n    \"token\": \"2|xyz456tokenhere\"\n  }\n}"
             },
             {
               "name": "Invalid Credentials",
@@ -862,7 +921,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"token\": \"firebase_id_token_here\",\n  \"fcm_token\": \"fake_fcm_token_123\"\n}",
+              "raw": "{\n  \"token\": \"firebase_id_token_here\",\n  \"fcm_token\": \"fake_fcm_token_123\",\n  \"device_name\": \"iPhone 15 Pro\",\n  \"platform\": \"ios\"\n}",
               "options": { "raw": { "language": "json" } }
             },
             "url": {
@@ -878,14 +937,14 @@
               "status": "OK",
               "code": 200,
               "_postman_previewlanguage": "json",
-              "body": "{\n  \"success\": true,\n  \"message\": \"Login successful.\",\n  \"errors\": null,\n  \"token\": \"3|abc789tokenhere\",\n  \"data\": {\n    \"user\": {\n      \"id\": 2,\n      \"name\": \"John Doe\",\n      \"email\": \"john@gmail.com\",\n      \"verified_at\": \"2026-04-14T12:00:00.000000Z\",\n      \"social_accounts\": [\n        {\n          \"id\": 1,\n          \"provider\": \"google.com\",\n          \"provider_name\": \"Google\",\n          \"email\": \"john@gmail.com\"\n        }\n      ]\n    },\n    \"is_verified\": true,\n    \"is_new_user\": true,\n    \"token\": \"3|abc789tokenhere\"\n  }\n}"
+              "body": "{\n  \"success\": true,\n  \"message\": \"Login successful.\",\n  \"errors\": null,\n  \"token\": \"3|abc789tokenhere\",\n  \"data\": {\n    \"user\": {\n      \"id\": 2,\n      \"name\": \"John Doe\",\n      \"email\": \"john@gmail.com\",\n      \"verified_at\": \"2026-04-14T12:00:00.000000Z\",\n      \"has_password\": false,\n      \"social_accounts\": [\n        {\n          \"id\": 1,\n          \"provider\": \"google.com\",\n          \"provider_name\": \"Google\",\n          \"email\": \"john@gmail.com\"\n        }\n      ]\n    },\n    \"is_verified\": true,\n    \"is_new_user\": true,\n    \"provider\": \"google.com\",\n    \"provider_already_linked\": false,\n    \"linked_providers\": [\"google.com\"],\n    \"token_id\": 18,\n    \"token\": \"3|abc789tokenhere\"\n  }\n}"
             },
             {
               "name": "Success (Existing User)",
               "status": "OK",
               "code": 200,
               "_postman_previewlanguage": "json",
-              "body": "{\n  \"success\": true,\n  \"message\": \"Login successful.\",\n  \"errors\": null,\n  \"token\": \"4|def012tokenhere\",\n  \"data\": {\n    \"user\": {\n      \"id\": 2,\n      \"name\": \"John Doe\",\n      \"email\": \"john@gmail.com\",\n      \"verified_at\": \"2026-04-14T12:00:00.000000Z\",\n      \"social_accounts\": [\n        {\n          \"id\": 1,\n          \"provider\": \"google.com\",\n          \"provider_name\": \"Google\",\n          \"email\": \"john@gmail.com\"\n        }\n      ]\n    },\n    \"is_verified\": true,\n    \"is_new_user\": false,\n    \"token\": \"4|def012tokenhere\"\n  }\n}"
+              "body": "{\n  \"success\": true,\n  \"message\": \"This provider is already linked to your account. Logged in.\",\n  \"errors\": null,\n  \"token\": \"4|def012tokenhere\",\n  \"data\": {\n    \"user\": {\n      \"id\": 2,\n      \"name\": \"John Doe\",\n      \"email\": \"john@gmail.com\",\n      \"verified_at\": \"2026-04-14T12:00:00.000000Z\",\n      \"has_password\": false,\n      \"social_accounts\": [\n        {\n          \"id\": 1,\n          \"provider\": \"google.com\",\n          \"provider_name\": \"Google\",\n          \"email\": \"john@gmail.com\"\n        }\n      ]\n    },\n    \"is_verified\": true,\n    \"is_new_user\": false,\n    \"provider\": \"google.com\",\n    \"provider_already_linked\": true,\n    \"linked_providers\": [\"google.com\"],\n    \"token_id\": 19,\n    \"token\": \"4|def012tokenhere\"\n  }\n}"
             },
             {
               "name": "Provider Not Allowed",
@@ -938,7 +997,7 @@
               "host": ["{{base_url}}"],
               "path": ["api", "auth-config"]
             },
-            "description": "Returns the live auth configuration so mobile/web clients can adapt their UI on boot. No body, no Bearer token required.\n\n**Response fields:**\n- `identifiers` — array of `email` and/or `phone` (configured via `AUTH_IDENTIFIERS`).\n- `has_username_field` — when true, register requires `username` and login can match against username.\n- `has_email_field` / `has_phone_field` — when true (and that field is NOT an identifier), it is exposed as an optional profile field.\n- `social_providers` — array of allowed Firebase providers (e.g. `[\"google.com\", \"apple.com\"]`). Empty = all allowed.\n- `max_social_accounts` — max linked social accounts per user (0 = unlimited).\n- `social_auth_available` — true when email is an identifier (Firebase social auth requires email).\n- `is_otp_whatsapp` — phone OTPs go via WhatsApp instead of SMS when true.\n\nFetch on app boot, cache in client state."
+            "description": "Returns the live auth configuration so mobile/web clients can adapt their UI on boot. No body, no Bearer token required.\n\n**Response fields:**\n- `identifiers` — array of `email` and/or `phone` (configured via `AUTH_IDENTIFIERS`).\n- `has_username_field` — when true, register requires `username` and login can match against username.\n- `has_email_field` / `has_phone_field` — when true (and that field is NOT an identifier), it is exposed as an optional profile field.\n- `social_providers` — array of allowed Firebase providers (e.g. `[\"google.com\", \"apple.com\"]`). Empty = all allowed.\n- `max_social_accounts` — max linked social accounts per user (0 = unlimited).\n- `social_auth_available` — true when email is an identifier (Firebase social auth requires email).\n- `is_otp_whatsapp` — phone OTPs go via WhatsApp instead of SMS when true.\n- `multi_session` — when true, multiple devices may stay logged in simultaneously and the client should expose the Active Devices screen (`GET /api/devices`). When false, every login revokes the user's previous tokens.\n\nFetch on app boot, cache in client state."
           },
           "response": [
             {
@@ -946,7 +1005,7 @@
               "status": "OK",
               "code": 200,
               "_postman_previewlanguage": "json",
-              "body": "{\n  \"success\": true,\n  \"message\": \"Operation successful\",\n  \"errors\": null,\n  \"data\": {\n    \"identifiers\": [\"email\", \"phone\"],\n    \"has_username_field\": true,\n    \"has_email_field\": false,\n    \"has_phone_field\": false,\n    \"social_providers\": [\"google.com\", \"apple.com\"],\n    \"max_social_accounts\": 0,\n    \"social_auth_available\": true,\n    \"is_otp_whatsapp\": false\n  }\n}"
+              "body": "{\n  \"success\": true,\n  \"message\": \"Operation successful\",\n  \"errors\": null,\n  \"data\": {\n    \"identifiers\": [\"email\", \"phone\"],\n    \"has_username_field\": true,\n    \"has_email_field\": false,\n    \"has_phone_field\": false,\n    \"social_providers\": [\"google.com\", \"apple.com\"],\n    \"max_social_accounts\": 0,\n    \"social_auth_available\": true,\n    \"is_otp_whatsapp\": false,\n    \"multi_session\": true\n  }\n}"
             }
           ]
         },

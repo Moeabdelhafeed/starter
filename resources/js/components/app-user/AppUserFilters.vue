@@ -21,6 +21,7 @@ const props = defineProps({
 const search = ref(props.filters?.search || '');
 const isActive = ref(props.filters?.is_active || 'all');
 const isVerified = ref(props.filters?.is_verified || 'all');
+const pendingDeletion = ref(props.filters?.pending_deletion || 'all');
 const trashed = ref(props.filters?.trashed || '');
 
 const searchFunc = () => {
@@ -30,6 +31,7 @@ const searchFunc = () => {
             search: search.value || undefined,
             is_active: isActive.value !== '' && isActive.value !== 'all' ? isActive.value : undefined,
             is_verified: isVerified.value !== '' && isVerified.value !== 'all' ? isVerified.value : undefined,
+            pending_deletion: pendingDeletion.value !== '' && pendingDeletion.value !== 'all' ? pendingDeletion.value : undefined,
             trashed: trashed.value || undefined,
         },
         {
@@ -50,6 +52,7 @@ const clearFilters = () => {
     search.value = '';
     isActive.value = 'all';
     isVerified.value = 'all';
+    pendingDeletion.value = 'all';
     trashed.value = '';
     searchFunc();
 };
@@ -58,6 +61,7 @@ const clearFilter = (key) => {
     if (key === 'search') search.value = '';
     if (key === 'is_active') isActive.value = 'all';
     if (key === 'is_verified') isVerified.value = 'all';
+    if (key === 'pending_deletion') pendingDeletion.value = 'all';
     if (key === 'trashed') trashed.value = '';
     searchFunc();
 };
@@ -66,6 +70,11 @@ const getFilterLabel = (key, value) => {
     if (key === 'search') return value;
     if (key === 'is_active') return value === '1' ? t('active') : t('inactive');
     if (key === 'is_verified') return value === '1' ? t('verified') : t('not_verified');
+    if (key === 'pending_deletion') {
+        if (value === 'only') return t('pending_deletion');
+        if (value === 'exclude') return t('not_pending_deletion');
+        return value;
+    }
     if (key === 'trashed') {
         if (value === 'only') return t('trashed_only');
         if (value === 'with') return t('with_trashed');
@@ -77,6 +86,7 @@ const getFilterLabel = (key, value) => {
 const getFilterKeyLabel = (key) => {
     if (key === 'is_active') return t('status');
     if (key === 'is_verified') return t('verification');
+    if (key === 'pending_deletion') return t('pending_deletion');
     if (key === 'search') return t('search');
     if (key === 'trashed') return t('trashed');
     return t(key);
@@ -131,6 +141,19 @@ const getFilterKeyLabel = (key) => {
                             <SelectItem value="all">{{ t('all_verifications') }}</SelectItem>
                             <SelectItem value="1">{{ t('verified') }}</SelectItem>
                             <SelectItem value="0">{{ t('not_verified') }}</SelectItem>
+                        </SelectContent>
+                    </Select>
+                </div>
+
+                <div>
+                    <Select v-model="pendingDeletion" @update:modelValue="searchFunc">
+                        <SelectTrigger class="bg-primary/2">
+                            <SelectValue :placeholder="t('pending_deletion')" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="all">{{ t('all') }}</SelectItem>
+                            <SelectItem value="only">{{ t('pending_deletion') }}</SelectItem>
+                            <SelectItem value="exclude">{{ t('not_pending_deletion') }}</SelectItem>
                         </SelectContent>
                     </Select>
                 </div>

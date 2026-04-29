@@ -23,7 +23,7 @@ app/Http/Controllers/
 └── Api/            # Mobile app REST API
 
 app/Models/         # Eloquent models
-app/Traits/         # HasImage, HasVideo, LogsActivity, HasTranslations, HasSoftDeleteActions, NotifiesAdmin, BlocksRestoreIfParentTrashed
+app/Traits/         # HasImage, HasVideo, LogsActivity, HasTranslations, HasSoftDeleteActions, NotifiesAdmin, BlocksRestoreIfParentTrashed, Exportable
 app/Helpers/        # ApiResponse, EmailHelper, FCMHelper, SendSMS, SendWhatsapp
 
 resources/js/
@@ -168,6 +168,24 @@ When using this trait on a new model, add translations for the model name to bot
 ```
 
 The key format is `model_{snake_case_class_name}`. The system stores translation keys (not translated text) and translates on-the-fly based on the viewing admin's locale.
+
+**`Exportable`** — adds a CSV download to any model. Excel opens the file directly (UTF-8 BOM, comma-delimited):
+```php
+use App\Traits\Exportable;
+
+class User extends Model {
+    use Exportable;
+
+    protected array $exportable = ['id', 'name', 'email', 'created_at'];        // optional, defaults to id + fillable + created_at
+    protected array $exportHeaders = ['email' => 'Email Address'];              // optional friendly labels
+}
+```
+- `protected array $exportable` — column whitelist. Empty = `id` + `$fillable` + `created_at`.
+- `protected array $exportHeaders` — per-column display label. Falls back to humanized column key.
+- Override `public function toExportRow(): array` for relationship loads or computed fields.
+- Stream from a controller scoped to current filters: `return User::query()->where(...)->exportCsv('users.csv');`
+- The Inertia page receives `hasExport: true` (controller passes `in_array(Exportable::class, class_uses_recursive(Model::class))`) and renders the shared `<ExportButton route-name="users.export" :filters="filters" :show="hasExport" />` button. URL inherits the active filters so the export matches what the admin sees.
+- Every export writes a row to `activity_logs` with `action='exported'`, `subject_type=ModelClass`, `subject_id=null`, and `new_data={ filename, count, filters, columns }` — admin can audit who exported what and when.
 
 **`BlocksRestoreIfParentTrashed`** — use on any soft-deletable child model whose parent must be alive for the row to make sense:
 ```php
@@ -789,7 +807,18 @@ Validation errors thrown by Laravel's request validation (`$request->validate(..
 - Username changes go through `update-profile` (no OTP).
 - Field-keyed errors under `new_identifier` (validation) or `otp` (invalid OTP).
 
-**Auth config endpoint:** `GET /api/auth-config` (public, throttle:api) exposes the live auth configuration so mobile/web clients can adapt their UI on boot. Returns `identifiers`, `has_username_field`, `has_email_field`, `has_phone_field`, `social_providers`, `max_social_accounts`, `social_auth_available`, `is_otp_whatsapp`. Conditional on `APP_USERS=true`.
+**Auth config endpoint:** `GET /api/auth-config` (public, throttle:api) exposes the live auth configuration so mobile/web clients can adapt their UI on boot. Returns `identifiers`, `has_username_field`, `has_email_field`, `has_phone_field`, `social_providers`, `max_social_accounts`, `social_auth_available`, `is_otp_whatsapp`, `multi_session`. Conditional on `APP_USERS=true`.
+
+**Sessions / Devices (`MULTI_SESSION_ENABLED`, default `true`):** every Sanctum token issued by `login` / `firebase-login` / verify-OTP path is recorded in a `user_devices` row (FK-cascade on `personal_access_token_id` so revoking a token auto-drops its device). Columns: `fcm_token`, `device_name`, `platform`, `ip`, `user_agent`, `last_seen_at`. Login response includes `token_id` so clients can identify themselves later.
+
+- **Multi-session ON:** new logins append a device row. Tokens stack. The user manages them via `GET /api/devices` (returns rows with `is_current: bool`) and `DELETE /api/devices/{id}` (revokes the underlying token + broadcasts a kick).
+- **Multi-session OFF:** `trackDevice` revokes every other token belonging to the user before issuing the new one and broadcasts `device.revoked` on `private-user.{userId}` for each kicked token id.
+
+**Per-device FCM:** the legacy `users.fcm_token` column was dropped. Source of truth is `user_devices.fcm_token`. Use `$user->fcmTokens()` (returns array) for any push send so multi-session users get notified everywhere; `FCMHelper::send()` already accepts arrays.
+
+**Remote-logout broadcast:** `App\Events\DeviceRevoked` (`ShouldBroadcastNow`) on `private-user.{userId}`, event name `.device.revoked`, payload `{ token_id }`. Frontend composable [useDeviceRevocation.ts](resources/js/composables/useDeviceRevocation.ts) listens and clears local creds when the token id matches the locally stored `current_token_id`.
+
+**DevSettings → Sessions** toggles `MULTI_SESSION_ENABLED` at runtime (writes `.env`, runs `config:clear`).
 
 **Account deletion (user-initiated, restorable):** `DELETE /api/delete-account` sets `users.account_deleted_at = now()` and revokes all tokens. The row stays in DB. `POST /api/check-identifier` returns `pending_deletion: true` so the client can prompt the user. `POST /api/login` with valid credentials clears `account_deleted_at` and returns `account_restored: true`. Purge runs via the global `PurgeDeletedUsersAfterResponse` middleware: every HTTP request fires `Artisan::call('users:purge-deleted')` in the middleware's `terminate()` hook (after the response is sent to the client), throttled to once per hour with a cache lock and capped at 50 rows per run. No cron, no queue worker. The command calls `forceDelete()` on accounts older than the retention window, triggering `User::$cascadeOnDelete`. Retention is configurable via `ACCOUNT_DELETION_RETENTION_DAYS` env var or DevSettings → "Account Deletion Retention" (default 30 days). Admin soft-delete (Laravel `SoftDeletes` / `deleted_at`) is independent and unchanged — admin-trashed rows are NOT auto-purged; admin-trashed users see `suspended: true` from `check-identifier` and a 403 `api.account_suspended` from login.
 
@@ -982,6 +1011,7 @@ Key `.env` flags that affect behavior:
 - `RATE_LIMIT_API` / `RATE_LIMIT_API_DECAY` — general API rate limit (requests per decay minutes, default: 60/1).
 - `RATE_LIMIT_AUTH` / `RATE_LIMIT_AUTH_DECAY` — authentication rate limit (default: 5/1).
 - `RATE_LIMIT_OTP` / `RATE_LIMIT_OTP_DECAY` — OTP request rate limit (default: 3/5).
+- `MULTI_SESSION_ENABLED` — multi-device sessions (default: `true`). When `false`, every login revokes the user's other tokens and broadcasts `device.revoked` so kicked clients log themselves out.
 - `ACCOUNT_DELETION_RETENTION_DAYS` — days a user-initiated soft deletion is retained before permanent purge (default: 30).
 
 ---

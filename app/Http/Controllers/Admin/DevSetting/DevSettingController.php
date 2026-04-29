@@ -136,6 +136,9 @@ class DevSettingController extends Controller
             'accountDeletionConfig' => [
                 'retention_days' => (int) env('ACCOUNT_DELETION_RETENTION_DAYS', 30),
             ],
+            'sessionsConfig' => [
+                'multi_session_enabled' => filter_var(env('MULTI_SESSION_ENABLED', true), FILTER_VALIDATE_BOOLEAN),
+            ],
         ]);
     }
 
@@ -341,6 +344,19 @@ class DevSettingController extends Controller
         Artisan::call('config:clear');
 
         return redirect()->back()->with('success', __('admin.account_deletion_config_updated'));
+    }
+
+    public function updateSessionsConfig(Request $request)
+    {
+        $validated = $request->validate([
+            'multi_session_enabled' => ['required', 'boolean'],
+        ]);
+
+        $this->setEnvValue('MULTI_SESSION_ENABLED', $validated['multi_session_enabled'] ? 'true' : 'false');
+
+        Artisan::call('config:clear');
+
+        return redirect()->back()->with('success', __('admin.sessions_config_updated'));
     }
 
     public function updatePusher(Request $request)
@@ -649,7 +665,7 @@ class DevSettingController extends Controller
             'run_seeders' => ['boolean'],
         ]);
 
-        set_time_limit(600);
+        set_time_limit(3000);
 
         $base = base_path();
         $prodPath = $base.'/.env.production';
