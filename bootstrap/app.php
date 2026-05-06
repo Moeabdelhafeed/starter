@@ -2,7 +2,9 @@
 
 use App\Http\Middleware\EnsureUserIsActive;
 use App\Http\Middleware\EnsureUserIsVerified;
+use App\Http\Middleware\GuestOnly;
 use App\Http\Middleware\HandleInertiaRequests;
+use App\Http\Middleware\IdentifyDevice;
 use App\Http\Middleware\PurgeDeletedUsersAfterResponse;
 use App\Http\Middleware\SetLocaleMiddleware;
 use App\Http\Middleware\WebLocale;
@@ -11,6 +13,7 @@ use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
 use Illuminate\Http\Middleware\AddLinkHeadersForPreloadedAssets;
+use Illuminate\Http\Request;
 use Spatie\Permission\Middleware\PermissionMiddleware;
 use Spatie\Permission\Middleware\RoleMiddleware;
 use Spatie\Permission\Middleware\RoleOrPermissionMiddleware;
@@ -28,6 +31,13 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware): void {
 
+        $middleware->trustProxies(at: '*', headers: Request::HEADER_X_FORWARDED_FOR |
+            Request::HEADER_X_FORWARDED_HOST |
+            Request::HEADER_X_FORWARDED_PORT |
+            Request::HEADER_X_FORWARDED_PROTO |
+            Request::HEADER_X_FORWARDED_AWS_ELB
+        );
+
         $middleware->redirectTo(
             guests: fn () => route('login'),
             users: fn () => route('dashboard'),
@@ -42,8 +52,9 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
 
         $middleware->api(append: [
-            SetLocaleMiddleware::class,
             XApiTokenMiddlleware::class,
+            IdentifyDevice::class,
+            SetLocaleMiddleware::class,
             PurgeDeletedUsersAfterResponse::class,
         ]);
 
@@ -53,6 +64,8 @@ return Application::configure(basePath: dirname(__DIR__))
             'role_or_permission' => RoleOrPermissionMiddleware::class,
             'verified' => EnsureUserIsVerified::class,
             'active' => EnsureUserIsActive::class,
+            'identify-device' => IdentifyDevice::class,
+            'guest-only' => GuestOnly::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

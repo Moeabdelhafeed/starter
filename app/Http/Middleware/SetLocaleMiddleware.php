@@ -25,13 +25,24 @@ class SetLocaleMiddleware
             return ApiResponse::error(Trans::get('api.please_set_the_accept_language_header'), null, 401);
         }
 
-        if (Language::where('code', $locale)->where('is_active', true)->exists()) {
+        $isValid = Language::where('code', $locale)->where('is_active', true)->exists();
+
+        if ($isValid) {
             App::setLocale($locale);
         } else {
             $default = Language::getDefault();
             App::setLocale($default?->code ?? 'en');
         }
 
-        return $next($request);
+        $response = $next($request);
+
+        if ($isValid) {
+            $user = $request->user();
+            if ($user && $user->current_lang !== $locale) {
+                $user->forceFill(['current_lang' => $locale])->saveQuietly();
+            }
+        }
+
+        return $response;
     }
 }

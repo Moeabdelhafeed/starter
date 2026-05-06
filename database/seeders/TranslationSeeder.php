@@ -196,6 +196,24 @@ class TranslationSeeder extends Seeder
             'ar' => 'يرجى تحديد اللغة في رأس الطلب (Accept-Language).',
         ],
 
+        // Device headers (guest tracking)
+        'device_id_required' => [
+            'en' => 'X-Device-Id header is required.',
+            'ar' => 'مطلوب تعيين رأس الطلب X-Device-Id.',
+        ],
+        'platform_invalid' => [
+            'en' => 'X-Platform header must be one of: web, ios, android.',
+            'ar' => 'قيمة رأس الطلب X-Platform يجب أن تكون: web أو ios أو android.',
+        ],
+        'fcm_token_required' => [
+            'en' => 'X-FCM-Token header is required on iOS and Android.',
+            'ar' => 'مطلوب تعيين رأس الطلب X-FCM-Token على نظامي iOS و Android.',
+        ],
+        'guest_only_route' => [
+            'en' => 'This endpoint is only available for guests.',
+            'ar' => 'هذه الواجهة متاحة للزوار فقط.',
+        ],
+
         // Languages
         'languages' => [
             'en' => 'Languages retrieved successfully.',

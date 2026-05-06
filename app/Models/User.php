@@ -14,6 +14,7 @@ use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Carbon;
 use Laravel\Sanctum\HasApiTokens;
+use Spatie\Permission\Models\Role;
 use Spatie\Permission\Traits\HasRoles;
 
 class User extends Authenticatable
@@ -55,13 +56,18 @@ class User extends Authenticatable
         'phone',
         'password',
         'is_active',
+        'current_lang',
         'account_deleted_at',
+        'is_guest',
+        'platform',
+        'guest_id',
+        'last_seen_at',
     ];
 
     /**
      * Columns included in CSV export. See Traits\Exportable.
      */
-    protected array $exportable = ['id', 'name', 'email', 'phone', 'username', 'is_active', 'verified_at', 'created_at'];
+    protected array $exportable = ['id', 'name', 'email', 'phone', 'username', 'is_active', 'is_guest', 'platform', 'guest_id', 'last_seen_at', 'verified_at', 'created_at'];
 
     /**
      * Relations to delete alongside the user.
@@ -240,8 +246,86 @@ class User extends Authenticatable
         return [
             'verified_at' => 'datetime',
             'account_deleted_at' => 'datetime',
+            'last_seen_at' => 'datetime',
             'password' => 'hashed',
+            'is_guest' => 'boolean',
         ];
+    }
+
+    public function scopeGuests($query)
+    {
+        return $query->where('is_guest', true);
+    }
+
+    public function scopeRealUsers($query)
+    {
+        return $query->where('is_guest', false);
+    }
+
+    public function scopeWeb($query)
+    {
+        return $query->where('platform', 'web');
+    }
+
+    public function scopeIos($query)
+    {
+        return $query->where('platform', 'ios');
+    }
+
+    public function scopeAndroid($query)
+    {
+        return $query->where('platform', 'android');
+    }
+
+    /**
+     * Resolve or lazily create a guest user keyed by `(guest_id)`. Throttles
+     * `last_seen_at` writes to once per minute so every api hit doesn't churn
+     * the row.
+     */
+    public static function findOrCreateGuest(string $platform, string $guestId): self
+    {
+        $user = self::where('guest_id', $guestId)->where('is_guest', true)->first();
+
+        if ($user) {
+            if (! $user->last_seen_at || $user->last_seen_at->diffInSeconds(now()) > 60) {
+                $user->forceFill(['last_seen_at' => now()])->saveQuietly();
+            }
+
+            return $user;
+        }
+
+        $user = self::create([
+            'name' => 'Guest',
+            'is_active' => true,
+            'is_guest' => true,
+            'platform' => $platform,
+            'guest_id' => $guestId,
+            'last_seen_at' => now(),
+            'verified_at' => now(),
+        ]);
+
+        $role = Role::where('name', 'user')
+            ->where('guard_name', 'api')
+            ->first();
+
+        if ($role) {
+            $user->assignRole($role);
+        }
+
+        return $user;
+    }
+
+    /**
+     * Wipe a guest row matched by `guest_id`. Called from `trackDevice` after a
+     * real auth flow issues a token so the device promotes from guest to user
+     * without leaving an orphan row.
+     */
+    public static function convertFromGuest(string $guestId): void
+    {
+        self::where('guest_id', $guestId)
+            ->where('is_guest', true)
+            ->get()
+            ->each(fn (self $u) => $u->forceDelete());
     }
 
     /**

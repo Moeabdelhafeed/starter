@@ -5,7 +5,7 @@ import { useI18n } from 'vue-i18n';
 import Button from '@/components/ui/button/Button.vue';
 import Checkbox from '@/components/ui/checkbox/Checkbox.vue';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { CheckCircle, XCircle } from 'lucide-vue-next';
+import { CheckCircle, XCircle, Globe, Smartphone } from 'lucide-vue-next';
 import { useHighlight } from '@/composables/useHighlight';
 
 const { isHighlighted } = useHighlight();
@@ -75,11 +75,14 @@ const toggleStatus = (user) => {
                         <Checkbox v-model="isAllSelected" />
                     </TableHead>
                     <TableHead class="py-4 font-bold">{{ t('name') }}</TableHead>
+                    <TableHead class="py-4 font-bold">{{ t('user_type') }}</TableHead>
+                    <TableHead class="py-4 font-bold">{{ t('platform') }}</TableHead>
                     <TableHead v-if="authFields.email" class="py-4 font-bold">{{ t('email') }}</TableHead>
                     <TableHead v-if="authFields.phone" class="py-4 font-bold">{{ t('phone') }}</TableHead>
                     <TableHead v-if="authFields.username" class="py-4 font-bold">{{ t('username') }}</TableHead>
                     <TableHead class="py-4 font-bold">{{ t('status') }}</TableHead>
                     <TableHead class="py-4 font-bold">{{ t('verification') }}</TableHead>
+                    <TableHead class="py-4 font-bold">{{ t('last_seen') }}</TableHead>
                     <TableHead class="py-4 font-bold">{{ t('actions') }}</TableHead>
                 </TableRow>
             </TableHeader>
@@ -91,10 +94,42 @@ const toggleStatus = (user) => {
                         <TableCell class="py-4">
                             <Checkbox :modelValue="selectedIds" @update:modelValue="emit('update:selectedIds', $event)" :value="user.id" />
                         </TableCell>
-                        <TableCell class="py-4 font-medium">{{ user.name }}</TableCell>
-                        <TableCell v-if="authFields.email">{{ user.email }}</TableCell>
-                        <TableCell v-if="authFields.phone">{{ user.phone }}</TableCell>
-                        <TableCell v-if="authFields.username">{{ user.username }}</TableCell>
+                        <TableCell class="py-4 font-medium">
+                            <div class="flex flex-col">
+                                <span>{{ user.name }}</span>
+                                <span v-if="user.is_guest && user.guest_id" class="text-xs text-muted-foreground" :title="user.guest_id">
+                                    {{ user.guest_id.substring(0, 12) }}…
+                                </span>
+                            </div>
+                        </TableCell>
+                        <TableCell>
+                            <span
+                                v-if="user.is_guest"
+                                class="inline-flex items-center gap-1 rounded-full bg-amber-500/10 px-2.5 py-0.5 text-xs font-medium text-amber-600"
+                            >
+                                {{ t('guest') }}
+                            </span>
+                            <span
+                                v-else
+                                class="inline-flex items-center gap-1 rounded-full bg-blue-500/10 px-2.5 py-0.5 text-xs font-medium text-blue-600"
+                            >
+                                {{ t('registered_user') }}
+                            </span>
+                        </TableCell>
+                        <TableCell>
+                            <span
+                                v-if="user.platform"
+                                class="inline-flex items-center gap-1 rounded-full bg-muted px-2.5 py-0.5 text-xs font-medium"
+                            >
+                                <Globe v-if="user.platform === 'web'" class="size-3" />
+                                <Smartphone v-else class="size-3" />
+                                {{ t(user.platform) }}
+                            </span>
+                            <span v-else class="text-xs text-muted-foreground">—</span>
+                        </TableCell>
+                        <TableCell v-if="authFields.email">{{ user.email || '—' }}</TableCell>
+                        <TableCell v-if="authFields.phone">{{ user.phone || '—' }}</TableCell>
+                        <TableCell v-if="authFields.username">{{ user.username || '—' }}</TableCell>
                         <TableCell>
                             <button
                                 class="relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:outline-none"
@@ -135,6 +170,11 @@ const toggleStatus = (user) => {
                                     {{ t('pending_deletion') }}
                                 </div>
                             </div>
+                        </TableCell>
+
+                        <TableCell class="text-xs text-muted-foreground">
+                            <span v-if="user.last_seen_at">{{ new Date(user.last_seen_at).toLocaleString() }}</span>
+                            <span v-else>—</span>
                         </TableCell>
 
                         <TableCell>

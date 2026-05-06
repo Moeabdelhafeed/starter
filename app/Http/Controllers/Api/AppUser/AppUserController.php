@@ -37,7 +37,6 @@ class AppUserController extends Controller
             'name' => 'required|string|max:255',
             'identifier' => 'required|string|max:255',
             'password' => 'required|string|min:8|max:255|confirmed',
-            'fcm_token' => 'nullable|string|max:255',
         ];
 
         // Username field — when enabled, required at register and usable for login.
@@ -166,7 +165,6 @@ class AppUserController extends Controller
         $rules = [
             'identifier' => 'required|string|max:255',
             'password' => 'required|string|max:255',
-            'fcm_token' => 'nullable|string|max:255',
             'remember_me' => 'boolean',
         ];
 
@@ -261,6 +259,8 @@ class AppUserController extends Controller
             'social_auth_available' => in_array('email', $identifiers, true),
             'is_otp_whatsapp' => filter_var(env('IS_OTP_WHATSAPP', false), FILTER_VALIDATE_BOOLEAN),
             'multi_session' => (bool) config('auth.multi_session_enabled'),
+            'app_users' => filter_var(env('APP_USERS', true), FILTER_VALIDATE_BOOLEAN),
+            'app_guests' => filter_var(env('APP_GUESTS', true), FILTER_VALIDATE_BOOLEAN),
         ]);
     }
 
@@ -285,8 +285,19 @@ class AppUserController extends Controller
             $column = 'username';
         }
 
+        $emptyResponse = [
+            'exists' => false,
+            'pending_deletion' => false,
+            'suspended' => false,
+            'available_channels' => [],
+            'has_password' => false,
+            'social_providers' => [],
+            'verified' => false,
+            'is_guest' => false,
+        ];
+
         if (! $column) {
-            return ApiResponse::success(['exists' => false, 'pending_deletion' => false, 'suspended' => false, 'available_channels' => []]);
+            return ApiResponse::success($emptyResponse);
         }
 
         if ($column === 'email') {
@@ -295,10 +306,11 @@ class AppUserController extends Controller
 
         $user = User::withTrashed()->where($column, $value)
             ->whereHas('roles', fn ($q) => $q->where('name', 'user')->where('guard_name', 'api'))
+            ->with('socialAccounts:user_id,provider')
             ->first();
 
         if (! $user) {
-            return ApiResponse::success(['exists' => false, 'pending_deletion' => false, 'suspended' => false, 'available_channels' => []]);
+            return ApiResponse::success($emptyResponse);
         }
 
         // Tell the client which OTP delivery channels are populated on the user record.
@@ -316,6 +328,10 @@ class AppUserController extends Controller
             'pending_deletion' => $user->isPendingDeletion(),
             'suspended' => $user->trashed(),
             'available_channels' => $channels,
+            'has_password' => $user->password !== null,
+            'social_providers' => $user->socialAccounts->pluck('provider')->values()->all(),
+            'verified' => $user->verified_at !== null,
+            'is_guest' => (bool) $user->is_guest,
         ]);
     }
 
@@ -919,11 +935,23 @@ class AppUserController extends Controller
             }
         }
 
+        $deviceId = trim((string) $request->header('X-Device-Id')) ?: null;
+        $platform = strtolower(trim((string) $request->header('X-Platform'))) ?: $request->input('platform');
+        $fcmToken = trim((string) $request->header('X-FCM-Token')) ?: null;
+
+        // Convert before inserting so the guest user's cascade drops its
+        // user_devices row first; otherwise we'd race the new row against
+        // the device_id of the soon-to-be-deleted guest device.
+        if ($deviceId) {
+            User::convertFromGuest($deviceId);
+        }
+
         $user->devices()->create([
             'personal_access_token_id' => $accessToken->id,
-            'fcm_token' => $request->input('fcm_token'),
+            'device_id' => $deviceId,
+            'fcm_token' => $fcmToken,
             'device_name' => $request->input('device_name'),
-            'platform' => $request->input('platform'),
+            'platform' => $platform,
             'ip' => $request->ip(),
             'user_agent' => substr((string) $request->userAgent(), 0, 512),
             'last_seen_at' => now(),
@@ -1074,7 +1102,6 @@ class AppUserController extends Controller
 
         $request->validate([
             'token' => 'required|string',
-            'fcm_token' => 'nullable|string|max:255',
         ]);
 
         try {

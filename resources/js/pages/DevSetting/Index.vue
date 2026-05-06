@@ -163,11 +163,20 @@ const triggerBuild = () => {
 const envToggling = ref({});
 const toggleEnv = (key, currentValue) => {
     envToggling.value[key] = true;
+    const newValue = !currentValue;
     router.put(route('dev_settings.env'), {
         key: key,
-        value: !currentValue,
+        value: newValue,
     }, {
         preserveScroll: true,
+        preserveState: true,
+        only: ['envValues', 'success', 'error'],
+        onSuccess: () => {
+            // Mirror the backend cascade: APP_USERS off → APP_GUESTS off.
+            if (key === 'APP_USERS' && newValue === false && props.envValues?.APP_GUESTS) {
+                props.envValues.APP_GUESTS = false;
+            }
+        },
         onFinish: () => { envToggling.value[key] = false; },
     });
 };
@@ -187,6 +196,7 @@ const toggleProdEnv = (key, currentValue) => {
 const envLabel = (key) => {
     const labels = {
         'APP_USERS': 'App Users Module',
+        'APP_GUESTS': 'App Guests Module',
         'HAS_TRANSLATIONS': 'App Translations',
         'IS_TESTING': 'Testing Mode',
         'APP_DEBUG': 'Debug Mode',
@@ -198,6 +208,7 @@ const envLabel = (key) => {
 const envDescription = (key) => {
     const desc = {
         'APP_USERS': 'Enable/disable the app users (API guard) module and routes',
+        'APP_GUESTS': 'Enable/disable lazy guest user creation in IdentifyDevice middleware. When off, X-Device-Id + X-Platform headers are still required but no guest row is created.',
         'HAS_TRANSLATIONS': 'Enable/disable app translations feature (admin routes, navbar links, API endpoints for translations/languages)',
         'IS_TESTING': 'Enable/disable testing mode for the application',
         'APP_DEBUG': 'Enable/disable detailed error pages and debug info',
@@ -2418,8 +2429,10 @@ const sendTestFcm = () => {
                                     <span class="text-xs text-muted-foreground">{{ t('local') }}</span>
                                 </div>
                                 <button
-                                    class="relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:outline-none"
-                                    :class="envValues[key] ? 'bg-primary' : 'bg-muted'" :disabled="envToggling[key]"
+                                    class="relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
+                                    :class="envValues[key] ? 'bg-primary' : 'bg-muted'"
+                                    :disabled="envToggling[key] || (key === 'APP_GUESTS' && !envValues.APP_USERS)"
+                                    :title="key === 'APP_GUESTS' && !envValues.APP_USERS ? 'Enable APP_USERS first' : ''"
                                     @click="toggleEnv(key, envValues[key])">
                                     <span
                                         class="inline-block h-4 w-4 transform rounded-full bg-white transition-transform"

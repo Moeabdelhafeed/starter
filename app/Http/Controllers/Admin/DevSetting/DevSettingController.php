@@ -29,6 +29,7 @@ class DevSettingController extends Controller
 
     private array $envToggles = [
         'APP_USERS',
+        'APP_GUESTS',
         'HAS_TRANSLATIONS',
         'IS_TESTING',
         'APP_DEBUG',
@@ -207,7 +208,20 @@ class DevSettingController extends Controller
         $key = $validated['key'];
         $value = filter_var($validated['value'], FILTER_VALIDATE_BOOLEAN) ? 'true' : 'false';
 
+        // Block APP_GUESTS=true when APP_USERS=false. Guests rely on the same
+        // user pipeline; presenting-only apps shouldn't expose guest creation.
+        if ($key === 'APP_GUESTS' && $value === 'true' && ! filter_var(env('APP_USERS'), FILTER_VALIDATE_BOOLEAN)) {
+            return redirect()->back()->with('error', 'Enable APP_USERS first before enabling APP_GUESTS.');
+        }
+
         $this->setEnvValue($key, $value);
+
+        // APP_USERS off implies a presenting-only app — guests have no purpose
+        // either, so cascade APP_GUESTS off too. One-way: turning APP_USERS
+        // back on does not auto-enable APP_GUESTS.
+        if ($key === 'APP_USERS' && $value === 'false') {
+            $this->setEnvValue('APP_GUESTS', 'false');
+        }
 
         Artisan::call('config:clear');
 

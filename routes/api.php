@@ -8,6 +8,10 @@ use App\Http\Controllers\Api\Translations\TranslationController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
+Route::middleware('throttle:api')->group(function () {
+    Route::get('/auth-config', [AppUserController::class, 'authConfig']);
+});
+
 if (env('APP_USERS') === true) {
 
     // Authentication routes (stricter rate limit)
@@ -24,7 +28,6 @@ if (env('APP_USERS') === true) {
 
     // Public OTP-verification + identifier checks (standard rate limit — let users retry codes)
     Route::middleware('throttle:api')->group(function () {
-        Route::get('/auth-config', [AppUserController::class, 'authConfig']);
         Route::post('/check-identifier', [AppUserController::class, 'checkIdentifier']);
         Route::post('/verify-forgot-password-otp', [AppUserController::class, 'verifyForgotPasswordOtp']);
         Route::post('/change-forgot-password', [AppUserController::class, 'changeForgotPassword']);
@@ -54,7 +57,6 @@ if (env('APP_USERS') === true) {
             return ApiResponse::success($request->user());
         });
     });
-
 }
 
 // Translation + language routes — bypass throttling when IS_TESTING=true

@@ -835,7 +835,104 @@ Pair with [BlocksRestoreIfParentTrashed](app/Traits/BlocksRestoreIfParentTrashed
 
 **Check-identifier reuse:** `POST /api/check-identifier` detects kind and queries the matching column scoped to api-guard users (supports identifier columns AND `HAS_*_FIELD` extras). Response includes:
 - `exists` — whether a user matched.
+- `pending_deletion` / `suspended` — see Account deletion notes above.
 - `available_channels` — array listing which OTP delivery channels (`"email"`, `"phone"`) are populated on that user. The client uses this to decide which `type` to pass to `forgot-password`, and as a pre-submit uniqueness check before `register`, `update-profile` (username), or `request-identifier-change`.
+- `has_password` — `false` indicates a social-only account. Frontend should hide the password field and present matching social-login buttons.
+- `social_providers` — Firebase providers already linked to the user (e.g. `["google.com", "apple.com"]`). Frontend can highlight or pre-select the relevant provider.
+- `verified` — `verified_at` populated. Frontend skips OTP verification flow when true.
+- `is_guest` — matched row is a guest. Rare (guests have null email/phone/username) but exposed for completeness.
+
+---
+
+## Guest tracking & device headers
+
+Every api request (mobile or web SPA) carries:
+
+- `X-Device-Id` — UUID generated client-side on first launch and persisted locally (mobile keychain / web `localStorage`).
+- `X-Platform` — one of `web`, `ios`, `android`.
+- `X-FCM-Token` — required when platform is `ios` or `android`. Web may omit. Updates `user_devices.fcm_token` on every hit (throttled per minute, plus immediately when the token value changes).
+
+Headers are validated by the global `IdentifyDevice` middleware (registered in [bootstrap/app.php](bootstrap/app.php) on the api middleware group right after `XApiTokenMiddlleware`). Missing/invalid → 422 with `errors.device_id`, `errors.platform`, or `errors.fcm_token`.
+
+### Resolution order
+
+`IdentifyDevice` resolves the caller in three steps:
+
+1. **Valid Bearer** → `Laravel\Sanctum\PersonalAccessToken::findToken` resolves the real user. Attached via `setUserResolver`. `user_devices` row keyed by `device_id` is upserted with the latest fcm + last_seen.
+2. **Claimed device** — `user_devices.device_id` row exists for a registered (non-guest) user. Without a valid Bearer the caller can't act as that user. Request flagged via `attributes->set('device_claimed', true)`. **No row update** (don't let unauthed callers mutate someone else's fcm). Guest-only routes 403.
+3. **Else** → if `APP_GUESTS=true`, lazily upsert a guest `users` row via `User::findOrCreateGuest($platform, $deviceId)`. A matching `user_devices` row is created/refreshed keyed by `device_id` carrying the guest's `user_id`. If `APP_GUESTS=false`, headers are still required but no guest is created.
+
+Downstream code (`SetLocaleMiddleware`, controllers reading `$request->user()`) sees a normal user object regardless of guest vs auth — no per-route branching needed.
+
+### `fcm_token` is header-only
+
+`fcm_token` is **never** read from the request body. The login / register / firebase-login endpoints no longer accept it as input. Mobile clients send `X-FCM-Token` once per request and the middleware (or `trackDevice` on token issuance) persists it. `User::fcmTokens()` reads from `user_devices.fcm_token` for both guest and registered rows — same code path for push sends.
+
+### Users table flags
+
+- `is_guest` (bool, indexed) — `true` for guest rows, `false` for real users.
+- `platform` (string, nullable) — `web`, `ios`, or `android`. Set on guest creation, left null on real-user rows unless populated.
+- `guest_id` (string 64, unique nullable) — the UUID from `X-Device-Id`. Lookup key for both lazy upserts and login-time conversion.
+- `last_seen_at` (timestamp, indexed) — touched by the middleware on every guest hit, throttled to once per 60 seconds per row.
+
+Guest rows are created with `name='Guest'`, `is_active=true`, `verified_at=now()`, role `user@api`. No email/phone/password/username.
+
+### `auth-config` exposes `app_guests`
+
+`GET /api/auth-config` response now includes `app_users` and `app_guests` booleans so the frontend can adapt UI dynamically (e.g. hide login screens when `app_users=false`, render guest-only flows when `app_guests=true`).
+
+### Login conversion (no double rows)
+
+When a real auth flow issues a Sanctum token, `trackDevice` in [AppUserController](app/Http/Controllers/Api/AppUser/AppUserController.php) reads `X-Device-Id` from the request, persists it on the new `user_devices` row, and calls `User::convertFromGuest($deviceId)` to **forceDelete** any guest row that shared the same `guest_id`. The device promotes from guest to real user without leaving an orphan.
+
+### `user_devices` row layout
+
+`user_devices` is the unified device registry — used for **both** guests and registered users. One row per `device_id`, FK to `users.id`. The `personal_access_token_id` column is **nullable** (guests have no Sanctum token). Auth-flow `trackDevice` runs `User::convertFromGuest($deviceId)` first (which deletes the guest user and cascade-drops the guest `user_devices` row), then inserts a fresh row with `personal_access_token_id` set. Same physical device keeps the same `device_id` across guest → user transition.
+
+`User::fcmTokens()` always pulls from this table — guest sends, multi-session sends, all share one path.
+
+### `guest-only` middleware
+
+Aliased `guest-only`. Use per-route to reject Bearer-bearing requests AND any authed user. Returns 403 with `errors.auth = guest_only_route` for non-guests. Run AFTER `IdentifyDevice` (api group already does this); applied per-route inside route definitions:
+
+```php
+Route::middleware('guest-only')->group(function () {
+    // routes only guests can hit
+});
+```
+
+### Frontend recipes
+
+**Mobile:** generate UUID once at install, store in secure storage, send both headers on every request.
+
+**Web SPA:**
+```js
+let deviceId = localStorage.getItem('device_id');
+if (!deviceId) {
+    deviceId = crypto.randomUUID();
+    localStorage.setItem('device_id', deviceId);
+}
+axios.defaults.headers.common['X-Device-Id'] = deviceId;
+axios.defaults.headers.common['X-Platform'] = 'web';
+// X-FCM-Token only required on ios/android; web skips it.
+```
+
+**Mobile:**
+```js
+axios.defaults.headers.common['X-Device-Id'] = installUuid;
+axios.defaults.headers.common['X-Platform'] = 'ios'; // or 'android'
+axios.defaults.headers.common['X-FCM-Token'] = currentFcmToken;
+// Refresh X-FCM-Token whenever Firebase rotates the device token.
+```
+
+Set once at app boot (refresh `X-FCM-Token` whenever Firebase rotates it). Frontend reads `auth-config.app_guests` to decide whether to render guest-mode UI vs login-required gates.
+
+### Env flags
+
+- `APP_USERS` — enables real-user auth flow (login/register/etc).
+- `APP_GUESTS` — enables guest creation in `IdentifyDevice`. When `false`, headers still required but no guest row is created.
+
+Both are independent. Either, both, or neither can be on. Toggleable via DevSettings UI.
 
 ---
 

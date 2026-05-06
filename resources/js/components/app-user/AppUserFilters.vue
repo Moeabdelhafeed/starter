@@ -23,6 +23,8 @@ const isActive = ref(props.filters?.is_active || 'all');
 const isVerified = ref(props.filters?.is_verified || 'all');
 const pendingDeletion = ref(props.filters?.pending_deletion || 'all');
 const trashed = ref(props.filters?.trashed || '');
+const userType = ref(props.filters?.user_type || 'all');
+const platform = ref(props.filters?.platform || 'all');
 
 const searchFunc = () => {
     router.get(
@@ -33,6 +35,8 @@ const searchFunc = () => {
             is_verified: isVerified.value !== '' && isVerified.value !== 'all' ? isVerified.value : undefined,
             pending_deletion: pendingDeletion.value !== '' && pendingDeletion.value !== 'all' ? pendingDeletion.value : undefined,
             trashed: trashed.value || undefined,
+            user_type: userType.value !== '' && userType.value !== 'all' ? userType.value : undefined,
+            platform: platform.value !== '' && platform.value !== 'all' ? platform.value : undefined,
         },
         {
             preserveScroll: true,
@@ -54,6 +58,8 @@ const clearFilters = () => {
     isVerified.value = 'all';
     pendingDeletion.value = 'all';
     trashed.value = '';
+    userType.value = 'all';
+    platform.value = 'all';
     searchFunc();
 };
 
@@ -63,6 +69,8 @@ const clearFilter = (key) => {
     if (key === 'is_verified') isVerified.value = 'all';
     if (key === 'pending_deletion') pendingDeletion.value = 'all';
     if (key === 'trashed') trashed.value = '';
+    if (key === 'user_type') userType.value = 'all';
+    if (key === 'platform') platform.value = 'all';
     searchFunc();
 };
 
@@ -80,6 +88,12 @@ const getFilterLabel = (key, value) => {
         if (value === 'with') return t('with_trashed');
         return value;
     }
+    if (key === 'user_type') {
+        if (value === 'guest') return t('guest');
+        if (value === 'user') return t('registered_user');
+        return value;
+    }
+    if (key === 'platform') return value;
     return value;
 };
 
@@ -89,6 +103,8 @@ const getFilterKeyLabel = (key) => {
     if (key === 'pending_deletion') return t('pending_deletion');
     if (key === 'search') return t('search');
     if (key === 'trashed') return t('trashed');
+    if (key === 'user_type') return t('user_type');
+    if (key === 'platform') return t('platform');
     return t(key);
 };
 </script>
@@ -118,7 +134,7 @@ const getFilterKeyLabel = (key) => {
             </form>
 
             <!-- Advanced Filters -->
-            <div class="grid w-full grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-4">
+            <div class="grid w-full grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6">
                 <div>
                     <Select v-model="isActive" @update:modelValue="searchFunc">
                         <SelectTrigger class="bg-primary/2">
@@ -141,6 +157,33 @@ const getFilterKeyLabel = (key) => {
                             <SelectItem value="all">{{ t('all_verifications') }}</SelectItem>
                             <SelectItem value="1">{{ t('verified') }}</SelectItem>
                             <SelectItem value="0">{{ t('not_verified') }}</SelectItem>
+                        </SelectContent>
+                    </Select>
+                </div>
+
+                <div>
+                    <Select v-model="userType" @update:modelValue="searchFunc">
+                        <SelectTrigger class="bg-primary/2">
+                            <SelectValue :placeholder="t('user_type')" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="all">{{ t('all_types') }}</SelectItem>
+                            <SelectItem value="guest">{{ t('guest') }}</SelectItem>
+                            <SelectItem value="user">{{ t('registered_user') }}</SelectItem>
+                        </SelectContent>
+                    </Select>
+                </div>
+
+                <div>
+                    <Select v-model="platform" @update:modelValue="searchFunc">
+                        <SelectTrigger class="bg-primary/2">
+                            <SelectValue :placeholder="t('platform')" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="all">{{ t('all_platforms') }}</SelectItem>
+                            <SelectItem value="web">{{ t('web') }}</SelectItem>
+                            <SelectItem value="ios">{{ t('ios') }}</SelectItem>
+                            <SelectItem value="android">{{ t('android') }}</SelectItem>
                         </SelectContent>
                     </Select>
                 </div>
