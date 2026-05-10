@@ -3,6 +3,7 @@
 namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
+use App\Helpers\FCMHelper;
 use App\Traits\Exportable;
 use App\Traits\HasImage;
 use App\Traits\LogsActivity;
@@ -190,8 +191,9 @@ class User extends Authenticatable
     }
 
     /**
-     * Active FCM tokens across every logged-in device. Use this for any
-     * push-notification send so multi-session users get notified everywhere.
+     * Active FCM tokens across every active device row. Returns one token for
+     * guests (single user_devices row) and N tokens for real users in
+     * multi-session mode. Reads from `user_devices.fcm_token` for both.
      *
      * @return array<int, string>
      */
@@ -201,6 +203,24 @@ class User extends Authenticatable
             ->whereNotNull('fcm_token')
             ->pluck('fcm_token')
             ->all();
+    }
+
+    /**
+     * Send an FCM push to every active token this user has. Works uniformly
+     * for guests and registered users. Returns the FCMHelper report shape.
+     *
+     * @param  array<string, scalar>  $data
+     * @return array<string, mixed>
+     */
+    public function sendNotification(string $title, string $body, array $data = []): array
+    {
+        $tokens = $this->fcmTokens();
+
+        if (empty($tokens)) {
+            return ['success' => false, 'message' => 'No FCM tokens for user'];
+        }
+
+        return FCMHelper::send($tokens, $title, $body, $data);
     }
 
     public function socialAccounts()

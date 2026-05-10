@@ -193,7 +193,7 @@ const isRouteActive = (name) => {
                                 </Button>
                             </Link>
                         </div>
-                        <div v-if="page.props.auth.permissions.find((p) => p === 'app_users') && $page.props.app_users == true" class="space-y-2">
+                        <div v-if="page.props.auth.permissions.find((p) => p === 'app_users') && ($page.props.app_users || $page.props.app_guests)" class="space-y-2">
                             <Link :href="route('app_users')" class="w-full">
                                 <Button
                                     variant="ghost"
@@ -201,7 +201,7 @@ const isRouteActive = (name) => {
                                     class="h-10 w-full cursor-pointer justify-start gap-3 hover:bg-primary/10 hover:text-primary"
                                 >
                                     <Users class="size-4 text-muted-foreground" />
-                                    <span class="text-sm text-foreground">{{ t('app_users') }}</span>
+                                    <span class="text-sm text-foreground">{{ $page.props.app_users ? t('app_users') : t('guest_users') }}</span>
                                 </Button>
                             </Link>
                         </div>

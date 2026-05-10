@@ -1,6 +1,6 @@
 <script setup>
-import { router } from '@inertiajs/vue3';
-import { ref } from 'vue';
+import { router, usePage } from '@inertiajs/vue3';
+import { ref, computed } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { SearchIcon, XIcon } from 'lucide-vue-next';
 import Input from '@/components/ui/input/Input.vue';
@@ -9,6 +9,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import TrashedFilter from '@/components/Shared/TrashedFilter.vue';
 
 const { t } = useI18n();
+const page = usePage();
+const pageTitle = computed(() => page.props.app_users ? t('app_users') : t('guest_users'));
 
 const props = defineProps({
     filters: Object,
@@ -115,7 +117,7 @@ const getFilterKeyLabel = (key) => {
         <div class="flex w-full flex-col gap-10">
             <div class="flex w-full items-center justify-between">
                 <h1 class="text-xl font-bold tracking-tight text-foreground">
-                    {{ t('app_users') }}
+                    {{ pageTitle }}
                 </h1>
             </div>
         </div>

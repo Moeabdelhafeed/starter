@@ -62,4 +62,38 @@ class FCMHelper
             ];
         }
     }
+
+    /**
+     * Broadcast an FCM notification to every device subscribed to a topic.
+     * Caller should use {@see FcmTopics} constants for built-in topics
+     * (`FcmTopics::GUESTS`, `FcmTopics::USERS`) or pass a custom topic name
+     * registered via DevSettings.
+     *
+     * @param  array<string, scalar>  $data
+     * @return array<string, mixed>
+     */
+    public static function sendToTopic(string $topic, string $title, string $body, array $data = []): array
+    {
+        if (! FcmTopics::isValidName($topic)) {
+            return ['success' => false, 'message' => 'Invalid topic name'];
+        }
+
+        try {
+            $messaging = app(Messaging::class);
+
+            $message = CloudMessage::fromArray([
+                'topic' => $topic,
+                'notification' => ['title' => $title, 'body' => $body],
+                'data' => empty($data) ? [] : array_map('strval', $data),
+            ]);
+
+            $messaging->send($message);
+
+            return ['success' => true, 'topic' => $topic];
+        } catch (\Throwable $e) {
+            Log::error('FCM: Topic send failed', ['topic' => $topic, 'error' => $e->getMessage()]);
+
+            return ['success' => false, 'message' => 'FCM topic send failed: '.$e->getMessage()];
+        }
+    }
 }

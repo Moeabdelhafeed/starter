@@ -71,7 +71,6 @@ Four custom rate limiters are defined in `AppServiceProvider::configureRateLimit
 | `api` | General API endpoints + OTP **verification** | 60 req/1 min | `throttle:api` |
 | `auth` | Login/register attempts | 5 req/1 min | `throttle:auth` |
 | `otp` | OTP **sending** only (`send-otp`, `forgot-password`) | 3 req/5 min | `throttle:otp` |
-| `translations` | Translations + languages endpoints (`/translations`, `/languages`) | **unlimited** when `IS_TESTING=true`; otherwise same as `api` | `throttle:translations` |
 
 `throttle:otp` is applied **only to OTP-sending endpoints** to prevent SMS/email spam. OTP **verification** (`verify-otp`, `verify-forgot-password-otp`, `change-forgot-password`) uses standard `throttle:api` so users can retry codes without lockout.
 
@@ -807,7 +806,7 @@ Validation errors thrown by Laravel's request validation (`$request->validate(..
 - Username changes go through `update-profile` (no OTP).
 - Field-keyed errors under `new_identifier` (validation) or `otp` (invalid OTP).
 
-**Auth config endpoint:** `GET /api/auth-config` (public, throttle:api) exposes the live auth configuration so mobile/web clients can adapt their UI on boot. Returns `identifiers`, `has_username_field`, `has_email_field`, `has_phone_field`, `social_providers`, `max_social_accounts`, `social_auth_available`, `is_otp_whatsapp`, `multi_session`. Conditional on `APP_USERS=true`.
+**Config endpoint:** `GET /api/config` (public, throttle:api) exposes the live app configuration so mobile/web clients can adapt their UI on boot. Returns `identifiers`, `has_username_field`, `has_email_field`, `has_phone_field`, `social_providers`, `max_social_accounts`, `social_auth_available`, `is_otp_whatsapp`, `multi_session`, `app_users`, `app_guests`. Always available (not gated on APP_USERS).
 
 **Sessions / Devices (`MULTI_SESSION_ENABLED`, default `true`):** every Sanctum token issued by `login` / `firebase-login` / verify-OTP path is recorded in a `user_devices` row (FK-cascade on `personal_access_token_id` so revoking a token auto-drops its device). Columns: `fcm_token`, `device_name`, `platform`, `ip`, `user_agent`, `last_seen_at`. Login response includes `token_id` so clients can identify themselves later.
 
@@ -877,9 +876,9 @@ Downstream code (`SetLocaleMiddleware`, controllers reading `$request->user()`) 
 
 Guest rows are created with `name='Guest'`, `is_active=true`, `verified_at=now()`, role `user@api`. No email/phone/password/username.
 
-### `auth-config` exposes `app_guests`
+### `config` exposes `app_users` + `app_guests`
 
-`GET /api/auth-config` response now includes `app_users` and `app_guests` booleans so the frontend can adapt UI dynamically (e.g. hide login screens when `app_users=false`, render guest-only flows when `app_guests=true`).
+`GET /api/config` response includes `app_users` and `app_guests` booleans so the frontend can adapt UI dynamically (e.g. hide login screens when `app_users=false`, render guest-only flows when `app_guests=true`).
 
 ### Login conversion (no double rows)
 
@@ -925,7 +924,7 @@ axios.defaults.headers.common['X-FCM-Token'] = currentFcmToken;
 // Refresh X-FCM-Token whenever Firebase rotates the device token.
 ```
 
-Set once at app boot (refresh `X-FCM-Token` whenever Firebase rotates it). Frontend reads `auth-config.app_guests` to decide whether to render guest-mode UI vs login-required gates.
+Set once at app boot (refresh `X-FCM-Token` whenever Firebase rotates it). Frontend reads `config.app_guests` to decide whether to render guest-mode UI vs login-required gates.
 
 ### Env flags
 

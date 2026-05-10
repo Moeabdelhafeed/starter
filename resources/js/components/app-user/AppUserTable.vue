@@ -182,6 +182,7 @@ const toggleStatus = (user) => {
                                 <!-- Normal actions (not trashed) -->
                                 <template v-if="!user.deleted_at">
                                     <Button
+                                        v-if="!user.is_guest"
                                         variant="outline"
                                         class="border-yellow-500 text-yellow-500 shadow-none! hover:bg-yellow-500 hover:text-white"
                                         @click="emit('edit', user)"

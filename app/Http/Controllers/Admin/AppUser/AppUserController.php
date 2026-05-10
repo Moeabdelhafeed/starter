@@ -178,7 +178,9 @@ class AppUserController extends Controller
 
     public function destroy(User $user)
     {
-        $user->delete();
+        // Guests are anonymous tracking rows — soft-delete adds no value.
+        // Force-delete so the row is gone for good and the device_id is freed.
+        $user->is_guest ? $user->forceDelete() : $user->delete();
 
         return redirect()->back()->with('success', __('admin.deleted_successfully'));
     }
@@ -201,7 +203,11 @@ class AppUserController extends Controller
             'ids' => ['required', 'array', 'exists:users,id'],
         ]);
 
-        User::whereIn('id', $validated['ids'])->delete();
+        // Soft-delete real users; force-delete guests in the same batch.
+        User::whereIn('id', $validated['ids'])->where('is_guest', false)->delete();
+        User::whereIn('id', $validated['ids'])->where('is_guest', true)
+            ->get()
+            ->each(fn (User $u) => $u->forceDelete());
 
         return redirect()->back()->with('success', __('admin.deleted_successfully'));
     }

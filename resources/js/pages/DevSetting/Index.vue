@@ -3,7 +3,7 @@ import Default from '@/layouts/default.vue';
 import { Head, useForm, router } from '@inertiajs/vue3';
 import { ref, computed, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
-import { Loader2, Hammer, Sun, Moon, Flame, CheckCircle, XCircle, Send, ImageIcon, Clipboard, Check, ShieldCheck, GitBranch, Database, Rocket, Mail, Link2, Server, KeyRound, RefreshCw, Download, GitPullRequest, GitCommit, Plus, ChevronDown, ChevronRight, FileCode, FilePlus, FileEdit, ArrowUpCircle, ArrowDownCircle, Shield, X, Search, Settings, Palette, Bell, Lock, Globe, ToggleLeft, Users } from 'lucide-vue-next';
+import { Loader2, Hammer, Sun, Moon, Flame, CheckCircle, XCircle, Send, ImageIcon, Clipboard, Check, ShieldCheck, GitBranch, Database, Rocket, Mail, Link2, Server, KeyRound, RefreshCw, Download, GitPullRequest, GitCommit, Plus, ChevronDown, ChevronRight, FileCode, FilePlus, FileEdit, ArrowUpCircle, ArrowDownCircle, Shield, X, Search, Settings, Palette, Bell, Lock, Globe, ToggleLeft, Users, Hash } from 'lucide-vue-next';
 import Checkbox from '@/components/ui/checkbox/Checkbox.vue';
 import Input from '@/components/ui/input/Input.vue';
 import Button from '@/components/ui/button/Button.vue';
@@ -28,6 +28,7 @@ const props = defineProps({
     rateLimitConfig: Object,
     accountDeletionConfig: Object,
     sessionsConfig: Object,
+    topicsConfig: Object,
     git: Object,
     productionDb: Object,
     productionMail: Object,
@@ -48,6 +49,7 @@ const menuItems = [
     { id: 'authentication', icon: Lock, label: 'authentication' },
     { id: 'sessions', icon: KeyRound, label: 'sessions_settings' },
     { id: 'notifications', icon: Bell, label: 'fcm_notifications' },
+    { id: 'topics', icon: Hash, label: 'fcm_topics' },
     { id: 'pusher', icon: Send, label: 'broadcasting' },
     { id: 'validation', icon: ShieldCheck, label: 'validation_settings' },
     { id: 'mail', icon: Mail, label: 'mail_settings' },
@@ -171,12 +173,6 @@ const toggleEnv = (key, currentValue) => {
         preserveScroll: true,
         preserveState: true,
         only: ['envValues', 'success', 'error'],
-        onSuccess: () => {
-            // Mirror the backend cascade: APP_USERS off → APP_GUESTS off.
-            if (key === 'APP_USERS' && newValue === false && props.envValues?.APP_GUESTS) {
-                props.envValues.APP_GUESTS = false;
-            }
-        },
         onFinish: () => { envToggling.value[key] = false; },
     });
 };
@@ -635,6 +631,48 @@ const submitSessions = () => {
     });
 };
 
+// FCM Topics chip editor
+const topicsForm = useForm({
+    topics: [...(props.topicsConfig?.topics ?? [])],
+});
+
+const newTopic = ref('');
+
+const addTopic = () => {
+    const value = (newTopic.value || '').toLowerCase().trim();
+    if (!value) return;
+    if (!/^[a-z0-9_-]+$/.test(value)) return;
+    if (topicsForm.topics.includes(value)) return;
+    topicsForm.topics.push(value);
+    newTopic.value = '';
+};
+
+const removeTopic = (topic) => {
+    topicsForm.topics = topicsForm.topics.filter((t) => t !== topic);
+};
+
+const submitTopics = () => {
+    topicsForm.put(route('dev_settings.topics'), {
+        preserveScroll: true,
+        preserveState: true,
+        reset: ['topicsConfig', 'success', 'error'],
+    });
+};
+
+const testTopicForm = useForm({
+    topic: props.topicsConfig?.topics?.[0] || '',
+    title: 'Test',
+    body: 'Test broadcast from DevSettings',
+});
+
+const sendTestTopic = () => {
+    testTopicForm.post(route('dev_settings.test_topic'), {
+        preserveScroll: true,
+        preserveState: true,
+        reset: ['success', 'error'],
+    });
+};
+
 // Pusher Config - Local
 const localPusherForm = useForm({
     app_id: props.pusherConfig?.local?.app_id || '',
@@ -828,6 +866,7 @@ const showDeployModal = ref(false);
 const deployOptions = ref({
     migration_option: 'migrate', // Default to safe option
     run_seeders: false,
+    safe_storage_deploy: true, // Default on — preserve uploaded files.
 });
 
 const openDeployModal = () => {
@@ -1657,6 +1696,102 @@ const sendTestFcm = () => {
                     </form>
                 </div>
 
+                <!-- FCM Topics Section -->
+                <div v-if="activeSection === 'topics'" class="rounded-3xl border bg-card p-6">
+                    <div class="mb-6 flex items-center gap-3">
+                        <Hash class="size-5 text-cyan-500" />
+                        <div>
+                            <h2 class="text-lg font-semibold text-foreground">{{ t('fcm_topics') }}</h2>
+                            <p class="text-sm text-muted-foreground">{{ t('fcm_topics_desc') }}</p>
+                        </div>
+                    </div>
+
+                    <form @submit.prevent="submitTopics" class="space-y-6">
+                        <div class="rounded-xl border bg-muted/30 p-4">
+                            <p class="mb-3 text-xs font-medium text-muted-foreground">{{ t('topics_list') }}</p>
+                            <div class="flex flex-wrap gap-2">
+                                <span
+                                    v-for="topic in topicsForm.topics"
+                                    :key="topic"
+                                    class="inline-flex items-center gap-2 rounded-full bg-primary/10 px-3 py-1 text-sm font-medium text-primary"
+                                >
+                                    {{ topic }}
+                                    <button
+                                        type="button"
+                                        class="rounded-full p-0.5 transition-colors hover:bg-primary/20"
+                                        @click="removeTopic(topic)"
+                                    >
+                                        <X class="size-3" />
+                                    </button>
+                                </span>
+                                <span v-if="topicsForm.topics.length === 0" class="text-sm text-muted-foreground">
+                                    {{ t('no_topics_yet') }}
+                                </span>
+                            </div>
+                        </div>
+
+                        <div class="flex items-center gap-2">
+                            <Input
+                                v-model="newTopic"
+                                :placeholder="t('topic_name_placeholder')"
+                                class="flex-1"
+                                @keydown.enter.prevent="addTopic"
+                            />
+                            <Button type="button" variant="outline" @click="addTopic">
+                                <Plus class="me-2 size-4" />
+                                {{ t('add_topic') }}
+                            </Button>
+                        </div>
+
+                        <p class="text-xs text-muted-foreground">{{ t('topic_name_hint') }}</p>
+
+                        <div class="pt-2">
+                            <Button type="submit" :disabled="topicsForm.processing">
+                                <Loader2 v-if="topicsForm.processing" class="me-2 h-4 w-4 animate-spin" />
+                                {{ topicsForm.processing ? t('saving') : t('save_topics') }}
+                            </Button>
+                        </div>
+                    </form>
+
+                    <!-- Test broadcast -->
+                    <div class="mt-8 rounded-xl border border-dashed bg-muted/20 p-4">
+                        <div class="mb-3 flex items-center gap-2">
+                            <Send class="size-4 text-cyan-500" />
+                            <h3 class="text-sm font-semibold text-foreground">{{ t('test_topic_broadcast') }}</h3>
+                        </div>
+                        <p class="mb-4 text-xs text-muted-foreground">{{ t('test_topic_broadcast_desc') }}</p>
+
+                        <form @submit.prevent="sendTestTopic" class="space-y-3">
+                            <div class="space-y-2">
+                                <label class="block text-xs font-medium text-foreground">{{ t('topic') }}</label>
+                                <select
+                                    v-model="testTopicForm.topic"
+                                    class="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:ring-2 focus:ring-primary focus:outline-none"
+                                >
+                                    <option v-for="topic in topicsForm.topics" :key="topic" :value="topic">{{ topic }}</option>
+                                </select>
+                            </div>
+
+                            <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                                <div class="space-y-2">
+                                    <label class="block text-xs font-medium text-foreground">{{ t('title') }}</label>
+                                    <Input v-model="testTopicForm.title" type="text" />
+                                </div>
+                                <div class="space-y-2">
+                                    <label class="block text-xs font-medium text-foreground">{{ t('body') }}</label>
+                                    <Input v-model="testTopicForm.body" type="text" />
+                                </div>
+                            </div>
+
+                            <Button type="submit" :disabled="testTopicForm.processing || !testTopicForm.topic">
+                                <Loader2 v-if="testTopicForm.processing" class="me-2 h-4 w-4 animate-spin" />
+                                <Send v-else class="me-2 h-4 w-4" />
+                                {{ testTopicForm.processing ? t('sending') : t('send_test_broadcast') }}
+                            </Button>
+                        </form>
+                    </div>
+                </div>
+
                 <!-- Production Database -->
                 <div v-if="activeSection === 'deployment'" class="rounded-3xl border bg-card p-6">
                     <div class="mb-6 flex items-center gap-3">
@@ -2431,8 +2566,7 @@ const sendTestFcm = () => {
                                 <button
                                     class="relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
                                     :class="envValues[key] ? 'bg-primary' : 'bg-muted'"
-                                    :disabled="envToggling[key] || (key === 'APP_GUESTS' && !envValues.APP_USERS)"
-                                    :title="key === 'APP_GUESTS' && !envValues.APP_USERS ? 'Enable APP_USERS first' : ''"
+                                    :disabled="envToggling[key]"
                                     @click="toggleEnv(key, envValues[key])">
                                     <span
                                         class="inline-block h-4 w-4 transform rounded-full bg-white transition-transform"
@@ -2540,11 +2674,20 @@ const sendTestFcm = () => {
 
                             <!-- Run Seeders Checkbox -->
                             <div v-if="deployOptions.migration_option === 'migrate' || deployOptions.migration_option === 'none'"
-                                class="flex items-center gap-3 rounded-xl border border-border p-4">
-                                <Checkbox v-model="deployOptions.run_seeders" />
-                                <div>
+                                class="flex items-start gap-3 rounded-xl border border-border p-4">
+                                <Checkbox v-model="deployOptions.run_seeders" class="mt-1 shrink-0" />
+                                <div class="flex-1 min-w-0">
                                     <span class="font-medium text-foreground">{{ t('run_seeders_separately') }}</span>
                                     <p class="text-sm text-muted-foreground">{{ t('run_seeders_separately_desc') }}</p>
+                                </div>
+                            </div>
+
+                            <!-- Safe Storage Deploy -->
+                            <div class="flex items-start gap-3 rounded-xl border border-border p-4">
+                                <Checkbox v-model="deployOptions.safe_storage_deploy" class="mt-1 shrink-0" />
+                                <div class="flex-1 min-w-0">
+                                    <span class="font-medium text-foreground">{{ t('safe_storage_deploy') }}</span>
+                                    <p class="text-sm text-muted-foreground">{{ t('safe_storage_deploy_desc') }}</p>
                                 </div>
                             </div>
                         </div>

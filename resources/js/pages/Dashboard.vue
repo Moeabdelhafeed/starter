@@ -199,8 +199,8 @@ const getSubjectName = (subjectType) => {
                             </div>
                             <div class="flex-1 min-w-0">
                                 <p class="text-sm text-foreground truncate">
-                                    <span class="font-medium">{{ activity.causer_name || t('system') }}</span>
-                                    <span class="text-muted-foreground"> {{ t(activity.action) }} </span>
+                                    <span class="me-1 font-medium">{{ activity.causer_name || t('system') }}</span>
+                                    <span class="me-1 text-muted-foreground">{{ t(activity.action) }}</span>
                                     <span class="font-medium">{{ getSubjectName(activity.subject_type) }}</span>
                                 </p>
                             </div>

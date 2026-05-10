@@ -54,6 +54,9 @@ const handleBulkDelete = () => {
 const confirmBulkDelete = (done) => {
     router.delete(route('activity_logs.bulk-destroy'), {
         data: { ids: selectedIds.value },
+        preserveScroll: true,
+        preserveState: true,
+        reset: ['logs', 'success', 'error', 'filters'],
         onSuccess: () => {
             selectedIds.value = [];
             isBulkDeleteModalOpen.value = false;

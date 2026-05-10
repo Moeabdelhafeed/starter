@@ -1,6 +1,6 @@
 <script setup>
 import Default from '@/layouts/default.vue';
-import { Head, router } from '@inertiajs/vue3';
+import { Head, router, usePage } from '@inertiajs/vue3';
 import { ref, computed } from 'vue';
 import { useI18n } from 'vue-i18n';
 import AppUserFilters from '@/components/app-user/AppUserFilters.vue';
@@ -20,6 +20,8 @@ defineOptions({
 });
 
 const { t } = useI18n();
+const page = usePage();
+const pageTitle = computed(() => page.props.app_users ? t('app_users') : t('guest_users'));
 
 const props = defineProps({
     users: Object,
@@ -153,7 +155,7 @@ const confirmBulkForceDelete = (done) => {
 </script>
 
 <template>
-    <Head :title="t('app_users')" />
+    <Head :title="pageTitle" />
 
     <div class="h-full min-h-[100dvh] w-full bg-background">
         <div class="mx-auto flex w-full max-w-[1300px] flex-col gap-5 px-4 py-20 text-start">

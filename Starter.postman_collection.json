@@ -1749,7 +1749,7 @@
                     ]
                 },
                 {
-                    "name": "Auth Config",
+                    "name": "Config",
                     "request": {
                         "method": "GET",
                         "header": [
@@ -1785,13 +1785,13 @@
                             }
                         ],
                         "url": {
-                            "raw": "{{base_url}}/api/auth-config",
+                            "raw": "{{base_url}}/api/config",
                             "host": [
                                 "{{base_url}}"
                             ],
                             "path": [
                                 "api",
-                                "auth-config"
+                                "config"
                             ]
                         },
                         "description": "Returns the live auth configuration so mobile/web clients can adapt their UI on boot. No body, no Bearer token required.\n\n**Response fields:**\n- `identifiers` — array of `email` and/or `phone` (configured via `AUTH_IDENTIFIERS`).\n- `has_username_field` — when true, register requires `username` and login can match against username.\n- `has_email_field` / `has_phone_field` — when true (and that field is NOT an identifier), it is exposed as an optional profile field.\n- `social_providers` — array of allowed Firebase providers (e.g. `[\"google.com\", \"apple.com\"]`). Empty = all allowed.\n- `max_social_accounts` — max linked social accounts per user (0 = unlimited).\n- `social_auth_available` — true when email is an identifier (Firebase social auth requires email).\n- `is_otp_whatsapp` — phone OTPs go via WhatsApp instead of SMS when true.\n- `multi_session` — when true, multiple devices may stay logged in simultaneously and the client should expose the Active Devices screen (`GET /api/devices`). When false, every login revokes the user's previous tokens.\n\nFetch on app boot, cache in client state."

@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin\DevSetting;
 
 use App\Events\TestBroadcast;
 use App\Helpers\FCMHelper;
+use App\Helpers\FcmTopics;
 use App\Http\Controllers\Controller;
 use App\Models\User;
 use Illuminate\Http\Request;
@@ -140,7 +141,54 @@ class DevSettingController extends Controller
             'sessionsConfig' => [
                 'multi_session_enabled' => filter_var(env('MULTI_SESSION_ENABLED', true), FILTER_VALIDATE_BOOLEAN),
             ],
+            'topicsConfig' => [
+                'topics' => FcmTopics::all(),
+                'defaults' => FcmTopics::DEFAULTS,
+            ],
         ]);
+    }
+
+    public function updateTopics(Request $request)
+    {
+        $validated = $request->validate([
+            'topics' => ['array'],
+            'topics.*' => ['string', 'regex:'.FcmTopics::NAME_REGEX, 'max:64'],
+        ]);
+
+        $clean = array_values(array_unique(array_map(
+            fn ($t) => strtolower(trim((string) $t)),
+            $validated['topics'] ?? [],
+        )));
+
+        $this->setEnvValue('FCM_TOPICS', implode(',', $clean));
+        Artisan::call('config:clear');
+
+        return redirect()->back()->with('success', 'Topics updated.');
+    }
+
+    public function testTopicBroadcast(Request $request)
+    {
+        $validated = $request->validate([
+            'topic' => ['required', 'string', 'regex:'.FcmTopics::NAME_REGEX, 'max:64'],
+            'title' => ['nullable', 'string', 'max:255'],
+            'body' => ['nullable', 'string', 'max:1000'],
+        ]);
+
+        if (! FcmTopics::has($validated['topic'])) {
+            return redirect()->back()->with('error', 'Topic not registered.');
+        }
+
+        $result = FCMHelper::sendToTopic(
+            $validated['topic'],
+            $validated['title'] ?? 'Test',
+            $validated['body'] ?? 'Test broadcast from DevSettings',
+        );
+
+        if (! ($result['success'] ?? false)) {
+            return redirect()->back()->with('error', $result['message'] ?? 'Topic broadcast failed.');
+        }
+
+        return redirect()->back()->with('success', 'Broadcast sent to topic '.$validated['topic']);
     }
 
     public function updateColors(Request $request)
@@ -208,20 +256,7 @@ class DevSettingController extends Controller
         $key = $validated['key'];
         $value = filter_var($validated['value'], FILTER_VALIDATE_BOOLEAN) ? 'true' : 'false';
 
-        // Block APP_GUESTS=true when APP_USERS=false. Guests rely on the same
-        // user pipeline; presenting-only apps shouldn't expose guest creation.
-        if ($key === 'APP_GUESTS' && $value === 'true' && ! filter_var(env('APP_USERS'), FILTER_VALIDATE_BOOLEAN)) {
-            return redirect()->back()->with('error', 'Enable APP_USERS first before enabling APP_GUESTS.');
-        }
-
         $this->setEnvValue($key, $value);
-
-        // APP_USERS off implies a presenting-only app — guests have no purpose
-        // either, so cascade APP_GUESTS off too. One-way: turning APP_USERS
-        // back on does not auto-enable APP_GUESTS.
-        if ($key === 'APP_USERS' && $value === 'false') {
-            $this->setEnvValue('APP_GUESTS', 'false');
-        }
 
         Artisan::call('config:clear');
 
@@ -677,6 +712,7 @@ class DevSettingController extends Controller
         $validated = $request->validate([
             'migration_option' => ['required', 'in:migrate,migrate_seed,fresh_seed,none'],
             'run_seeders' => ['boolean'],
+            'safe_storage_deploy' => ['boolean'],
         ]);
 
         set_time_limit(3000);
@@ -709,6 +745,7 @@ class DevSettingController extends Controller
         $deployOptions = [
             'migration_option' => $validated['migration_option'],
             'run_seeders' => $validated['run_seeders'] ?? false,
+            'safe_storage_deploy' => $validated['safe_storage_deploy'] ?? false,
         ];
         $sshResult = $this->runSshDeploy($config, $deployOptions);
 
@@ -1283,12 +1320,31 @@ class DevSettingController extends Controller
             return ['success' => false, 'message' => 'Failed to upload zip to server.'];
         }
 
-        // Step 4: Wipe public_html except backend/, unzip into backend/
+        // Step 4: Wipe public_html except backend/, unzip into backend/.
+        // Safe-storage mode (per-deploy toggle): preserve existing
+        // storage/app/public data across the wipe so prod uploads aren't
+        // destroyed by re-deployment.
+        $safeStorage = ! empty($options['safe_storage_deploy']);
+        $storageBackupPath = null;
+        if ($safeStorage) {
+            $storageBackupPath = '/tmp/storage_backup_'.time();
+            $ssh->exec("mkdir -p {$storageBackupPath}");
+            $ssh->exec("[ -d {$backendPath}/storage/app/public ] && cp -a {$backendPath}/storage/app/public/. {$storageBackupPath}/ 2>/dev/null");
+            $output .= "[safe-storage] Backed up storage/app/public to {$storageBackupPath}\n";
+        }
+
         $ssh->exec("find {$publicPath} -mindepth 1 -maxdepth 1 ! -name 'backend' -exec rm -rf {} + 2>/dev/null");
         $ssh->exec("rm -rf {$backendPath}");
         $ssh->exec("mkdir -p {$backendPath}");
         $output .= $ssh->exec("unzip -o {$remoteZip} -d {$backendPath} 2>&1")."\n";
         $ssh->exec("rm -f {$remoteZip}");
+
+        if ($safeStorage && $storageBackupPath) {
+            $ssh->exec("mkdir -p {$backendPath}/storage/app/public");
+            $ssh->exec("cp -af {$storageBackupPath}/. {$backendPath}/storage/app/public/ 2>/dev/null");
+            $ssh->exec("rm -rf {$storageBackupPath}");
+            $output .= "[safe-storage] Restored storage/app/public from backup.\n";
+        }
 
         // Step 5: Setup env
         $output .= $ssh->exec("cd {$backendPath} && cp .env.production .env 2>&1")."\n";
@@ -1361,10 +1417,15 @@ PHPEOF;
 
         $ssh->exec("cat > {$publicPath}/index.php << 'INDEXEOF'\n{$indexPhp}\nINDEXEOF");
 
-        // Step 11: Storage symlink
-        $ssh->exec("rm -rf {$publicPath}/storage");
-        $ssh->exec("mkdir -p {$backendPath}/storage/app/public 2>/dev/null");
-        $output .= $ssh->exec("ln -sfn {$backendPath}/storage/app/public {$publicPath}/storage 2>&1")."\n";
+        // Step 11: Storage symlink — only run when safe-storage mode is on. With
+        // it off, the deploy leaves whatever public/storage state was unpacked
+        // by the zip alone; safe mode ensures the symlink points at the
+        // preserved backend/storage/app/public.
+        if ($safeStorage) {
+            $ssh->exec("rm -rf {$publicPath}/storage");
+            $ssh->exec("mkdir -p {$backendPath}/storage/app/public 2>/dev/null");
+            $output .= $ssh->exec("ln -sfn {$backendPath}/storage/app/public {$publicPath}/storage 2>&1")."\n";
+        }
 
         // Step 12: .htaccess
         $htaccess = <<<'HTEOF'

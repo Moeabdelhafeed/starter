@@ -47,6 +47,9 @@ const handleBulkDelete = () => {
 const confirmBulkDelete = (done) => {
     router.delete(route('pages.bulk-destroy'), {
         data: { ids: selectedIds.value },
+        preserveScroll: true,
+        preserveState: true,
+        reset: ['pages', 'success', 'error', 'filters'],
         onSuccess: () => {
             selectedIds.value = [];
             isBulkDeleteModalOpen.value = false;
@@ -61,6 +64,9 @@ const handleBulkTurnOn = () => {
         ids: selectedIds.value,
         is_active: true,
     }, {
+        preserveScroll: true,
+        preserveState: true,
+        reset: ['pages', 'success', 'error', 'filters'],
         onSuccess: () => (selectedIds.value = []),
     });
 };
@@ -70,6 +76,9 @@ const handleBulkTurnOff = () => {
         ids: selectedIds.value,
         is_active: false,
     }, {
+        preserveScroll: true,
+        preserveState: true,
+        reset: ['pages', 'success', 'error', 'filters'],
         onSuccess: () => (selectedIds.value = []),
     });
 };

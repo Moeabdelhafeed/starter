@@ -19,6 +19,9 @@ use Illuminate\Support\Facades\Route;
 // locale
 Route::post('/set-locale', [LocaleController::class, 'setLocale'])->name('locale.post');
 
+// public pages — render an active Page record by slug (terms, privacy, etc.).
+Route::get('/p/{slug}', [App\Http\Controllers\Page\PageController::class, 'show'])->name('public_page.show');
+
 // guest
 Route::middleware('guest')->group(function () {
     Route::get('/login', [AuthController::class, 'index'])->name('login');
@@ -110,8 +113,8 @@ Route::middleware('auth')->group(function () {
         Route::delete('/{page}', [PageController::class, 'destroy'])->name('pages.destroy');
     });
 
-    // app users
-    if (env('APP_USERS') === true) {
+    // app users (and/or guests)
+    if (env('APP_USERS') === true || env('APP_GUESTS') === true) {
         Route::prefix('app-users')->middleware('permission:app_users')->group(function () {
             Route::get('/', [AppUserController::class, 'index'])->name('app_users');
             Route::get('/export', [AppUserController::class, 'export'])->name('app_users.export');
@@ -143,6 +146,8 @@ Route::middleware('auth')->group(function () {
             Route::put('/rate-limiting', [DevSettingController::class, 'updateRateLimiting'])->name('dev_settings.rate_limiting');
             Route::put('/account-deletion', [DevSettingController::class, 'updateAccountDeletionConfig'])->name('dev_settings.account_deletion');
             Route::put('/sessions', [DevSettingController::class, 'updateSessionsConfig'])->name('dev_settings.sessions');
+            Route::put('/topics', [DevSettingController::class, 'updateTopics'])->name('dev_settings.topics');
+            Route::post('/test-topic', [DevSettingController::class, 'testTopicBroadcast'])->name('dev_settings.test_topic');
             Route::put('/pusher', [DevSettingController::class, 'updatePusher'])->name('dev_settings.pusher');
             Route::put('/production-pusher', [DevSettingController::class, 'updateProductionPusher'])->name('dev_settings.production_pusher');
             Route::post('/test-broadcast', [DevSettingController::class, 'testBroadcast'])->name('dev_settings.test_broadcast');

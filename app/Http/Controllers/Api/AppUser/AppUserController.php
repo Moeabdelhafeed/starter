@@ -120,6 +120,9 @@ class AppUserController extends Controller
         $user = User::create($userData);
         $user->assignRole($role);
 
+        // Promote guest → real user: same device, registered identity now.
+        $this->convertGuestForRequest($request);
+
         $otp = $this->sendOtpToUser($user, 'verify');
 
         $responseData = [
@@ -245,7 +248,7 @@ class AppUserController extends Controller
         ], Trans::get($accountRestored ? 'api.account_restored' : 'api.login_successful'), $token);
     }
 
-    public function authConfig()
+    public function config()
     {
         $identifiers = $this->getAuthIdentifiers();
 
@@ -939,13 +942,6 @@ class AppUserController extends Controller
         $platform = strtolower(trim((string) $request->header('X-Platform'))) ?: $request->input('platform');
         $fcmToken = trim((string) $request->header('X-FCM-Token')) ?: null;
 
-        // Convert before inserting so the guest user's cascade drops its
-        // user_devices row first; otherwise we'd race the new row against
-        // the device_id of the soon-to-be-deleted guest device.
-        if ($deviceId) {
-            User::convertFromGuest($deviceId);
-        }
-
         $user->devices()->create([
             'personal_access_token_id' => $accessToken->id,
             'device_id' => $deviceId,
@@ -958,6 +954,21 @@ class AppUserController extends Controller
         ]);
 
         return (int) $accessToken->id;
+    }
+
+    /**
+     * Wipe the guest row keyed by the request's X-Device-Id header. Called
+     * from register / firebaseLogin (new-user branch) — the same physical
+     * device is being promoted from anonymous tracking to a real account.
+     * NOT called from login: a registered user logging in from a shared
+     * device must not nuke a co-resident guest.
+     */
+    private function convertGuestForRequest(Request $request): void
+    {
+        $deviceId = trim((string) $request->header('X-Device-Id'));
+        if ($deviceId !== '') {
+            User::convertFromGuest($deviceId);
+        }
     }
 
     private function findUserByIdentifier(string $value, bool $withTrashed = false): ?User
@@ -1240,6 +1251,9 @@ class AppUserController extends Controller
                     'email' => $email,
                     'name' => $name,
                 ]);
+
+                // New firebase user = same physical device promoting from guest.
+                $this->convertGuestForRequest($request);
             }
         }
 

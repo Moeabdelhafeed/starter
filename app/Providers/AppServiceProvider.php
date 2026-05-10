@@ -85,26 +85,6 @@ class AppServiceProvider extends ServiceProvider
                 });
         });
 
-        // Translations endpoints — unlimited while IS_TESTING=true so seeding/imports
-        // are not throttled. Falls back to the general API limit otherwise.
-        RateLimiter::for('translations', function (Request $request) {
-            if (filter_var(env('IS_TESTING', false), FILTER_VALIDATE_BOOLEAN)) {
-                return Limit::none();
-            }
-
-            $limit = (int) env('RATE_LIMIT_API', 60);
-            $decayMinutes = (int) env('RATE_LIMIT_API_DECAY', 1);
-
-            return Limit::perMinutes($decayMinutes, $limit)
-                ->by($request->user()?->id ?: $request->ip())
-                ->response(function (Request $request, array $headers) {
-                    return response()->json([
-                        'success' => false,
-                        'message' => Trans::get('api.too_many_requests'),
-                    ], 429, $headers);
-                });
-        });
-
         // Very strict rate limit for OTP/password reset
         RateLimiter::for('otp', function (Request $request) {
             $limit = (int) env('RATE_LIMIT_OTP', 3);

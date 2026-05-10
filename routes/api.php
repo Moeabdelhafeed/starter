@@ -8,9 +8,7 @@ use App\Http\Controllers\Api\Translations\TranslationController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
-Route::middleware('throttle:api')->group(function () {
-    Route::get('/auth-config', [AppUserController::class, 'authConfig']);
-});
+Route::get('/config', [AppUserController::class, 'config']);
 
 if (env('APP_USERS') === true) {
 
@@ -52,21 +50,26 @@ if (env('APP_USERS') === true) {
 
         Route::get('/devices', [AppUserController::class, 'devices'])->middleware('verified');
         Route::delete('/devices/{deviceId}', [AppUserController::class, 'revokeDevice'])->middleware('verified');
-
-        Route::get('/user', function (Request $request) {
-            return ApiResponse::success($request->user());
-        });
     });
 }
+
+Route::get('/user', function (Request $request) {
+    $user = $request->user();
+
+    if (! $user) {
+        return ApiResponse::error('No user resolved', null, 401);
+    }
+
+    return ApiResponse::success($user);
+});
 
 // Translation + language routes — bypass throttling when IS_TESTING=true
 // so bulk seeding from the client is not blocked.
 if (filter_var(env('HAS_TRANSLATIONS', true), FILTER_VALIDATE_BOOLEAN)) {
-    Route::middleware('throttle:translations')->group(function () {
-        Route::get('/translations', [TranslationController::class, 'index']);
-        Route::post('/translations', [TranslationController::class, 'store']);
-        Route::get('/languages', [ApiLanguageController::class, 'index']);
-    });
+
+    Route::get('/translations', [TranslationController::class, 'index']);
+    Route::post('/translations', [TranslationController::class, 'store']);
+    Route::get('/languages', [ApiLanguageController::class, 'index']);
 }
 
 // Public routes with standard rate limit

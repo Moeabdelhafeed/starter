@@ -4,7 +4,8 @@ import { computed } from 'vue';
 import { TestTube } from 'lucide-vue-next';
 
 const page = usePage();
-const isTesting = computed(() => Boolean(page.props.is_testing));
+const isAuthed = computed(() => Boolean(page.props.auth?.user));
+const isTesting = computed(() => Boolean(page.props.is_testing) && isAuthed.value);
 </script>
 
 <template>
