@@ -178,6 +178,10 @@ class AppUserController extends Controller
 
     public function destroy(User $user)
     {
+        if ($user->is_reviewer) {
+            return redirect()->back()->with('error', __('admin.cannot_delete_reviewer'));
+        }
+
         // Guests are anonymous tracking rows — soft-delete adds no value.
         // Force-delete so the row is gone for good and the device_id is freed.
         $user->is_guest ? $user->forceDelete() : $user->delete();
@@ -203,9 +207,10 @@ class AppUserController extends Controller
             'ids' => ['required', 'array', 'exists:users,id'],
         ]);
 
+        // Reviewer rows are protected (Apple / Google Play test accounts).
         // Soft-delete real users; force-delete guests in the same batch.
-        User::whereIn('id', $validated['ids'])->where('is_guest', false)->delete();
-        User::whereIn('id', $validated['ids'])->where('is_guest', true)
+        User::whereIn('id', $validated['ids'])->where('is_reviewer', false)->where('is_guest', false)->delete();
+        User::whereIn('id', $validated['ids'])->where('is_reviewer', false)->where('is_guest', true)
             ->get()
             ->each(fn (User $u) => $u->forceDelete());
 

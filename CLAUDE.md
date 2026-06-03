@@ -745,6 +745,17 @@ The app user (mobile API) auth system uses **email and/or phone as identifiers**
 
 DevSettings UI under "Authentication Config" lets you toggle these. Admin AppUser table, edit modal, and API endpoints adapt dynamically.
 
+### Auth modes (`AUTH_MODE`)
+
+The app supports two auth modes, toggleable at runtime via DevSettings → Authentication → Login Method:
+
+- **`AUTH_MODE=password`** (default) — classic flow. Endpoints: `register`, `login` (identifier + password), `forgot-password`, `verify-forgot-password-otp`, `change-forgot-password`, `change-password`.
+- **`AUTH_MODE=otp`** — passwordless. Endpoints: `login` (identifier-only — auto-creates user if missing, uses `promoteGuestOrCreate` to preserve guest data), `verify-login` (consumes `login`-type OTP, issues token). Forgot/change-password routes disappear. Register endpoint disappears (login covers it).
+
+Surfaced via `GET /api/config` as `auth_mode`. Frontend branches login UI based on this. Reviewer accounts bypass OTP in both modes (sendOtpToUser short-circuits; verify-login auto-passes when `is_reviewer`).
+
+In OTP mode the `users.password` column is null for new accounts (already nullable since social-auth work).
+
 **Registration:** Request body always includes `policy_agreed`, `name`, `identifier` (email or phone), `password`, `password_confirmation`. When `HAS_USERNAME_FIELD=true`, `username` is also required. Optional non-identifier extras (`email`/`phone` when `HAS_*_FIELD=true` and not identifier) keep their own keys.
 
 `identifier` resolution against `AUTH_IDENTIFIERS`:
@@ -855,13 +866,20 @@ Headers are validated by the global `IdentifyDevice` middleware (registered in [
 
 ### Resolution order
 
-`IdentifyDevice` resolves the caller in three steps:
+`IdentifyDevice` resolves the caller in four steps:
 
 1. **Valid Bearer** → `Laravel\Sanctum\PersonalAccessToken::findToken` resolves the real user. Attached via `setUserResolver`. `user_devices` row keyed by `device_id` is upserted with the latest fcm + last_seen.
 2. **Claimed device** — `user_devices.device_id` row exists for a registered (non-guest) user. Without a valid Bearer the caller can't act as that user. Request flagged via `attributes->set('device_claimed', true)`. **No row update** (don't let unauthed callers mutate someone else's fcm). Guest-only routes 403.
-3. **Else** → if `APP_GUESTS=true`, lazily upsert a guest `users` row via `User::findOrCreateGuest($platform, $deviceId)`. A matching `user_devices` row is created/refreshed keyed by `device_id` carrying the guest's `user_id`. If `APP_GUESTS=false`, headers are still required but no guest is created.
+3. **Existing guest** — `users.guest_id = $deviceId AND is_guest = true` → attached. `user_devices` row touched/created (throttled).
+4. **No user attached** — middleware does NOT auto-create guests anymore. Client must call `POST /api/guest` to create one. Downstream `$request->user()` returns null for endpoints that don't gate on auth.
 
-Downstream code (`SetLocaleMiddleware`, controllers reading `$request->user()`) sees a normal user object regardless of guest vs auth — no per-route branching needed.
+Downstream code (`SetLocaleMiddleware`, controllers reading `$request->user()`) sees the resolved user when one exists. Otherwise null — handle gracefully.
+
+### Explicit guest creation
+
+`POST /api/guest` (public, throttle:api). Body: none. Headers: standard device headers. Returns the existing guest if one already matches the UUID (idempotent), else creates one. 403 when the device is claimed by a real user OR when `APP_GUESTS=false`.
+
+Frontend contract: call once on first app launch before any other endpoint that relies on `$request->user()`. After register/login/logout cycles, the guest may need to be recreated — frontend should detect null `$request->user()` and call `POST /api/guest` again.
 
 ### `fcm_token` is header-only
 

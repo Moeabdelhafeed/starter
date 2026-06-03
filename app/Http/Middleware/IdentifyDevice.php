@@ -25,7 +25,10 @@ class IdentifyDevice
      *   2. UUID matches a registered (non-guest) user's `user_devices.device_id`
      *      → device "claimed", no user attached, request flagged so guest-only
      *      routes 403.
-     *   3. Else, if `APP_GUESTS=true` → lazily upsert a guest `users` row.
+     *   3. Existing guest user matches `guest_id` → guest attached.
+     *   4. Else → no user attached. Client must call `POST /api/guest` to
+     *      explicitly create one (guests are no longer auto-created on every
+     *      request).
      *
      * After resolving a user (auth or guest), upserts the matching
      * `user_devices` row keyed by `device_id` with the latest `fcm_token`,
@@ -91,12 +94,14 @@ class IdentifyDevice
             return $next($request);
         }
 
-        $guestsEnabled = filter_var(env('APP_GUESTS', true), FILTER_VALIDATE_BOOLEAN);
+        // Find existing guest for this UUID (no auto-create). Client must call
+        // POST /api/guest to register a guest before other endpoints can rely
+        // on $request->user().
+        $guest = User::where('guest_id', $deviceId)->where('is_guest', true)->first();
 
-        if ($guestsEnabled) {
-            $user = User::findOrCreateGuest($platform, $deviceId);
-            $request->setUserResolver(fn () => $user);
-            $this->touchDevice($request, $user, $deviceId, $platform, $fcmToken);
+        if ($guest) {
+            $request->setUserResolver(fn () => $guest);
+            $this->touchDevice($request, $guest, $deviceId, $platform, $fcmToken);
         }
 
         return $next($request);

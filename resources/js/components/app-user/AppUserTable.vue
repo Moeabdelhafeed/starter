@@ -104,7 +104,13 @@ const toggleStatus = (user) => {
                         </TableCell>
                         <TableCell>
                             <span
-                                v-if="user.is_guest"
+                                v-if="user.is_reviewer"
+                                class="inline-flex items-center gap-1 rounded-full bg-purple-500/10 px-2.5 py-0.5 text-xs font-medium text-purple-600"
+                            >
+                                {{ t('reviewer') }}
+                            </span>
+                            <span
+                                v-else-if="user.is_guest"
                                 class="inline-flex items-center gap-1 rounded-full bg-amber-500/10 px-2.5 py-0.5 text-xs font-medium text-amber-600"
                             >
                                 {{ t('guest') }}

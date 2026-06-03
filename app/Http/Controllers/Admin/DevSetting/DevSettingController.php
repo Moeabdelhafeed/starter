@@ -9,10 +9,12 @@ use App\Http\Controllers\Controller;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
 use Inertia\Inertia;
 use phpseclib3\Net\SFTP;
 use phpseclib3\Net\SSH2;
+use Spatie\Permission\Models\Role;
 
 class DevSettingController extends Controller
 {
@@ -64,6 +66,7 @@ class DevSettingController extends Controller
                 'has_email_field' => filter_var(env('HAS_EMAIL_FIELD', true), FILTER_VALIDATE_BOOLEAN),
                 'has_phone_field' => filter_var(env('HAS_PHONE_FIELD', false), FILTER_VALIDATE_BOOLEAN),
                 'has_username_field' => filter_var(env('HAS_USERNAME_FIELD', false), FILTER_VALIDATE_BOOLEAN),
+                'auth_mode' => strtolower((string) env('AUTH_MODE', 'password')) === 'otp' ? 'otp' : 'password',
             ],
             'socialAuthConfig' => [
                 'providers' => array_filter(array_map('trim', explode(',', env('SOCIAL_AUTH_PROVIDERS', 'google.com,apple.com')))),
@@ -142,10 +145,62 @@ class DevSettingController extends Controller
                 'multi_session_enabled' => filter_var(env('MULTI_SESSION_ENABLED', true), FILTER_VALIDATE_BOOLEAN),
             ],
             'topicsConfig' => [
-                'topics' => FcmTopics::all(),
+                'topics' => FcmTopics::bases(),
                 'defaults' => FcmTopics::DEFAULTS,
             ],
+            'reviewerAccounts' => [
+                'apple' => [
+                    'email' => env('APPLE_REVIEWER_EMAIL', ''),
+                    'password' => env('APPLE_REVIEWER_PASSWORD', ''),
+                ],
+                'google' => [
+                    'email' => env('GOOGLE_REVIEWER_EMAIL', ''),
+                    'password' => env('GOOGLE_REVIEWER_PASSWORD', ''),
+                ],
+            ],
         ]);
+    }
+
+    public function updateReviewerAccounts(Request $request)
+    {
+        $validated = $request->validate([
+            'apple.email' => ['nullable', 'email', 'max:255'],
+            'apple.password' => ['nullable', 'string', 'min:6', 'max:255'],
+            'google.email' => ['nullable', 'email', 'max:255'],
+            'google.password' => ['nullable', 'string', 'min:6', 'max:255'],
+        ]);
+
+        $this->setEnvValue('APPLE_REVIEWER_EMAIL', (string) ($validated['apple']['email'] ?? ''));
+        $this->setEnvValue('APPLE_REVIEWER_PASSWORD', (string) ($validated['apple']['password'] ?? ''));
+        $this->setEnvValue('GOOGLE_REVIEWER_EMAIL', (string) ($validated['google']['email'] ?? ''));
+        $this->setEnvValue('GOOGLE_REVIEWER_PASSWORD', (string) ($validated['google']['password'] ?? ''));
+
+        $role = Role::where('name', 'user')->where('guard_name', 'api')->first();
+        foreach (['apple', 'google'] as $slot) {
+            $email = trim((string) ($validated[$slot]['email'] ?? ''));
+            $password = (string) ($validated[$slot]['password'] ?? '');
+            if ($email === '' || $password === '') {
+                continue;
+            }
+
+            $user = User::firstOrNew(['email' => $email]);
+            $user->forceFill([
+                'name' => ucfirst($slot).' Reviewer',
+                'password' => Hash::make($password),
+                'is_active' => true,
+                'is_reviewer' => true,
+                'is_guest' => false,
+                'verified_at' => now(),
+            ])->save();
+
+            if ($role && ! $user->hasRole($role)) {
+                $user->assignRole($role);
+            }
+        }
+
+        Artisan::call('config:clear');
+
+        return redirect()->back()->with('success', 'Reviewer accounts updated.');
     }
 
     public function updateTopics(Request $request)
@@ -256,6 +311,19 @@ class DevSettingController extends Controller
         $key = $validated['key'];
         $value = filter_var($validated['value'], FILTER_VALIDATE_BOOLEAN) ? 'true' : 'false';
 
+        // Guard: at least one of APP_USERS / APP_GUESTS must stay on.
+        // Disabling both at once bricks the api (no user resolution possible).
+        if ($value === 'false' && in_array($key, ['APP_USERS', 'APP_GUESTS'], true)) {
+            $other = $key === 'APP_USERS' ? 'APP_GUESTS' : 'APP_USERS';
+            $otherOn = filter_var(env($other), FILTER_VALIDATE_BOOLEAN);
+            if (! $otherOn) {
+                return redirect()->back()->with(
+                    'error',
+                    'At least one of APP_USERS or APP_GUESTS must remain enabled.',
+                );
+            }
+        }
+
         $this->setEnvValue($key, $value);
 
         Artisan::call('config:clear');
@@ -315,12 +383,14 @@ class DevSettingController extends Controller
             'has_email_field' => ['required', 'boolean'],
             'has_phone_field' => ['required', 'boolean'],
             'has_username_field' => ['required', 'boolean'],
+            'auth_mode' => ['required', 'in:password,otp'],
         ]);
 
         $this->setEnvValue('AUTH_IDENTIFIERS', implode(',', $validated['identifiers']));
         $this->setEnvValue('HAS_EMAIL_FIELD', $validated['has_email_field'] ? 'true' : 'false');
         $this->setEnvValue('HAS_PHONE_FIELD', $validated['has_phone_field'] ? 'true' : 'false');
         $this->setEnvValue('HAS_USERNAME_FIELD', $validated['has_username_field'] ? 'true' : 'false');
+        $this->setEnvValue('AUTH_MODE', $validated['auth_mode']);
 
         Artisan::call('config:clear');
 

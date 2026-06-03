@@ -117,11 +117,10 @@ class AppUserController extends Controller
             }
         }
 
-        $user = User::create($userData);
-        $user->assignRole($role);
-
-        // Promote guest → real user: same device, registered identity now.
-        $this->convertGuestForRequest($request);
+        // Promote any existing guest row tied to this device IN PLACE — keeps
+        // the same `users.id` so anything FK-attached to the guest (cart,
+        // favorites, etc.) carries over to the registered account.
+        $user = $this->promoteGuestOrCreate($request, $userData, $role);
 
         $otp = $this->sendOtpToUser($user, 'verify');
 
@@ -165,6 +164,10 @@ class AppUserController extends Controller
 
     public function login(Request $request)
     {
+        if ($this->isOtpMode()) {
+            return $this->loginViaOtp($request);
+        }
+
         $rules = [
             'identifier' => 'required|string|max:255',
             'password' => 'required|string|max:255',
@@ -264,7 +267,186 @@ class AppUserController extends Controller
             'multi_session' => (bool) config('auth.multi_session_enabled'),
             'app_users' => filter_var(env('APP_USERS', true), FILTER_VALIDATE_BOOLEAN),
             'app_guests' => filter_var(env('APP_GUESTS', true), FILTER_VALIDATE_BOOLEAN),
+            'auth_mode' => $this->isOtpMode() ? 'otp' : 'password',
         ]);
+    }
+
+    private function isOtpMode(): bool
+    {
+        return strtolower((string) env('AUTH_MODE', 'password')) === 'otp';
+    }
+
+    /**
+     * OTP-mode login: accept identifier only, optionally `name` for first-time
+     * users. Auto-create when no row matches (promotes any existing guest with
+     * the same X-Device-Id in place). Send a `login` OTP to the user's channel
+     * and return without issuing a token. Client follows with `/api/verify-login`.
+     */
+    private function loginViaOtp(Request $request)
+    {
+        $request->validate([
+            'identifier' => 'required|string|max:255',
+            'name' => 'nullable|string|max:255',
+        ]);
+
+        $identifiers = $this->getAuthIdentifiers();
+        $kind = $this->detectIdentifierKind($request->identifier);
+
+        if (! $kind || ! in_array($kind, $identifiers, true)) {
+            return ApiResponse::error(
+                Trans::get('api.invalid_identifier'),
+                ['identifier' => [Trans::get('api.invalid_identifier')]],
+                422,
+            );
+        }
+
+        // OTP-mode login is both register + sign-in. Skip uniqueness (existing
+        // identifiers MUST pass — they belong to the returning user). Apply only
+        // shape/format + optional domain/country guards.
+        $identifierRule = $this->getOtpLoginIdentifierRule($kind);
+        $identifierValidator = Validator::make([$kind => $request->identifier], [$kind => $identifierRule]);
+        if ($identifierValidator->fails()) {
+            return ApiResponse::error(
+                Trans::get('api.validation_failed'),
+                ['identifier' => $identifierValidator->errors()->get($kind)],
+                422,
+            );
+        }
+
+        $user = $this->findUserByIdentifier($request->identifier, withTrashed: true);
+
+        if ($user && $user->trashed()) {
+            return ApiResponse::error(Trans::get('api.account_suspended'), null, 403);
+        }
+        if ($user && ! $user->is_active) {
+            return ApiResponse::error(__('admin.account_is_inactive'), null, 403);
+        }
+
+        if (! $user) {
+            $role = Role::where('name', 'user')->where('guard_name', 'api')->first();
+            if (! $role) {
+                return ApiResponse::error(Trans::get('api.user_role_not_found'), null, 500);
+            }
+            $userData = [
+                'name' => $request->input('name') ?: 'User',
+                $kind => $request->identifier,
+                'is_active' => true,
+            ];
+            $user = $this->promoteGuestOrCreate($request, $userData, $role);
+        }
+
+        $otp = $this->sendOtpToUser($user, 'login');
+
+        $responseData = [
+            'identifier' => $request->identifier,
+            'channel' => $kind,
+            'otp_expires_in_minutes' => 5,
+        ];
+        if (filter_var(env('IS_TESTING'), FILTER_VALIDATE_BOOLEAN)) {
+            $responseData['otp'] = $otp ? $otp->otp : null;
+        }
+
+        return ApiResponse::success($responseData, Trans::get('api.login_otp_sent'));
+    }
+
+    /**
+     * OTP-mode verify-login: consume the `login` OTP, stamp `verified_at`,
+     * issue a Sanctum token, and track the device. Reviewer accounts auto-pass
+     * any OTP value (consistent with verifyOtp).
+     */
+    public function verifyLogin(Request $request)
+    {
+        if (! $this->isOtpMode()) {
+            return ApiResponse::error(Trans::get('api.endpoint_not_available'), null, 404);
+        }
+
+        $request->validate([
+            'identifier' => 'required|string|max:255',
+            'otp' => 'required|string|max:10',
+        ]);
+
+        $user = $this->findUserByIdentifier($request->identifier, withTrashed: true);
+        if (! $user) {
+            return ApiResponse::error(
+                Trans::get('api.user_not_found'),
+                ['identifier' => [Trans::get('api.user_not_found')]],
+                422,
+            );
+        }
+        if ($user->trashed()) {
+            return ApiResponse::error(Trans::get('api.account_suspended'), null, 403);
+        }
+        if (! $user->is_active) {
+            return ApiResponse::error(__('admin.account_is_inactive'), null, 403);
+        }
+        if (! $user->hasRole('user', 'api')) {
+            return ApiResponse::error(Trans::get('api.unauthorized_access'), null, 403);
+        }
+
+        if (! $user->is_reviewer) {
+            $otpRecord = $user->otps()
+                ->where('otp', $request->otp)
+                ->where('type', 'login')
+                ->where('expires_at', '>', now())
+                ->first();
+
+            if (! $otpRecord) {
+                return ApiResponse::error(
+                    Trans::get('api.invalid_otp'),
+                    ['otp' => [Trans::get('api.invalid_otp')]],
+                    422,
+                );
+            }
+
+            $otpRecord->delete();
+        }
+
+        if (! $user->verified_at) {
+            $user->forceFill(['verified_at' => now()])->save();
+        }
+
+        $accountRestored = false;
+        if ($user->isPendingDeletion()) {
+            $user->restoreAccount();
+            $accountRestored = true;
+        }
+
+        $token = $user->createToken('user_token', ['*'], now()->addDays(30))->plainTextToken;
+        $tokenId = $this->trackDevice($user, $token, $request);
+
+        return ApiResponse::success([
+            'user' => $user->fresh(),
+            'is_verified' => true,
+            'account_restored' => $accountRestored,
+            'token_id' => $tokenId,
+        ], Trans::get($accountRestored ? 'api.account_restored' : 'api.login_successful'), $token);
+    }
+
+    /**
+     * Explicit guest creation. Idempotent — returns existing guest when
+     * the device's X-Device-Id already maps to one. 403 when the device is
+     * claimed by a registered user. 403 when `APP_GUESTS=false`.
+     */
+    public function createGuest(Request $request)
+    {
+        if (! filter_var(env('APP_GUESTS', true), FILTER_VALIDATE_BOOLEAN)) {
+            return ApiResponse::error(Trans::get('api.guests_disabled'), null, 403);
+        }
+
+        $deviceId = trim((string) $request->header('X-Device-Id'));
+        $platform = strtolower(trim((string) $request->header('X-Platform')));
+
+        if ($request->attributes->get('device_claimed')) {
+            return ApiResponse::error(Trans::get('api.guest_only_route'), ['auth' => [Trans::get('api.guest_only_route')]], 403);
+        }
+
+        if ($request->user() && ! $request->user()->is_guest) {
+            return ApiResponse::error(Trans::get('api.guest_only_route'), ['auth' => [Trans::get('api.guest_only_route')]], 403);
+        }
+
+        $user = User::findOrCreateGuest($platform, $deviceId);
+
+        return ApiResponse::success(['user' => $user->fresh()], Trans::get('api.guest_created'));
     }
 
     public function checkIdentifier(Request $request)
@@ -394,6 +576,17 @@ class AppUserController extends Controller
         ]);
 
         $user = $request->user();
+
+        // Reviewer bypass — any OTP value accepted, just stamp verified.
+        if ($user->is_reviewer) {
+            if (! $user->verified_at) {
+                $user->verified_at = now();
+                $user->save();
+            }
+
+            return ApiResponse::success(['user' => $user->fresh()], Trans::get('api.otp_verified'));
+        }
+
         $otpRecord = $user->otps()
             ->where('otp', $request->otp)
             ->where('type', 'verify')
@@ -608,6 +801,26 @@ class AppUserController extends Controller
     public function deleteAccount(Request $request)
     {
         $user = $request->user();
+
+        if (! $user) {
+            return ApiResponse::error(Trans::get('api.user_not_found'), null, 404);
+        }
+
+        // Guests get force-deleted (no soft-delete retention — anonymous row,
+        // nothing to recover). Cascade drops their user_devices row, freeing
+        // the device_id for a fresh guest on next hit. Identified by the
+        // X-Device-Id header via IdentifyDevice middleware.
+        if ($user->is_guest) {
+            $user->forceDelete();
+
+            return ApiResponse::success(null, Trans::get('api.account_deleted_successfully'));
+        }
+
+        // Real users still need verification + valid Bearer to delete.
+        if (! $request->bearerToken() || ! $user->verified_at) {
+            return ApiResponse::error(Trans::get('api.user_not_verified'), null, 403);
+        }
+
         $user->tokens()->delete();
         $user->markAccountDeleted();
 
@@ -971,6 +1184,42 @@ class AppUserController extends Controller
         }
     }
 
+    /**
+     * Promote-in-place: if a guest user already exists for this device's
+     * `X-Device-Id`, mutate that row into a real user. Same `users.id`,
+     * so anything FK-linked to the guest (cart, favorites, etc.) survives
+     * the registration. Falls back to a fresh `User::create` when no guest
+     * is found for the device.
+     *
+     * @param  array<string, mixed>  $userData
+     */
+    private function promoteGuestOrCreate(Request $request, array $userData, Role $role): User
+    {
+        $deviceId = trim((string) $request->header('X-Device-Id'));
+        $guest = $deviceId !== ''
+            ? User::where('guest_id', $deviceId)->where('is_guest', true)->first()
+            : null;
+
+        if (! $guest) {
+            $user = User::create($userData);
+            $user->assignRole($role);
+
+            return $user;
+        }
+
+        $guest->forceFill(array_merge($userData, [
+            'is_guest' => false,
+            'guest_id' => null,
+            'is_active' => true,
+        ]))->save();
+
+        if (! $guest->hasRole($role)) {
+            $guest->assignRole($role);
+        }
+
+        return $guest->refresh();
+    }
+
     private function findUserByIdentifier(string $value, bool $withTrashed = false): ?User
     {
         $value = trim($value);
@@ -1019,6 +1268,17 @@ class AppUserController extends Controller
 
     private function sendOtpToUser(User $user, string $type = 'verify', ?string $forceChannel = null): ?Otp
     {
+        // Reviewer bypass: stamp verified, never send a real OTP. Test
+        // accounts for Apple / Google Play stores can't access real SMS or
+        // email infra during review.
+        if ($user->is_reviewer) {
+            if ($type === 'verify' && ! $user->verified_at) {
+                $user->forceFill(['verified_at' => now()])->save();
+            }
+
+            return null;
+        }
+
         $identifiers = $this->getAuthIdentifiers();
 
         // If a channel is forced (e.g. forgot-password with username + type chosen), use it.
@@ -1070,6 +1330,30 @@ class AppUserController extends Controller
         // username-only: OTP is stored but not sent (available in testing mode via response)
 
         return $otp;
+    }
+
+    /**
+     * Identifier rules used by OTP-mode login. No uniqueness check (the
+     * identifier may belong to an existing user — that's the login case).
+     * Still applies email format / phone country / allowed domain guards.
+     *
+     * @return array<int, mixed>
+     */
+    private function getOtpLoginIdentifierRule(string $kind): array
+    {
+        if ($kind === 'email') {
+            $rules = ['required', 'string', 'email', 'max:255'];
+            $domains = env('ALLOWED_EMAIL_DOMAINS', 'all');
+            if ($domains !== 'all') {
+                $rules[] = new AllowedEmailDomain($domains);
+            }
+
+            return $rules;
+        }
+
+        $countries = env('ALLOWED_PHONE_COUNTRIES', 'all');
+
+        return ['required', 'string', 'max:255', new AllowedPhoneCountry($countries)];
     }
 
     private function getPhoneValidationRule(bool $required, ?int $excludeId = null): array
@@ -1225,7 +1509,7 @@ class AppUserController extends Controller
                     return ApiResponse::error(__('admin.account_is_inactive'), null, 403);
                 }
             } else {
-                // Create new user
+                // Create new user — promote in place if a guest exists for this device.
                 $userData = [
                     'name' => $name ?? explode('@', $email)[0],
                     'email' => $email,
@@ -1238,11 +1522,9 @@ class AppUserController extends Controller
                     $userData['username'] = $this->generateUniqueUsername($email);
                 }
 
-                $user = User::create($userData);
+                $user = $this->promoteGuestOrCreate($request, $userData, $role);
                 $user->verified_at = now(); // Firebase already verified the user
                 $user->save();
-
-                $user->assignRole($role);
 
                 // Create social account
                 $user->socialAccounts()->create([
@@ -1251,9 +1533,6 @@ class AppUserController extends Controller
                     'email' => $email,
                     'name' => $name,
                 ]);
-
-                // New firebase user = same physical device promoting from guest.
-                $this->convertGuestForRequest($request);
             }
         }
 

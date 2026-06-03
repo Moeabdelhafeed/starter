@@ -3,9 +3,9 @@
 namespace App\Traits;
 
 use App\Models\Image;
+use App\Services\ImageUploadService;
 use Illuminate\Database\Eloquent\Relations\MorphOne;
 use Illuminate\Http\UploadedFile;
-use Illuminate\Support\Facades\Storage;
 
 trait HasImage
 {
@@ -18,16 +18,20 @@ trait HasImage
     {
         $this->deleteImage();
 
+        $uploader = app(ImageUploadService::class);
+        $path = $uploader->store($file, $folder);
+        $extension = strtolower(pathinfo($path, PATHINFO_EXTENSION));
+
         return $this->image()->create([
-            'url' => $file->store($folder, 'public'),
-            'type' => $file->getClientOriginalExtension(),
+            'url' => $path,
+            'type' => $extension,
         ]);
     }
 
     public function deleteImage(): void
     {
         if ($this->image) {
-            Storage::disk('public')->delete($this->image->url);
+            app(ImageUploadService::class)->delete($this->image->url);
             $this->image->delete();
         }
     }

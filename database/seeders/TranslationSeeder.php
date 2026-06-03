@@ -129,6 +129,14 @@ class TranslationSeeder extends Seeder
             'en' => 'Invalid or expired verification code.',
             'ar' => 'رمز التحقق غير صالح أو منتهي الصلاحية.',
         ],
+        'login_otp_sent' => [
+            'en' => 'Login code sent. Enter the code to complete sign in.',
+            'ar' => 'تم إرسال رمز الدخول. أدخل الرمز لإكمال تسجيل الدخول.',
+        ],
+        'endpoint_not_available' => [
+            'en' => 'Endpoint not available in the current auth mode.',
+            'ar' => 'هذه الواجهة غير متاحة في وضع المصادقة الحالي.',
+        ],
         'otp_subject_verify' => [
             'en' => 'Your Verification Code',
             'ar' => 'رمز التحقق الخاص بك',
@@ -208,6 +216,14 @@ class TranslationSeeder extends Seeder
         'fcm_token_required' => [
             'en' => 'X-FCM-Token header is required on iOS and Android.',
             'ar' => 'مطلوب تعيين رأس الطلب X-FCM-Token على نظامي iOS و Android.',
+        ],
+        'guest_created' => [
+            'en' => 'Guest created.',
+            'ar' => 'تم إنشاء حساب الزائر.',
+        ],
+        'guests_disabled' => [
+            'en' => 'Guest mode is disabled.',
+            'ar' => 'وضع الزائر معطل.',
         ],
         'guest_only_route' => [
             'en' => 'This endpoint is only available for guests.',

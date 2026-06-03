@@ -2,7 +2,7 @@
     "info": {
         "_postman_id": "339ae9d9-1229-449b-9454-85543ef78900",
         "name": "Starter",
-        "description": "API collection for the Inertia Starter project.\n\n## Authentication\n- All API requests require `X-API-TOKEN` header\n- All requests require `Accept-Language` header (`en` or `ar`)\n- All API requests require `X-Device-Id` (UUID, required) and `X-Platform` (`web`, `ios`, or `android`) headers. When platform is `ios` or `android`, `X-FCM-Token` is also required (web may omit it). `fcm_token` is no longer accepted in login/register/firebase-login bodies — it always comes via header. These are set explicitly on every request in this collection. Bearer-bearing requests use them for device tracking + fcm refresh; Bearer-less requests use them to lazily upsert a guest user (`is_guest=true`) when `APP_GUESTS=true`, plus a matching `user_devices` row keyed by `device_id`.\n- Protected routes require Bearer token from login\n- `AUTH_IDENTIFIERS` allows only `email` and/or `phone` (e.g. `email`, `phone`, `email,phone`). Username is never a primary identifier.\n- Login and registration use a single `identifier` field for the email/phone value. Single identifier configured → validated against that field. Multiple → kind detected from format (email / phone) and validated against the matching field.\n- `HAS_USERNAME_FIELD=true` → `username` is **required** at register (format: starts with letter, letters/digits/`_`/`-` after, min 3, not email/phone shape), usable as a login alias (login `identifier` is also searched against the username column), and editable via `update-profile`. Username uniqueness is scoped to api-guard users.\n- `HAS_EMAIL_FIELD` / `HAS_PHONE_FIELD` toggle email/phone as optional profile fields when not configured as identifiers.\n- Email values are normalized to lowercase on every write and lookup (cross-DB safe).\n- `request-identifier-change` (auth) is rate-limited via `throttle:otp` (3/5min) like `forgot-password` and `send-otp`.\n\n## Field-Keyed Errors (Frontend Convention)\nAny error tied to a specific request input field is returned as HTTP 422 with the error keyed under the same name as the input parameter. Frontend can look up `errors.{paramName}` to show inline messages next to the matching input.\n\n| Endpoint | Trigger | Error Key |\n|----------|---------|-----------|\n| `login` | invalid credentials | `password` |\n| `login` / `forgot-password` / `verify-forgot-password-otp` / `change-forgot-password` / `register` | identifier validation / user not found | `identifier` |\n| `verify-otp` / `verify-forgot-password-otp` / `change-forgot-password` / `verify-email-change` | invalid OTP | `otp` |\n| `change-password` | wrong current password | `old_password` |\n| `firebase-login` / `link-social-account` | invalid token, provider issues, email mismatch, etc. | `token` |\n| `unlink-social-account` | provider not linked, cannot unlink last | `provider` |\n\nState/config errors (account inactive, unauthorized access, feature disabled) remain plain top-level error messages with `errors: null`.\n\n## Variables\n- `{{base_url}}` — Base URL (e.g. http://localhost:8000)\n- `{{x-api-token}}` — API token for server authentication\n- `{{token}}` — Bearer token from login response (returned at top-level `token` field AND duplicated inside `data.token` for convenience)",
+        "description": "API collection for the Inertia Starter project.\n\n## Authentication\n- All API requests require `X-API-TOKEN` header\n- All requests require `Accept-Language` header (`en` or `ar`)\n- All API requests require `X-Device-Id` (UUID, required) and `X-Platform` (`web`, `ios`, or `android`) headers. When platform is `ios` or `android`, `X-FCM-Token` is also required (web may omit it). `fcm_token` is no longer accepted in login/register/firebase-login bodies — it always comes via header. These are set explicitly on every request in this collection. Bearer-bearing requests use them for device tracking + fcm refresh; Bearer-less requests use them to resolve an EXISTING guest user. Guests are no longer auto-created — clients call `POST /api/guest` once on first launch to create one explicitly (idempotent).\n- Protected routes require Bearer token from login\n- `AUTH_IDENTIFIERS` allows only `email` and/or `phone` (e.g. `email`, `phone`, `email,phone`). Username is never a primary identifier.\n- Login and registration use a single `identifier` field for the email/phone value. Single identifier configured → validated against that field. Multiple → kind detected from format (email / phone) and validated against the matching field.\n- `HAS_USERNAME_FIELD=true` → `username` is **required** at register (format: starts with letter, letters/digits/`_`/`-` after, min 3, not email/phone shape), usable as a login alias (login `identifier` is also searched against the username column), and editable via `update-profile`. Username uniqueness is scoped to api-guard users.\n- `HAS_EMAIL_FIELD` / `HAS_PHONE_FIELD` toggle email/phone as optional profile fields when not configured as identifiers.\n- Email values are normalized to lowercase on every write and lookup (cross-DB safe).\n- `request-identifier-change` (auth) is rate-limited via `throttle:otp` (3/5min) like `forgot-password` and `send-otp`.\n\n## Field-Keyed Errors (Frontend Convention)\nAny error tied to a specific request input field is returned as HTTP 422 with the error keyed under the same name as the input parameter. Frontend can look up `errors.{paramName}` to show inline messages next to the matching input.\n\n| Endpoint | Trigger | Error Key |\n|----------|---------|-----------|\n| `login` | invalid credentials | `password` |\n| `login` / `forgot-password` / `verify-forgot-password-otp` / `change-forgot-password` / `register` | identifier validation / user not found | `identifier` |\n| `verify-otp` / `verify-forgot-password-otp` / `change-forgot-password` / `verify-email-change` | invalid OTP | `otp` |\n| `change-password` | wrong current password | `old_password` |\n| `firebase-login` / `link-social-account` | invalid token, provider issues, email mismatch, etc. | `token` |\n| `unlink-social-account` | provider not linked, cannot unlink last | `provider` |\n\nState/config errors (account inactive, unauthorized access, feature disabled) remain plain top-level error messages with `errors: null`.\n\n## Variables\n- `{{base_url}}` — Base URL (e.g. http://localhost:8000)\n- `{{x-api-token}}` — API token for server authentication\n- `{{token}}` — Bearer token from login response (returned at top-level `token` field AND duplicated inside `data.token` for convenience)",
         "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
         "_exporter_id": "35322283"
     },
@@ -1640,6 +1640,83 @@
                     ]
                 },
                 {
+                    "name": "Login (OTP mode)",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            { "key": "Accept-Language", "value": "en", "type": "text" },
+                            { "key": "X-API-TOKEN", "value": "{{x-api-token}}", "type": "text" },
+                            { "key": "Accept", "value": "application/json", "type": "text" },
+                            { "key": "Content-Type", "value": "application/json", "type": "text" },
+                            { "key": "X-Device-Id", "value": "test-device-uuid", "type": "text" },
+                            { "key": "X-Platform", "value": "web", "type": "text" },
+                            { "key": "X-FCM-Token", "value": "fake-fcm-token", "type": "text" }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"identifier\": \"user@example.com\",\n  \"name\": \"User\"\n}",
+                            "options": { "raw": { "language": "json" } }
+                        },
+                        "url": {
+                            "raw": "{{base_url}}/api/login",
+                            "host": ["{{base_url}}"],
+                            "path": ["api", "login"]
+                        },
+                        "description": "OTP-mode login (active when `AUTH_MODE=otp`). Body: `identifier` (email or phone) + optional `name` for first-time users (auto-create). No password.\n\nBackend sends an OTP via the user's identifier channel (email/phone). Response carries no token — client follows with `POST /api/verify-login` to complete.\n\nFails when `AUTH_MODE=password` (use the regular Login request instead)."
+                    },
+                    "response": [
+                        {
+                            "name": "Success",
+                            "status": "OK",
+                            "code": 200,
+                            "_postman_previewlanguage": "json",
+                            "body": "{\n  \"success\": true,\n  \"message\": \"Login code sent. Enter the code to complete sign in.\",\n  \"errors\": null,\n  \"data\": {\n    \"identifier\": \"user@example.com\",\n    \"channel\": \"email\",\n    \"otp_expires_in_minutes\": 5,\n    \"otp\": \"123456\"\n  }\n}"
+                        }
+                    ]
+                },
+                {
+                    "name": "Verify Login (OTP mode)",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            { "key": "Accept-Language", "value": "en", "type": "text" },
+                            { "key": "X-API-TOKEN", "value": "{{x-api-token}}", "type": "text" },
+                            { "key": "Accept", "value": "application/json", "type": "text" },
+                            { "key": "Content-Type", "value": "application/json", "type": "text" },
+                            { "key": "X-Device-Id", "value": "test-device-uuid", "type": "text" },
+                            { "key": "X-Platform", "value": "web", "type": "text" },
+                            { "key": "X-FCM-Token", "value": "fake-fcm-token", "type": "text" }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"identifier\": \"user@example.com\",\n  \"otp\": \"123456\"\n}",
+                            "options": { "raw": { "language": "json" } }
+                        },
+                        "url": {
+                            "raw": "{{base_url}}/api/verify-login",
+                            "host": ["{{base_url}}"],
+                            "path": ["api", "verify-login"]
+                        },
+                        "description": "Submit the OTP issued by `POST /api/login` (OTP mode) to receive a Sanctum token. Stamps `verified_at` on first success. Returns 404 when `AUTH_MODE=password`.\n\nReviewer accounts: accept any OTP value (bypass)."
+                    },
+                    "response": [
+                        {
+                            "name": "Success",
+                            "status": "OK",
+                            "code": 200,
+                            "_postman_previewlanguage": "json",
+                            "body": "{\n  \"success\": true,\n  \"message\": \"Login successful.\",\n  \"errors\": null,\n  \"token\": \"3|abcTokenHere\",\n  \"data\": {\n    \"user\": {\n      \"id\": 1,\n      \"name\": \"User\",\n      \"email\": \"user@example.com\",\n      \"is_active\": true,\n      \"verified_at\": \"2026-05-16T12:00:00.000000Z\"\n    },\n    \"is_verified\": true,\n    \"account_restored\": false,\n    \"token_id\": 42,\n    \"token\": \"3|abcTokenHere\"\n  }\n}"
+                        },
+                        {
+                            "name": "Invalid OTP",
+                            "status": "Unprocessable Entity",
+                            "code": 422,
+                            "_postman_previewlanguage": "json",
+                            "body": "{\n  \"success\": false,\n  \"message\": \"Invalid or expired verification code.\",\n  \"errors\": { \"otp\": [\"Invalid or expired verification code.\"] },\n  \"data\": null\n}"
+                        }
+                    ]
+                },
+                {
                     "name": "Firebase Login (Social Auth)",
                     "request": {
                         "method": "POST",
@@ -1803,6 +1880,49 @@
                             "code": 200,
                             "_postman_previewlanguage": "json",
                             "body": "{\n  \"success\": true,\n  \"message\": \"Operation successful\",\n  \"errors\": null,\n  \"data\": {\n    \"identifiers\": [\"email\", \"phone\"],\n    \"has_username_field\": true,\n    \"has_email_field\": false,\n    \"has_phone_field\": false,\n    \"social_providers\": [\"google.com\", \"apple.com\"],\n    \"max_social_accounts\": 0,\n    \"social_auth_available\": true,\n    \"is_otp_whatsapp\": false,\n    \"multi_session\": true,\n    \"app_users\": true,\n    \"app_guests\": true\n  }\n}"
+                        }
+                    ]
+                },
+                {
+                    "name": "Create Guest",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            { "key": "Accept-Language", "value": "en", "type": "text" },
+                            { "key": "X-API-TOKEN", "value": "{{x-api-token}}", "type": "text" },
+                            { "key": "Accept", "value": "application/json", "type": "text" },
+                            { "key": "X-Device-Id", "value": "test-device-uuid", "type": "text" },
+                            { "key": "X-Platform", "value": "web", "type": "text" },
+                            { "key": "X-FCM-Token", "value": "fake-fcm-token", "type": "text" }
+                        ],
+                        "url": {
+                            "raw": "{{base_url}}/api/guest",
+                            "host": ["{{base_url}}"],
+                            "path": ["api", "guest"]
+                        },
+                        "description": "Explicit guest creation. Idempotent — returns the existing guest when the device's `X-Device-Id` already maps to one. 403 when the device is claimed by a registered user (real user has a `user_devices` row for the same UUID). 403 when `APP_GUESTS=false`.\n\nClients call this once on first launch before any other endpoint that needs `$request->user()`. Guests are NO LONGER auto-created on every api request — `IdentifyDevice` middleware only resolves existing guests.\n\nNo body. Headers do the work."
+                    },
+                    "response": [
+                        {
+                            "name": "Success",
+                            "status": "OK",
+                            "code": 200,
+                            "_postman_previewlanguage": "json",
+                            "body": "{\n  \"success\": true,\n  \"message\": \"Guest created.\",\n  \"errors\": null,\n  \"data\": {\n    \"user\": {\n      \"id\": 42,\n      \"name\": \"Guest\",\n      \"is_active\": true,\n      \"is_guest\": true,\n      \"platform\": \"web\",\n      \"guest_id\": \"test-device-uuid\",\n      \"last_seen_at\": \"2026-05-11T10:00:00.000000Z\",\n      \"has_password\": false\n    }\n  }\n}"
+                        },
+                        {
+                            "name": "Forbidden (Device Claimed)",
+                            "status": "Forbidden",
+                            "code": 403,
+                            "_postman_previewlanguage": "json",
+                            "body": "{\n  \"success\": false,\n  \"message\": \"This endpoint is only available for guests.\",\n  \"errors\": { \"auth\": [\"This endpoint is only available for guests.\"] },\n  \"data\": null\n}"
+                        },
+                        {
+                            "name": "Forbidden (Guests Disabled)",
+                            "status": "Forbidden",
+                            "code": 403,
+                            "_postman_previewlanguage": "json",
+                            "body": "{\n  \"success\": false,\n  \"message\": \"Guest mode is disabled.\",\n  \"errors\": null,\n  \"data\": null\n}"
                         }
                     ]
                 },

@@ -63,6 +63,7 @@ class User extends Authenticatable
         'platform',
         'guest_id',
         'last_seen_at',
+        'is_reviewer',
     ];
 
     /**
@@ -269,7 +270,13 @@ class User extends Authenticatable
             'last_seen_at' => 'datetime',
             'password' => 'hashed',
             'is_guest' => 'boolean',
+            'is_reviewer' => 'boolean',
         ];
+    }
+
+    public function scopeReviewers($query)
+    {
+        return $query->where('is_reviewer', true);
     }
 
     public function scopeGuests($query)

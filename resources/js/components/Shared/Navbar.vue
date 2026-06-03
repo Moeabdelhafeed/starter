@@ -16,6 +16,7 @@ import {
     Moon,
     UserIcon,
     FileText,
+    Bell,
 } from 'lucide-vue-next';
 import NotificationBell from '@/components/notification/NotificationBell.vue';
 import { useAdminNotifications } from '@/composables/useAdminNotifications';
@@ -287,6 +288,18 @@ const isRouteActive = (name) => {
                                 >
                                     <FileText class="size-4 text-muted-foreground" />
                                     <span class="text-sm text-foreground">{{ t('pages') }}</span>
+                                </Button>
+                            </Link>
+                        </div>
+                        <div v-if="page.props.auth.permissions.find((p) => p === 'notification_templates')" class="space-y-2">
+                            <Link :href="route('notification_templates')" class="w-full">
+                                <Button
+                                    variant="ghost"
+                                    :class="{ 'bg-primary/10': isRouteActive('notification_templates') }"
+                                    class="h-10 w-full cursor-pointer justify-start gap-3 hover:bg-primary/10 hover:text-primary"
+                                >
+                                    <Bell class="size-4 text-muted-foreground" />
+                                    <span class="text-sm text-foreground">{{ t('notification_templates') }}</span>
                                 </Button>
                             </Link>
                         </div>

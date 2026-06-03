@@ -29,6 +29,7 @@ const props = defineProps({
     accountDeletionConfig: Object,
     sessionsConfig: Object,
     topicsConfig: Object,
+    reviewerAccounts: Object,
     git: Object,
     productionDb: Object,
     productionMail: Object,
@@ -47,6 +48,7 @@ const menuItems = [
     { id: 'general', icon: Settings, label: 'general_settings' },
     { id: 'deployment', icon: Rocket, label: 'deployment' },
     { id: 'authentication', icon: Lock, label: 'authentication' },
+    { id: 'reviewers', icon: Shield, label: 'reviewer_accounts' },
     { id: 'sessions', icon: KeyRound, label: 'sessions_settings' },
     { id: 'notifications', icon: Bell, label: 'fcm_notifications' },
     { id: 'topics', icon: Hash, label: 'fcm_topics' },
@@ -219,6 +221,7 @@ const authForm = useForm({
     has_email_field: props.authConfig?.has_email_field ?? true,
     has_phone_field: props.authConfig?.has_phone_field ?? false,
     has_username_field: props.authConfig?.has_username_field ?? false,
+    auth_mode: props.authConfig?.auth_mode || 'password',
 });
 
 const toggleIdentifier = (value) => {
@@ -664,6 +667,31 @@ const testTopicForm = useForm({
     title: 'Test',
     body: 'Test broadcast from DevSettings',
 });
+
+// Reviewer accounts (App Store + Play Store reviewers)
+const reviewerForm = useForm({
+    apple: {
+        email: props.reviewerAccounts?.apple?.email || '',
+        password: props.reviewerAccounts?.apple?.password || '',
+    },
+    google: {
+        email: props.reviewerAccounts?.google?.email || '',
+        password: props.reviewerAccounts?.google?.password || '',
+    },
+});
+
+const submitReviewerAccounts = () => {
+    reviewerForm.put(route('dev_settings.reviewer_accounts'), {
+        preserveScroll: true,
+        preserveState: true,
+        reset: ['reviewerAccounts', 'success', 'error'],
+    });
+};
+
+const copyToClipboard = (text) => {
+    if (!text) return;
+    navigator.clipboard?.writeText(text);
+};
 
 const sendTestTopic = () => {
     testTopicForm.post(route('dev_settings.test_topic'), {
@@ -1696,6 +1724,51 @@ const sendTestFcm = () => {
                     </form>
                 </div>
 
+                <!-- Reviewer Accounts (App Store + Play Store reviewers) -->
+                <div v-if="activeSection === 'reviewers'" class="rounded-3xl border bg-card p-6">
+                    <div class="mb-6 flex items-center gap-3">
+                        <Shield class="size-5 text-blue-500" />
+                        <div>
+                            <h2 class="text-lg font-semibold text-foreground">{{ t('reviewer_accounts') }}</h2>
+                            <p class="text-sm text-muted-foreground">{{ t('reviewer_accounts_desc') }}</p>
+                        </div>
+                    </div>
+
+                    <form @submit.prevent="submitReviewerAccounts" class="space-y-6">
+                        <div v-for="slot in ['apple', 'google']" :key="slot" class="rounded-xl border bg-muted/30 p-4">
+                            <div class="mb-3 flex items-center justify-between">
+                                <h3 class="text-sm font-semibold text-foreground">{{ t(slot === 'apple' ? 'apple_reviewer' : 'google_reviewer') }}</h3>
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    @click="copyToClipboard(`${reviewerForm[slot].email}\n${reviewerForm[slot].password}`)"
+                                    :disabled="!reviewerForm[slot].email || !reviewerForm[slot].password"
+                                >
+                                    {{ t('copy_credentials') }}
+                                </Button>
+                            </div>
+                            <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                                <div class="space-y-2">
+                                    <label class="block text-xs font-medium text-foreground">{{ t('email') }}</label>
+                                    <Input v-model="reviewerForm[slot].email" type="email" placeholder="reviewer@yourapp.com" />
+                                </div>
+                                <div class="space-y-2">
+                                    <label class="block text-xs font-medium text-foreground">{{ t('password') }}</label>
+                                    <Input v-model="reviewerForm[slot].password" type="text" placeholder="••••••••" />
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="pt-2">
+                            <Button type="submit" :disabled="reviewerForm.processing">
+                                <Loader2 v-if="reviewerForm.processing" class="me-2 h-4 w-4 animate-spin" />
+                                {{ reviewerForm.processing ? t('saving') : t('save_reviewer_accounts') }}
+                            </Button>
+                        </div>
+                    </form>
+                </div>
+
                 <!-- FCM Topics Section -->
                 <div v-if="activeSection === 'topics'" class="rounded-3xl border bg-card p-6">
                     <div class="mb-6 flex items-center gap-3">
@@ -2184,6 +2257,44 @@ const sendTestFcm = () => {
                             </div>
                         </div>
 
+                        <!-- Login Method -->
+                        <div>
+                            <h3 class="mb-1 text-sm font-medium text-foreground">{{ t('login_method') }}</h3>
+                            <p class="mb-3 text-xs text-muted-foreground">{{ t('login_method_desc') }}</p>
+                            <div class="flex flex-wrap gap-3">
+                                <label
+                                    class="flex flex-1 cursor-pointer items-start gap-3 rounded-xl border bg-muted/30 p-4"
+                                    :class="authForm.auth_mode === 'password' ? 'border-primary bg-primary/5' : ''"
+                                >
+                                    <input
+                                        type="radio"
+                                        value="password"
+                                        v-model="authForm.auth_mode"
+                                        class="mt-1 size-4 cursor-pointer accent-primary"
+                                    />
+                                    <div class="flex-1">
+                                        <p class="text-sm font-medium text-foreground">{{ t('login_with_password') }}</p>
+                                        <p class="mt-1 text-xs text-muted-foreground">{{ t('login_with_password_desc') }}</p>
+                                    </div>
+                                </label>
+                                <label
+                                    class="flex flex-1 cursor-pointer items-start gap-3 rounded-xl border bg-muted/30 p-4"
+                                    :class="authForm.auth_mode === 'otp' ? 'border-primary bg-primary/5' : ''"
+                                >
+                                    <input
+                                        type="radio"
+                                        value="otp"
+                                        v-model="authForm.auth_mode"
+                                        class="mt-1 size-4 cursor-pointer accent-primary"
+                                    />
+                                    <div class="flex-1">
+                                        <p class="text-sm font-medium text-foreground">{{ t('login_with_otp') }}</p>
+                                        <p class="mt-1 text-xs text-muted-foreground">{{ t('login_with_otp_desc') }}</p>
+                                    </div>
+                                </label>
+                            </div>
+                        </div>
+
                         <div class="pt-2">
                             <Button type="submit" :disabled="authForm.processing">
                                 <Loader2 v-if="authForm.processing" class="me-2 h-4 w-4 animate-spin" />
@@ -2566,7 +2677,13 @@ const sendTestFcm = () => {
                                 <button
                                     class="relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
                                     :class="envValues[key] ? 'bg-primary' : 'bg-muted'"
-                                    :disabled="envToggling[key]"
+                                    :disabled="envToggling[key]
+                                        || (key === 'APP_USERS' && envValues.APP_USERS && !envValues.APP_GUESTS)
+                                        || (key === 'APP_GUESTS' && envValues.APP_GUESTS && !envValues.APP_USERS)"
+                                    :title="((key === 'APP_USERS' && envValues.APP_USERS && !envValues.APP_GUESTS)
+                                        || (key === 'APP_GUESTS' && envValues.APP_GUESTS && !envValues.APP_USERS))
+                                        ? 'At least one of APP_USERS or APP_GUESTS must stay on'
+                                        : ''"
                                     @click="toggleEnv(key, envValues[key])">
                                     <span
                                         class="inline-block h-4 w-4 transform rounded-full bg-white transition-transform"

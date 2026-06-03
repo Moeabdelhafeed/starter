@@ -18,6 +18,7 @@ class PurgeDeletedUsers extends Command
 
         $users = User::whereNotNull('account_deleted_at')
             ->where('account_deleted_at', '<', $cutoff)
+            ->where('is_reviewer', false)
             ->limit(50)
             ->get();
 

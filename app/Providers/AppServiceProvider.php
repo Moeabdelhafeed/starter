@@ -72,6 +72,10 @@ class AppServiceProvider extends ServiceProvider
 
         // Stricter rate limit for authentication endpoints
         RateLimiter::for('auth', function (Request $request) {
+            if ($this->isReviewerIdentifier($request->input('identifier'))) {
+                return Limit::none();
+            }
+
             $limit = (int) env('RATE_LIMIT_AUTH', 5);
             $decayMinutes = (int) env('RATE_LIMIT_AUTH_DECAY', 1);
 
@@ -87,6 +91,10 @@ class AppServiceProvider extends ServiceProvider
 
         // Very strict rate limit for OTP/password reset
         RateLimiter::for('otp', function (Request $request) {
+            if ($this->isReviewerIdentifier($request->input('identifier'))) {
+                return Limit::none();
+            }
+
             $limit = (int) env('RATE_LIMIT_OTP', 3);
             $decayMinutes = (int) env('RATE_LIMIT_OTP_DECAY', 5);
 
@@ -99,5 +107,19 @@ class AppServiceProvider extends ServiceProvider
                     ], 429, $headers);
                 });
         });
+    }
+
+    private function isReviewerIdentifier(?string $identifier): bool
+    {
+        if (! $identifier) {
+            return false;
+        }
+        $normalized = strtolower(trim($identifier));
+        $reviewers = array_filter([
+            strtolower(trim((string) env('APPLE_REVIEWER_EMAIL'))),
+            strtolower(trim((string) env('GOOGLE_REVIEWER_EMAIL'))),
+        ]);
+
+        return in_array($normalized, $reviewers, true);
     }
 }

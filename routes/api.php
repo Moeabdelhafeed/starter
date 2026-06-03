@@ -9,41 +9,58 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/config', [AppUserController::class, 'config']);
+Route::post('/guest', [AppUserController::class, 'createGuest'])->middleware('throttle:api');
 
 if (env('APP_USERS') === true) {
 
-    // Authentication routes (stricter rate limit)
-    Route::middleware('throttle:auth')->group(function () {
-        Route::post('/register', [AppUserController::class, 'register']);
+    $authMode = strtolower((string) env('AUTH_MODE', 'password')) === 'otp' ? 'otp' : 'password';
+
+    // Authentication routes (stricter rate limit). Register + password reset
+    // flows live only in password mode; OTP mode replaces them with the
+    // identifier-only /login + /verify-login pair.
+    Route::middleware('throttle:auth')->group(function () use ($authMode) {
         Route::post('/login', [AppUserController::class, 'login']);
         Route::post('/firebase-login', [AppUserController::class, 'firebaseLogin']);
+
+        if ($authMode === 'password') {
+            Route::post('/register', [AppUserController::class, 'register']);
+        } else {
+            Route::post('/verify-login', [AppUserController::class, 'verifyLogin']);
+        }
     });
 
-    // OTP-sending routes (strict rate limit — protect from spam)
-    Route::middleware('throttle:otp')->group(function () {
-        Route::post('/forgot-password', [AppUserController::class, 'forgotPassword']);
-    });
+    if ($authMode === 'password') {
+        // OTP-sending routes (strict rate limit — protect from spam)
+        Route::middleware('throttle:otp')->group(function () {
+            Route::post('/forgot-password', [AppUserController::class, 'forgotPassword']);
+        });
 
-    // Public OTP-verification + identifier checks (standard rate limit — let users retry codes)
+        // Forgot-password verification + change
+        Route::middleware('throttle:api')->group(function () {
+            Route::post('/verify-forgot-password-otp', [AppUserController::class, 'verifyForgotPasswordOtp']);
+            Route::post('/change-forgot-password', [AppUserController::class, 'changeForgotPassword']);
+        });
+    }
+
+    // Identifier checks stay available in both modes.
     Route::middleware('throttle:api')->group(function () {
         Route::post('/check-identifier', [AppUserController::class, 'checkIdentifier']);
-        Route::post('/verify-forgot-password-otp', [AppUserController::class, 'verifyForgotPasswordOtp']);
-        Route::post('/change-forgot-password', [AppUserController::class, 'changeForgotPassword']);
     });
 
     // Protected routes
-    Route::middleware(['auth:sanctum', 'role:user', 'active', 'throttle:api'])->group(function () {
+    Route::middleware(['auth:sanctum', 'role:user', 'active', 'throttle:api'])->group(function () use ($authMode) {
         Route::post('/logout', [AppUserController::class, 'logout']);
 
         // OTP-sending (strict rate limit). Verification stays on standard throttle:api.
         Route::post('/send-otp', [AppUserController::class, 'sendOtp'])->middleware('throttle:otp');
         Route::post('/verify-otp', [AppUserController::class, 'verifyOtp']);
 
-        Route::post('/change-password', [AppUserController::class, 'changePassword'])->middleware('verified');
+        if ($authMode === 'password') {
+            Route::post('/change-password', [AppUserController::class, 'changePassword'])->middleware('verified');
+        }
         Route::put('/update-profile', [AppUserController::class, 'updateProfile'])->middleware('verified');
         Route::post('/request-identifier-change', [AppUserController::class, 'requestIdentifierChange'])->middleware(['verified', 'throttle:otp']);
         Route::post('/verify-identifier-change', [AppUserController::class, 'verifyIdentifierChange'])->middleware('verified');
-        Route::delete('/delete-account', [AppUserController::class, 'deleteAccount'])->middleware('verified');
         Route::get('/social-accounts', [AppUserController::class, 'getSocialAccounts'])->middleware('verified');
         Route::post('/link-social-account', [AppUserController::class, 'linkSocialAccount'])->middleware('verified');
         Route::delete('/unlink-social-account', [AppUserController::class, 'unlinkSocialAccount'])->middleware('verified');
@@ -52,6 +69,11 @@ if (env('APP_USERS') === true) {
         Route::delete('/devices/{deviceId}', [AppUserController::class, 'revokeDevice'])->middleware('verified');
     });
 }
+
+// Delete-account works for both real users (soft-delete + token revoke) and
+// guests (force-delete by UUID). IdentifyDevice already attached the right
+// user. Real users still go through the verified gate; guests skip it.
+Route::delete('/delete-account', [AppUserController::class, 'deleteAccount']);
 
 Route::get('/user', function (Request $request) {
     $user = $request->user();

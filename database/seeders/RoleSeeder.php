@@ -25,6 +25,7 @@ class RoleSeeder extends Seeder
         $appUsersPermission = Permission::firstOrCreate(['name' => 'app_users', 'guard_name' => 'web']);
         $activityLogsPermission = Permission::firstOrCreate(['name' => 'activity_logs', 'guard_name' => 'web']);
         $pagesPermission = Permission::firstOrCreate(['name' => 'pages', 'guard_name' => 'web']);
+        $notificationTemplatesPermission = Permission::firstOrCreate(['name' => 'notification_templates', 'guard_name' => 'web']);
 
         // Find existing super admin or create new one
         $admin = User::whereHas('roles', fn ($q) => $q->where('name', 'super_admin')->where('guard_name', 'web'))->first();
@@ -50,6 +51,7 @@ class RoleSeeder extends Seeder
         $appUsersPermission->assignRole($super_admin);
         $activityLogsPermission->assignRole($super_admin);
         $pagesPermission->assignRole($super_admin);
+        $notificationTemplatesPermission->assignRole($super_admin);
 
         $admin->assignRole(Role::findByName('super_admin', 'web'));
     }

@@ -8,6 +8,7 @@ use App\Http\Controllers\Admin\DevSetting\DevSettingController;
 use App\Http\Controllers\Admin\Language\LanguageController;
 use App\Http\Controllers\Admin\Locale\LocaleController;
 use App\Http\Controllers\Admin\Notification\NotificationController;
+use App\Http\Controllers\Admin\NotificationTemplate\NotificationTemplateController;
 use App\Http\Controllers\Admin\Page\PageController;
 use App\Http\Controllers\Admin\Profile\ProfileController;
 use App\Http\Controllers\Admin\Roles\RolesController;
@@ -102,6 +103,16 @@ Route::middleware('auth')->group(function () {
         Route::post('/{notification}/mark-read', [NotificationController::class, 'markAsRead'])->name('notifications.mark_read');
     });
 
+    // notification templates
+    Route::prefix('notification-templates')->middleware('permission:notification_templates')->group(function () {
+        Route::get('/', [NotificationTemplateController::class, 'index'])->name('notification_templates');
+        Route::post('/', [NotificationTemplateController::class, 'store'])->name('notification_templates.store');
+        Route::delete('/bulk-destroy', [NotificationTemplateController::class, 'bulkDestroy'])->name('notification_templates.bulk-destroy');
+        Route::post('/{notification_template}/send', [NotificationTemplateController::class, 'sendNow'])->name('notification_templates.send');
+        Route::put('/{notification_template}', [NotificationTemplateController::class, 'update'])->name('notification_templates.update');
+        Route::delete('/{notification_template}', [NotificationTemplateController::class, 'destroy'])->name('notification_templates.destroy');
+    });
+
     // pages
     Route::prefix('pages')->middleware('permission:pages')->group(function () {
         Route::get('/', [PageController::class, 'index'])->name('pages');
@@ -148,6 +159,7 @@ Route::middleware('auth')->group(function () {
             Route::put('/sessions', [DevSettingController::class, 'updateSessionsConfig'])->name('dev_settings.sessions');
             Route::put('/topics', [DevSettingController::class, 'updateTopics'])->name('dev_settings.topics');
             Route::post('/test-topic', [DevSettingController::class, 'testTopicBroadcast'])->name('dev_settings.test_topic');
+            Route::put('/reviewer-accounts', [DevSettingController::class, 'updateReviewerAccounts'])->name('dev_settings.reviewer_accounts');
             Route::put('/pusher', [DevSettingController::class, 'updatePusher'])->name('dev_settings.pusher');
             Route::put('/production-pusher', [DevSettingController::class, 'updateProductionPusher'])->name('dev_settings.production_pusher');
             Route::post('/test-broadcast', [DevSettingController::class, 'testBroadcast'])->name('dev_settings.test_broadcast');
