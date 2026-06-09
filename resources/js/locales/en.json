@@ -286,6 +286,8 @@
     "removing": "Removing...",
     "deploy": "Deploy",
     "deploying": "Deploying...",
+    "deploy_log": "Deploy Log",
+    "view_deploy_log": "View Log",
     "deploy_options": "Deploy Options",
     "deploy_options_desc": "Choose how to handle database during deployment.",
     "deploy_now": "Deploy Now",

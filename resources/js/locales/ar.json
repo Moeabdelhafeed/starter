@@ -286,6 +286,8 @@
     "removing": "جاري الإزالة...",
     "deploy": "نشر",
     "deploying": "جاري النشر...",
+    "deploy_log": "سجل النشر",
+    "view_deploy_log": "عرض السجل",
     "deploy_options": "خيارات النشر",
     "deploy_options_desc": "اختر كيفية التعامل مع قاعدة البيانات أثناء النشر.",
     "deploy_now": "نشر الآن",

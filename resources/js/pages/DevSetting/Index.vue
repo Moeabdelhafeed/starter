@@ -892,6 +892,7 @@ const pushToGithub = () => {
 // Deploy
 const deploying = ref(false);
 const showDeployModal = ref(false);
+const showLogModal = ref(false);
 const deployOptions = ref({
     migration_option: 'migrate', // Default to safe option
     run_seeders: false,
@@ -1176,6 +1177,12 @@ const sendTestFcm = () => {
                         <Rocket v-else class="me-2 size-4" />
                         {{ deploying ? t('deploying') : t('deploy') }}
                     </Button>
+                    <Button v-if="deployLog" variant="outline"
+                        class="border-sky-500 text-sky-500 hover:bg-sky-500 hover:text-white"
+                        @click="showLogModal = true">
+                        <FileCode class="me-2 size-4" />
+                        {{ t('view_deploy_log') }}
+                    </Button>
                     <a :href="route('dev_settings.postman')" download>
                         <Button variant="outline"
                             class="border-orange-500 text-orange-500 hover:bg-orange-500 hover:text-white">
@@ -1183,15 +1190,6 @@ const sendTestFcm = () => {
                             {{ t('download_postman') }}
                         </Button>
                     </a>
-                </div>
-
-                <!-- Deploy Log -->
-                <div v-if="activeSection === 'deployment' && deployLog" class="rounded-3xl border bg-card p-6">
-                    <div class="mb-4 flex items-center justify-between">
-                        <h2 class="text-sm font-semibold text-foreground">Deploy Log</h2>
-                    </div>
-                    <pre
-                        class="max-h-[400px] overflow-auto rounded-xl bg-muted p-4 text-xs text-muted-foreground font-mono whitespace-pre-wrap">{{ deployLog }}</pre>
                 </div>
 
                 <!-- GitHub -->
@@ -2827,6 +2825,42 @@ const sendTestFcm = () => {
                                 {{ t('deploy_now') }}
                             </Button>
                         </div>
+                    </div>
+                </div>
+            </div>
+        </Transition>
+    </Teleport>
+
+    <!-- Deploy Log Modal -->
+    <Teleport to="body">
+        <Transition
+            enter-active-class="transition duration-200 ease-out"
+            enter-from-class="opacity-0"
+            enter-to-class="opacity-100"
+            leave-active-class="transition duration-150 ease-in"
+            leave-from-class="opacity-100"
+            leave-to-class="opacity-0"
+        >
+            <div v-if="showLogModal" class="fixed inset-0 z-50 overflow-y-auto" @click.self="showLogModal = false">
+                <div class="absolute inset-0 bg-black/50 backdrop-blur-sm"></div>
+                <div class="relative flex min-h-full items-center justify-center p-4">
+                    <div class="relative w-full max-w-3xl transform overflow-hidden rounded-2xl bg-card p-6 shadow-xl transition-all text-start">
+                        <!-- Header -->
+                        <div class="mb-4 flex items-center justify-between gap-3">
+                            <div class="flex items-center gap-3">
+                                <div class="flex h-10 w-10 items-center justify-center rounded-full bg-sky-500/10">
+                                    <FileCode class="size-5 text-sky-500" />
+                                </div>
+                                <h3 class="text-lg font-semibold text-foreground">{{ t('deploy_log') }}</h3>
+                            </div>
+                            <button @click="showLogModal = false"
+                                class="rounded-full p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground">
+                                <X class="h-5 w-5" />
+                            </button>
+                        </div>
+
+                        <pre
+                            class="max-h-[60vh] overflow-auto rounded-xl bg-muted p-4 text-xs text-muted-foreground font-mono whitespace-pre-wrap">{{ deployLog }}</pre>
                     </div>
                 </div>
             </div>
