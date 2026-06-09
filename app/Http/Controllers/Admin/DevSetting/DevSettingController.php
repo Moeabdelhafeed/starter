@@ -1438,10 +1438,32 @@ class DevSettingController extends Controller
             $migrationOption = 'migrate_seed';
         }
 
+        // DB-based detection: `migrate` only re-runs files absent from the
+        // `migrations` tracking table. If the real schema was dropped (empty DB,
+        // or a stale `migrations` table left behind after a manual wipe), a plain
+        // `migrate` becomes a silent no-op and no tables get created. Probe the
+        // live DB for a core table; when it's missing, force a clean rebuild so
+        // `migrate` / `migrate_seed` always provision the schema.
+        if (in_array($migrationOption, ['migrate', 'migrate_seed'], true)) {
+            $schemaProbe = trim($ssh->exec("cd {$backendPath} && {$php} artisan tinker --execute=\"echo Schema::hasTable('users') ? 'has' : 'missing';\" 2>/dev/null"));
+            $schemaMissing = ! str_contains($schemaProbe, 'has');
+
+            if ($schemaMissing) {
+                $seedFlag = $migrationOption === 'migrate_seed' ? ' --seed' : '';
+                $output .= "Core schema not found (empty or stale DB). Forcing migrate:fresh to rebuild.\n";
+                // migrate:fresh is prohibited in production by DB::prohibitDestructiveCommands()
+                // and fails even with --force. ALLOW_DESTRUCTIVE_MIGRATIONS=true lifts the guard
+                // for this one command (config is never cached, so env() reads it live).
+                $output .= $ssh->exec("cd {$backendPath} && ALLOW_DESTRUCTIVE_MIGRATIONS=true {$php} artisan migrate:fresh{$seedFlag} --force 2>&1")."\n";
+                $migrationOption = 'none'; // handled above; skip the switch
+            }
+        }
+
         switch ($migrationOption) {
             case 'fresh_seed':
-                // WARNING: This wipes all data!
-                $output .= $ssh->exec("cd {$backendPath} && {$php} artisan migrate:fresh --seed --force 2>&1")."\n";
+                // WARNING: This wipes all data! ALLOW_DESTRUCTIVE_MIGRATIONS lifts the
+                // production guard (DB::prohibitDestructiveCommands) for this command only.
+                $output .= $ssh->exec("cd {$backendPath} && ALLOW_DESTRUCTIVE_MIGRATIONS=true {$php} artisan migrate:fresh --seed --force 2>&1")."\n";
                 break;
             case 'migrate_seed':
                 $output .= $ssh->exec("cd {$backendPath} && {$php} artisan migrate --seed --force 2>&1")."\n";

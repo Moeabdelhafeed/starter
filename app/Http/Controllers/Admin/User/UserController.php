@@ -92,6 +92,7 @@ class UserController extends Controller
             'password' => ['nullable', 'string', 'min:8'],
             'role' => ['required', 'string', 'exists:roles,name'],
             'image' => ['nullable', 'image', 'max:2048'],
+            'remove_image' => ['nullable', 'boolean'],
             'is_active' => ['boolean'],
         ]);
 
@@ -107,6 +108,8 @@ class UserController extends Controller
 
         if ($request->hasFile('image')) {
             $user->saveImage($request->file('image'), 'users');
+        } elseif ($request->boolean('remove_image')) {
+            $user->deleteImage();
         }
 
         $user->save();

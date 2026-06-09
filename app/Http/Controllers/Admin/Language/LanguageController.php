@@ -163,6 +163,7 @@ class LanguageController extends Controller
             'native_name' => ['required', 'string', 'max:255'],
             'direction' => ['required', Rule::in(['ltr', 'rtl'])],
             'image' => ['nullable', 'image', 'max:2048'],
+            'remove_image' => ['nullable', 'boolean'],
             'is_active' => ['boolean'],
             'is_default' => ['boolean'],
         ]);
@@ -181,6 +182,8 @@ class LanguageController extends Controller
 
         if ($request->hasFile('image')) {
             $language->saveImage($request->file('image'), 'languages');
+        } elseif ($request->boolean('remove_image')) {
+            $language->deleteImage();
         }
 
         $language->fill([

@@ -11,12 +11,15 @@ import LanguageTable from '@/components/language/LanguageTable.vue';
 import LanguageCreateModal from '@/components/language/LanguageCreateModal.vue';
 import LanguageEditModal from '@/components/language/LanguageEditModal.vue';
 import DeleteModal from '@/components/Shared/DeleteModal.vue';
+import ViewToggle from '@/components/Shared/ViewToggle.vue';
+import { useViewMode } from '@/composables/useViewMode';
 
 defineOptions({
     layout: Default,
 });
 
 const { t } = useI18n();
+const { view } = useViewMode('languages');
 
 const props = defineProps({
     languages: Object,
@@ -49,20 +52,21 @@ const openDeleteModal = (language) => {
     <Head :title="t('languages')" />
 
     <div class="h-full min-h-[100dvh] w-full bg-background">
-        <div class="mx-auto flex w-full max-w-[1300px] flex-col gap-5 px-4 py-20 text-start">
+        <div class="mx-auto flex w-full max-w-[1300px] flex-col gap-5 px-4 py-10 md:py-20 text-start">
             <!-- Filters Component -->
             <LanguageFilters :filters="filters" />
 
             <!-- Create Language Button -->
-            <div class="flex w-full items-center justify-between rounded-xl border bg-card p-4">
+            <div class="flex w-full flex-col items-stretch justify-between gap-3 rounded-xl border bg-card p-4 sm:flex-row sm:items-center">
                 <Button @click="openCreateModal">
                     <Plus class="me-2" />
                     {{ t('create_language') }}
                 </Button>
+                <ViewToggle v-model="view" />
             </div>
 
-            <!-- Table Component -->
-            <LanguageTable :languages="languages" @edit="openEditModal" @delete="openDeleteModal" />
+            <!-- Table / Grid Component -->
+            <LanguageTable :languages="languages" :view="view" @edit="openEditModal" @delete="openDeleteModal" />
         </div>
     </div>
 

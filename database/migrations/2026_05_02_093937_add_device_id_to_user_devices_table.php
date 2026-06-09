@@ -8,6 +8,10 @@ return new class extends Migration
 {
     public function up(): void
     {
+        if (Schema::hasColumn('user_devices', 'device_id')) {
+            return;
+        }
+
         Schema::table('user_devices', function (Blueprint $table) {
             $table->string('device_id', 64)->nullable()->after('personal_access_token_id')->index();
         });
@@ -15,6 +19,10 @@ return new class extends Migration
 
     public function down(): void
     {
+        if (! Schema::hasColumn('user_devices', 'device_id')) {
+            return;
+        }
+
         Schema::table('user_devices', function (Blueprint $table) {
             $table->dropIndex(['device_id']);
             $table->dropColumn('device_id');

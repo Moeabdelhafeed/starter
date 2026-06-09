@@ -24,6 +24,7 @@ class ProfileController extends Controller
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:255'],
             'image' => ['nullable', 'image', 'max:2048'],
+            'remove_image' => ['nullable', 'boolean'],
         ]);
 
         $user->forceFill([
@@ -32,6 +33,8 @@ class ProfileController extends Controller
 
         if ($request->hasFile('image')) {
             $user->saveImage($request->file('image'), 'users');
+        } elseif ($request->boolean('remove_image')) {
+            $user->deleteImage();
         }
 
         $user->save();

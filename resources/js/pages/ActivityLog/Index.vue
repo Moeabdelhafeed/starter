@@ -11,6 +11,8 @@ import DeleteModal from '@/components/Shared/DeleteModal.vue';
 import BulkActions from '@/components/Shared/BulkActions.vue';
 import BulkDeleteModal from '@/components/Shared/BulkDeleteModal.vue';
 import ExportButton from '@/components/Shared/ExportButton.vue';
+import ViewToggle from '@/components/Shared/ViewToggle.vue';
+import { useViewMode } from '@/composables/useViewMode';
 import { router } from '@inertiajs/vue3';
 
 defineOptions({
@@ -18,6 +20,7 @@ defineOptions({
 });
 
 const { t } = useI18n();
+const { view } = useViewMode('activity_logs');
 
 const props = defineProps({
     logs: Object,
@@ -71,7 +74,7 @@ const confirmBulkDelete = (done) => {
     <Head :title="t('activity_logs')" />
 
     <div class="h-full min-h-[100dvh] w-full bg-background">
-        <div class="mx-auto flex w-full max-w-[1300px] flex-col gap-5 px-4 py-20 text-start">
+        <div class="mx-auto flex w-full max-w-[1300px] flex-col gap-5 px-4 py-10 md:py-20 text-start">
             <!-- Filters Component -->
             <ActivityLogFilters :filters="filters" :actions="actions" :subject-types="subjectTypes" :causers="causers" />
 
@@ -83,16 +86,18 @@ const confirmBulkDelete = (done) => {
                 @clear="selectedIds = []"
             />
 
-            <div v-if="hasExport" class="flex w-full items-center justify-end rounded-xl border bg-card p-4">
+            <div class="flex w-full flex-col items-stretch justify-between gap-3 rounded-xl border bg-card p-4 sm:flex-row sm:items-center">
+                <ViewToggle v-model="view" />
                 <ExportButton route-name="activity_logs.export" :filters="filters" :show="hasExport" />
             </div>
 
-            <!-- Table Component -->
+            <!-- Table / Grid Component -->
             <ActivityLogTable
-                v-model:selected-ids="selectedIds" 
-                :logs="logs" 
-                @view="openViewModal" 
-                @delete="openDeleteModal" 
+                v-model:selected-ids="selectedIds"
+                :logs="logs"
+                :view="view"
+                @view="openViewModal"
+                @delete="openDeleteModal"
             />
         </div>
     </div>

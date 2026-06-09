@@ -469,12 +469,77 @@ Bulk delete MUST use `BulkDeleteModal` component — never `confirm()` or `alert
 - Every Inertia request MUST include `reset: ['{dataKey}', 'success', 'error', 'filters']`.
 - Every request should include `preserveScroll: true` and `preserveState: true`.
 
+### Media Uploads (MANDATORY)
+
+NEVER write a raw `<input type="file">` for images or videos. ALWAYS use the shared dashed drag-and-drop component:
+
+- **Images:** `@/components/ui/image-upload/ImageUpload.vue`
+- **Videos:** `@/components/ui/video-upload/VideoUpload.vue` (thin wrapper presetting `accept="video/*"`, 20MB default)
+
+Both share the same API — a dashed drop box with drag & drop, click-to-pick, live preview, size guard, and a remove (X) button:
+
+```vue
+<script setup>
+import ImageUpload from '@/components/ui/image-upload/ImageUpload.vue';
+
+const form = useForm({
+    image: null,
+    remove_image: false, // edit forms only — flags an existing image for deletion
+    _method: 'PUT',
+});
+</script>
+
+<template>
+    <!-- Create: no existing image, no remove flag -->
+    <ImageUpload v-model="form.image" :label="t('image')" :error="form.errors.image" />
+
+    <!-- Edit: pass the saved image URL + bind the remove flag -->
+    <ImageUpload
+        v-model="form.image"
+        v-model:removed="form.remove_image"
+        :preview-url="model.image?.image_api || null"
+        :label="t('image')"
+        :error="form.errors.image"
+    />
+</template>
+```
+
+**Props:** `previewUrl`, `accept` (default `image/*`), `label`, `error`, `required`, `removable` (default `true` — set `false` for things that can't be removed, e.g. app logo/favicon), `shape` (`square` | `circle`), `maxSizeMb` (default 2; VideoUpload 20).
+**Models:** `v-model` = the `File`, `v-model:removed` = the delete flag.
+
+**Backend — handle removal in update controllers.** Validate `'remove_image' => ['nullable', 'boolean']` and:
+
+```php
+if ($request->hasFile('image')) {
+    $model->saveImage($request->file('image'), 'folder');
+} elseif ($request->boolean('remove_image')) {
+    $model->deleteImage(); // from HasImage trait
+}
+```
+
+For video use `VideoUpload` + a `remove_video` flag and the `HasVideo` trait's `saveVideo()` / `deleteVideo()`.
+
 ### Tables
 
 - Use `<InfiniteScroll>` from Inertia for pagination.
 - Checkbox select-all with computed get/set pattern.
 - Status toggles: optimistic update with rollback on error.
 - Action buttons: Edit (yellow), Delete (red).
+- **Sticky actions column (MANDATORY):** the actions `<TableHead>` AND its row `<TableCell>` MUST carry the `sticky-actions` utility class so the actions stay pinned to the inline-end edge when a wide row scrolls horizontally. The utility lives in `resources/css/app.css` (`@utility sticky-actions` — sticky, `inset-inline-end: 0`, `bg-card`, leading border, RTL-safe). Append it, don't replace existing classes: `<TableHead class="py-4 font-bold sticky-actions">`, `<TableCell class="sticky-actions">`.
+
+### Table / Grid View Toggle (MANDATORY)
+
+Every feature `*Table.vue` component supports BOTH a table view and a grid (card) view, switchable by the user and persisted per-feature. When creating or editing a feature table, wire all of the following:
+
+1. **`view` prop** on the `*Table.vue`: `view: { type: String, default: 'table' }`.
+2. **Two branches in the template** — both MUST keep their own `<InfiniteScroll ... data="DATAKEY">` around the loop so infinite scroll works in either view:
+   - `v-if="view === 'table'"` → the existing `<Table>` (with `sticky-actions`, see above).
+   - `v-else` → the grid: `<InfiniteScroll v-else class="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3" preserve-url data="DATAKEY">` containing one card per row. Card shell: `class="flex flex-col gap-4 rounded-3xl border bg-card p-5 transition-shadow hover:shadow-md"` plus the same highlight ring the table row uses (`isHighlighted(...)`). Layout: checkbox top-start, badges (trashed/verified/etc.) top-end, identity fields, then a footer `mt-auto flex items-center justify-between gap-2 border-t pt-4` holding the status toggle + action buttons. Reuse the EXACT same button classes and `emit(...)` calls as the table rows. Omit gracefully anything the feature lacks (no status toggle, no soft-deletes, etc.).
+3. **Composable** `useViewMode` (`resources/js/composables/useViewMode.ts`): in the page, `const { view } = useViewMode('FEATURE_KEY');` — the key scopes the localStorage persistence (e.g. `'users'`, `'roles'`).
+4. **Shared toggle** `ViewToggle` (`resources/js/components/Shared/ViewToggle.vue`): render `<ViewToggle v-model="view" />` in the page's action bar (group it with the create/export buttons; make the bar `flex-col ... sm:flex-row`). Pass `:view="view"` to the `*Table.vue`.
+5. Translation keys `table_view` / `grid_view` already exist in `en.json` + `ar.json`.
+
+Reference implementation: `components/user/UserTable.vue` + `pages/User/Index.vue`.
 
 ### Filters
 

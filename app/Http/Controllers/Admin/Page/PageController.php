@@ -90,6 +90,7 @@ class PageController extends Controller
             'slug' => ['required', 'string', 'max:255', Rule::unique('pages', 'slug')->ignore($page->id)],
             'is_active' => ['boolean'],
             'image' => ['nullable', 'image', 'max:2048'],
+            'remove_image' => ['nullable', 'boolean'],
             'translations' => ['required', 'array'],
             'translations.name' => ['required', 'array'],
             'translations.name.*' => ['nullable', 'string', 'max:255'],
@@ -107,6 +108,8 @@ class PageController extends Controller
 
         if ($request->hasFile('image')) {
             $page->saveImage($request->file('image'), 'pages');
+        } elseif ($request->boolean('remove_image')) {
+            $page->deleteImage();
         }
 
         return redirect()->back()->with('success', __('admin.updated_successfully'));

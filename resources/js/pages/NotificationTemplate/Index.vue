@@ -12,10 +12,13 @@ import NotificationTemplateEditModal from '@/components/notification-template/No
 import DeleteModal from '@/components/Shared/DeleteModal.vue';
 import BulkActions from '@/components/Shared/BulkActions.vue';
 import BulkDeleteModal from '@/components/Shared/BulkDeleteModal.vue';
+import ViewToggle from '@/components/Shared/ViewToggle.vue';
+import { useViewMode } from '@/composables/useViewMode';
 
 defineOptions({ layout: Default });
 
 const { t } = useI18n();
+const { view } = useViewMode('notification_templates');
 
 defineProps({
     templates: Object,
@@ -79,7 +82,7 @@ const confirmBulkDelete = (done) => {
     <Head :title="t('notification_templates')" />
 
     <div class="h-full min-h-[100dvh] w-full bg-background">
-        <div class="mx-auto flex w-full max-w-[1300px] flex-col gap-5 px-4 py-20 text-start">
+        <div class="mx-auto flex w-full max-w-[1300px] flex-col gap-5 px-4 py-10 md:py-20 text-start">
             <NotificationTemplateFilters :filters="filters" />
 
             <BulkActions
@@ -89,16 +92,18 @@ const confirmBulkDelete = (done) => {
                 @clear="selectedIds = []"
             />
 
-            <div class="flex w-full items-center justify-start rounded-xl border bg-card p-4">
+            <div class="flex w-full flex-col items-stretch justify-between gap-3 rounded-xl border bg-card p-4 sm:flex-row sm:items-center">
                 <Button @click="isCreateModalOpen = true">
                     <Plus class="me-2 size-4" />
                     {{ t('create_notification_template') }}
                 </Button>
+                <ViewToggle v-model="view" />
             </div>
 
             <NotificationTemplateTable
                 v-model:selected-ids="selectedIds"
                 :templates="templates"
+                :view="view"
                 @edit="openEditModal"
                 @delete="openDeleteModal"
                 @send="sendNow"

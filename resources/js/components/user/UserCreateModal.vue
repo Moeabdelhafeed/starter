@@ -5,6 +5,7 @@ import { useI18n } from 'vue-i18n';
 import { XIcon, EyeIcon, EyeOffIcon, Loader2, AlertCircle } from 'lucide-vue-next';
 import Input from '@/components/ui/input/Input.vue';
 import Button from '@/components/ui/button/Button.vue';
+import ImageUpload from '@/components/ui/image-upload/ImageUpload.vue';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 const { t } = useI18n();
@@ -25,10 +26,6 @@ const form = useForm({
     role: '',
     image: null,
 });
-
-const handleImageChange = (e) => {
-    form.image = e.target.files[0] || null;
-};
 
 const close = () => {
     emit('close');
@@ -133,20 +130,12 @@ const submit = () => {
                             </div>
 
                             <!-- Image -->
-                            <div class="space-y-2">
-                                <label class="block text-sm font-medium text-foreground">
-                                    {{ t('image') }}
-                                </label>
-                                <input
-                                    type="file"
-                                    accept="image/*"
-                                    @change="handleImageChange"
-                                    class="block w-full text-sm text-muted-foreground file:me-4 file:rounded-full file:border-0 file:bg-primary/10 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-primary hover:file:bg-primary/20"
-                                />
-                                <div v-if="form.errors.image" class="text-sm text-red-600">
-                                    {{ form.errors.image }}
-                                </div>
-                            </div>
+                            <ImageUpload
+                                v-model="form.image"
+                                :label="t('image')"
+                                :error="form.errors.image"
+                                shape="circle"
+                            />
 
                             <!-- Password -->
                             <div class="space-y-2">

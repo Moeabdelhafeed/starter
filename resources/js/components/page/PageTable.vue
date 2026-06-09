@@ -15,6 +15,10 @@ const props = defineProps({
         type: Array,
         default: () => [],
     },
+    view: {
+        type: String,
+        default: 'table',
+    },
 });
 
 const emit = defineEmits(['delete', 'update:selectedIds']);
@@ -58,7 +62,8 @@ const toggleStatus = (page) => {
 </script>
 
 <template>
-    <div class="flex flex-col gap-5 rounded-3xl border bg-card p-4 md:p-6">
+    <!-- Table view -->
+    <div v-if="view === 'table'" class="flex flex-col gap-5 rounded-3xl border bg-card p-4 md:p-6">
         <div class="overflow-x-auto">
         <Table>
             <TableHeader>
@@ -70,7 +75,7 @@ const toggleStatus = (page) => {
                     <TableHead class="py-4 font-bold">{{ t('name') }}</TableHead>
                     <TableHead class="py-4 font-bold">{{ t('slug') }}</TableHead>
                     <TableHead class="py-4 font-bold">{{ t('status') }}</TableHead>
-                    <TableHead class="py-4 font-bold">{{ t('actions') }}</TableHead>
+                    <TableHead class="py-4 font-bold sticky-actions">{{ t('actions') }}</TableHead>
                 </TableRow>
             </TableHeader>
 
@@ -110,7 +115,7 @@ const toggleStatus = (page) => {
                             </button>
                         </TableCell>
 
-                        <TableCell>
+                        <TableCell class="sticky-actions">
                             <div class="flex items-center gap-2">
                                 <Link :href="route('pages.edit', page.id)">
                                     <Button
@@ -135,4 +140,74 @@ const toggleStatus = (page) => {
         </Table>
         </div>
     </div>
+
+    <!-- Grid view -->
+    <InfiniteScroll
+        v-else
+        class="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3"
+        preserve-url
+        data="pages"
+    >
+        <div
+            v-for="page in pages.data"
+            :key="page.id"
+            class="flex flex-col gap-4 rounded-3xl border bg-card p-5 transition-shadow hover:shadow-md"
+        >
+            <!-- Top: checkbox + image -->
+            <div class="flex items-start justify-between gap-3">
+                <Checkbox
+                    :modelValue="selectedIds"
+                    @update:modelValue="emit('update:selectedIds', $event)"
+                    :value="page.id"
+                />
+                <div class="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-muted">
+                    <img
+                        v-if="page.image?.image_api"
+                        :src="page.image.image_api"
+                        :alt="page.name_api"
+                        class="h-full w-full object-cover"
+                    />
+                    <FileText v-else class="h-5 w-5 text-muted-foreground" />
+                </div>
+            </div>
+
+            <!-- Identity -->
+            <div class="flex flex-col gap-1">
+                <h3 class="truncate font-bold text-foreground">{{ page.name_api }}</h3>
+                <p class="truncate text-sm text-muted-foreground">/{{ page.slug }}</p>
+            </div>
+
+            <!-- Status + actions -->
+            <div class="mt-auto flex items-center justify-between gap-2 border-t pt-4">
+                <button
+                    class="relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:outline-none"
+                    :class="page.is_active ? 'bg-primary' : 'bg-border'"
+                    @click="toggleStatus(page)"
+                >
+                    <span
+                        class="inline-block h-4 w-4 transform rounded-full bg-white transition-transform"
+                        :class="page.is_active ? 'ltr:translate-x-6 rtl:-translate-x-6' : 'ltr:translate-x-1 rtl:-translate-x-1'"
+                    />
+                </button>
+
+                <div class="flex items-center gap-2">
+                    <Link :href="route('pages.edit', page.id)">
+                        <Button
+                            variant="outline"
+                            class="border-yellow-500 text-yellow-500 shadow-none! hover:bg-yellow-500 hover:text-white"
+                        >
+                            {{ t('edit') }}
+                        </Button>
+                    </Link>
+                    <Button
+                        variant="outline"
+                        class="border-red-500 text-red-500 shadow-none! hover:bg-red-500 hover:text-white"
+                        @click="emit('delete', page)"
+                    >
+                        {{ t('delete') }}
+                    </Button>
+                </div>
+            </div>
+        </div>
+    </InfiniteScroll>
 </template>

@@ -19,12 +19,15 @@ import ForceDeleteModal from '@/components/Shared/ForceDeleteModal.vue';
 import BulkRestoreModal from '@/components/Shared/BulkRestoreModal.vue';
 import BulkForceDeleteModal from '@/components/Shared/BulkForceDeleteModal.vue';
 import ExportButton from '@/components/Shared/ExportButton.vue';
+import ViewToggle from '@/components/Shared/ViewToggle.vue';
+import { useViewMode } from '@/composables/useViewMode';
 
 defineOptions({
     layout: Default,
 });
 
 const { t } = useI18n();
+const { view } = useViewMode('users');
 
 const props = defineProps({
     users: Object,
@@ -168,7 +171,7 @@ const confirmBulkForceDelete = (done) => {
     <Head :title="t('users')" />
 
     <div class="h-full min-h-[100dvh] w-full bg-background">
-        <div class="mx-auto flex w-full max-w-[1300px] flex-col gap-5 px-4 py-20 text-start">
+        <div class="mx-auto flex w-full max-w-[1300px] flex-col gap-5 px-4 py-10 md:py-20 text-start">
             <!-- Filters Component -->
             <UserFilters :filters="filters" :roles="roles" :has-soft-deletes="hasSoftDeletes" />
 
@@ -185,18 +188,22 @@ const confirmBulkForceDelete = (done) => {
             />
 
             <!-- Create User Button -->
-            <div class="flex w-full items-center justify-between gap-3 rounded-xl border bg-card p-4">
+            <div class="flex w-full flex-col items-stretch justify-between gap-3 rounded-xl border bg-card p-4 sm:flex-row sm:items-center">
                 <Button @click="openCreateModal">
                     <Plus class="me-2" />
                     {{ t('create_user') }}
                 </Button>
-                <ExportButton route-name="users.export" :filters="filters" :show="hasExport" />
+                <div class="flex items-center gap-3">
+                    <ViewToggle v-model="view" />
+                    <ExportButton route-name="users.export" :filters="filters" :show="hasExport" />
+                </div>
             </div>
 
-            <!-- Table Component -->
+            <!-- Table / Grid Component -->
             <UserTable
                 v-model:selected-ids="selectedIds"
                 :users="users"
+                :view="view"
                 :has-soft-deletes="hasSoftDeletes"
                 @edit="openEditModal"
                 @delete="openDeleteModal"

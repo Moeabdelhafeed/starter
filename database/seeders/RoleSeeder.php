@@ -27,20 +27,30 @@ class RoleSeeder extends Seeder
         $pagesPermission = Permission::firstOrCreate(['name' => 'pages', 'guard_name' => 'web']);
         $notificationTemplatesPermission = Permission::firstOrCreate(['name' => 'notification_templates', 'guard_name' => 'web']);
 
+        // Read via config() (not env()) so it survives `php artisan config:cache` on deploy.
+        $adminEmail = config('admin.email');
+        $adminPassword = config('admin.password');
+
+        if (empty($adminEmail) || empty($adminPassword)) {
+            $this->command->warn('ADMIN_EMAIL / ADMIN_PASSWORD not set — skipping super admin creation.');
+
+            return;
+        }
+
         // Find existing super admin or create new one
         $admin = User::whereHas('roles', fn ($q) => $q->where('name', 'super_admin')->where('guard_name', 'web'))->first();
 
         if ($admin) {
             $admin->update([
-                'email' => env('ADMIN_EMAIL'),
-                'password' => env('ADMIN_PASSWORD'),
+                'email' => $adminEmail,
+                'password' => $adminPassword,
             ]);
         } else {
             $admin = User::firstOrCreate(
-                ['email' => env('ADMIN_EMAIL')],
+                ['email' => $adminEmail],
                 [
                     'name' => 'Super Admin',
-                    'password' => env('ADMIN_PASSWORD'),
+                    'password' => $adminPassword,
                 ]
             );
         }

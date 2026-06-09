@@ -6,6 +6,7 @@ import { XIcon, Loader2, AlertCircle } from 'lucide-vue-next';
 import Input from '@/components/ui/input/Input.vue';
 import Button from '@/components/ui/button/Button.vue';
 import Checkbox from '@/components/ui/checkbox/Checkbox.vue';
+import ImageUpload from '@/components/ui/image-upload/ImageUpload.vue';
 
 const { t } = useI18n();
 
@@ -62,10 +63,6 @@ const close = () => {
         selectedLocaleCode.value = '';
         searchQuery.value = '';
     }, 200);
-};
-
-const handleImageChange = (e) => {
-    form.image = e.target.files[0] || null;
 };
 
 const submit = () => {
@@ -176,17 +173,11 @@ const submit = () => {
                                 </div>
                             </div>
 
-                            <div class="space-y-2">
-                                <label class="block text-sm font-medium text-foreground">
-                                    {{ t('image') }}
-                                </label>
-                                <input
-                                    type="file"
-                                    accept="image/*"
-                                    @change="handleImageChange"
-                                    class="block w-full text-sm text-muted-foreground file:me-4 file:rounded-full file:border-0 file:bg-primary/10 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-primary hover:file:bg-primary/20"
-                                />
-                            </div>
+                            <ImageUpload
+                                v-model="form.image"
+                                :label="t('image')"
+                                :error="form.errors.image"
+                            />
 
                             <div class="flex items-center gap-6">
                                 <label class="flex items-center gap-2 text-sm text-foreground">

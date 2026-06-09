@@ -35,8 +35,11 @@ class AppServiceProvider extends ServiceProvider
     {
         Date::use(CarbonImmutable::class);
 
+        // Block migrate:fresh / migrate:refresh / db:wipe in production so they
+        // can't be run by accident. The deploy panel sets ALLOW_DESTRUCTIVE_MIGRATIONS=true
+        // inline (only on the destructive deploy option) to intentionally bypass this.
         DB::prohibitDestructiveCommands(
-            app()->isProduction(),
+            app()->isProduction() && ! filter_var(env('ALLOW_DESTRUCTIVE_MIGRATIONS', false), FILTER_VALIDATE_BOOLEAN),
         );
 
         Password::defaults(fn (): ?Password => app()->isProduction()

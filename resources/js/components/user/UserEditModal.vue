@@ -5,6 +5,7 @@ import { useI18n } from 'vue-i18n';
 import { XIcon, EyeIcon, EyeOffIcon, Loader2, AlertCircle } from 'lucide-vue-next';
 import Input from '@/components/ui/input/Input.vue';
 import Button from '@/components/ui/button/Button.vue';
+import ImageUpload from '@/components/ui/image-upload/ImageUpload.vue';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 const { t } = useI18n();
@@ -28,6 +29,7 @@ const form = useForm({
     password: '',
     role: '',
     image: null,
+    remove_image: false,
     _method: 'PUT',
 });
 
@@ -42,6 +44,7 @@ const populateForm = () => {
     form.password = '';
     form.role = newUser.roles.length > 0 ? newUser.roles[0].name : '';
     form.image = null;
+    form.remove_image = false;
     currentImageUrl.value = newUser.image?.image_api || null;
 };
 
@@ -49,10 +52,6 @@ watch(() => props.user, populateForm, { immediate: true });
 watch(() => props.isOpen, (open) => {
     if (open) populateForm();
 });
-
-const handleImageChange = (e) => {
-    form.image = e.target.files[0] || null;
-};
 
 const close = () => {
     emit('close');
@@ -143,23 +142,14 @@ const submit = () => {
                             </div>
 
                             <!-- Image -->
-                            <div class="space-y-2">
-                                <label class="block text-sm font-medium text-foreground">
-                                    {{ t('image') }}
-                                </label>
-                                <div v-if="currentImageUrl && !form.image" class="mb-2">
-                                    <img :src="currentImageUrl" alt="User image" class="h-16 w-16 rounded-full object-cover" />
-                                </div>
-                                <input
-                                    type="file"
-                                    accept="image/*"
-                                    @change="handleImageChange"
-                                    class="block w-full text-sm text-muted-foreground file:me-4 file:rounded-full file:border-0 file:bg-primary/10 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-primary hover:file:bg-primary/20"
-                                />
-                                <div v-if="form.errors.image" class="text-sm text-red-600">
-                                    {{ form.errors.image }}
-                                </div>
-                            </div>
+                            <ImageUpload
+                                v-model="form.image"
+                                v-model:removed="form.remove_image"
+                                :preview-url="currentImageUrl"
+                                :label="t('image')"
+                                :error="form.errors.image"
+                                shape="circle"
+                            />
 
                             <!-- Role -->
                             <div class="space-y-2">

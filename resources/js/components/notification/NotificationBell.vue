@@ -197,7 +197,7 @@ onUnmounted(() => {
             enter-from-class="ltr:-translate-x-full rtl:translate-x-full" enter-to-class="translate-x-0"
             leave-active-class="transition duration-200 ease-in" leave-from-class="translate-x-0"
             leave-to-class="ltr:-translate-x-full rtl:translate-x-full">
-            <div v-if="isOpen" class="fixed start-0 top-0 z-50 flex h-screen w-[320px] flex-col bg-card shadow-2xl">
+            <div v-if="isOpen" class="fixed start-0 top-0 z-50 flex h-screen w-[85vw] max-w-[320px] flex-col bg-card shadow-2xl">
                 <!-- Header -->
                 <div class="flex items-center justify-between border-b border-border p-4">
                     <div class="flex items-center gap-3">

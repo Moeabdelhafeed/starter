@@ -171,8 +171,8 @@ const diffData = computed(() => {
                                         <div class="size-1.5 rounded-full bg-rose-500"></div>
                                         <h4 class="text-[10px] font-bold text-foreground uppercase tracking-tight">{{ t('previous_state') }}</h4>
                                     </div>
-                                    <div class="rounded-xl border border-rose-100 bg-rose-50/10 p-4 font-mono text-[11px] overflow-x-auto">
-                                        <pre class="text-rose-900">{{ JSON.stringify(log.old_data, null, 2) }}</pre>
+                                    <div class="rounded-xl border border-rose-100 bg-rose-50/10 p-4 font-mono text-[11px] overflow-x-auto dark:border-rose-400/20 dark:bg-rose-400/5">
+                                        <pre class="text-rose-900 dark:text-rose-200">{{ JSON.stringify(log.old_data, null, 2) }}</pre>
                                                 </div>
                                             </div>
                                             
@@ -181,8 +181,8 @@ const diffData = computed(() => {
                                         <div class="size-1.5 rounded-full bg-emerald-500"></div>
                                         <h4 class="text-[10px] font-bold text-foreground uppercase tracking-tight">{{ t('new_state') }}</h4>
                                         </div>
-                                    <div class="rounded-xl border border-emerald-100 bg-emerald-50/10 p-4 font-mono text-[11px] overflow-x-auto">
-                                        <pre class="text-emerald-900">{{ JSON.stringify(log.new_data, null, 2) }}</pre>
+                                    <div class="rounded-xl border border-emerald-100 bg-emerald-50/10 p-4 font-mono text-[11px] overflow-x-auto dark:border-emerald-400/20 dark:bg-emerald-400/5">
+                                        <pre class="text-emerald-900 dark:text-emerald-200">{{ JSON.stringify(log.new_data, null, 2) }}</pre>
                                     </div>
                                 </div>
                             </div>

@@ -7,6 +7,7 @@ import Input from '@/components/ui/input/Input.vue';
 import Button from '@/components/ui/button/Button.vue';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import Checkbox from '@/components/ui/checkbox/Checkbox.vue';
+import ImageUpload from '@/components/ui/image-upload/ImageUpload.vue';
 
 const { t } = useI18n();
 
@@ -23,6 +24,7 @@ const form = useForm({
     native_name: '',
     direction: 'ltr',
     image: null,
+    remove_image: false,
     is_active: true,
     is_default: false,
     _method: 'PUT',
@@ -38,6 +40,7 @@ const populateForm = () => {
     form.is_active = newLang.is_active;
     form.is_default = newLang.is_default;
     form.image = null;
+    form.remove_image = false;
 };
 
 watch(() => props.language, populateForm, { immediate: true });
@@ -50,10 +53,6 @@ const close = () => {
     setTimeout(() => {
         form.clearErrors();
     }, 200);
-};
-
-const handleImageChange = (e) => {
-    form.image = e.target.files[0] || null;
 };
 
 const submit = () => {
@@ -151,20 +150,13 @@ const submit = () => {
                                 <Input v-model="form.native_name" type="text" placeholder="English, العربية, Français..." />
                             </div>
 
-                            <div class="space-y-2">
-                                <label class="block text-sm font-medium text-foreground">
-                                    {{ t('image') }}
-                                </label>
-                                <div v-if="language?.image" class="mb-2">
-                                    <img :src="language.image.image_api" :alt="language.name" class="h-8 w-12 rounded object-cover" />
-                                </div>
-                                <input
-                                    type="file"
-                                    accept="image/*"
-                                    @change="handleImageChange"
-                                    class="block w-full text-sm text-muted-foreground file:me-4 file:rounded-full file:border-0 file:bg-primary/10 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-primary hover:file:bg-primary/20"
-                                />
-                            </div>
+                            <ImageUpload
+                                v-model="form.image"
+                                v-model:removed="form.remove_image"
+                                :preview-url="language?.image?.image_api || null"
+                                :label="t('image')"
+                                :error="form.errors.image"
+                            />
 
                             <div class="flex items-center gap-6">
                                 <label class="flex items-center gap-2 text-sm text-foreground">

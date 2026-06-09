@@ -16,6 +16,10 @@ const props = defineProps({
         type: Array,
         default: () => [],
     },
+    view: {
+        type: String,
+        default: 'table',
+    },
 });
 
 const emit = defineEmits(['edit', 'delete', 'update:selectedIds']);
@@ -55,7 +59,8 @@ const toggleStatus = (role) => {
 </script>
 
 <template>
-    <div class="flex flex-col gap-5 rounded-3xl border bg-card p-4 md:p-6">
+    <!-- Table view -->
+    <div v-if="view === 'table'" class="flex flex-col gap-5 rounded-3xl border bg-card p-4 md:p-6">
         <div class="overflow-x-auto">
         <Table>
             <TableHeader>
@@ -66,7 +71,7 @@ const toggleStatus = (role) => {
                     <TableHead class="py-4 font-bold">{{ t('name') }}</TableHead>
                     <TableHead class="py-4 font-bold">{{ t('status') }}</TableHead>
                     <TableHead class="py-4 font-bold text-center">{{ t('users_count') }}</TableHead>
-                    <TableHead class="py-4 font-bold text-end">{{ t('actions') }}</TableHead>
+                    <TableHead class="py-4 font-bold text-end sticky-actions">{{ t('actions') }}</TableHead>
                 </TableRow>
             </TableHeader>
 
@@ -97,7 +102,7 @@ const toggleStatus = (role) => {
                             </span>
                         </TableCell>
 
-                        <TableCell>
+                        <TableCell class="sticky-actions">
                             <div class="flex items-center justify-end gap-2">
                                 <Button
                                     variant="outline"
@@ -127,4 +132,75 @@ const toggleStatus = (role) => {
         </Table>
         </div>
     </div>
+
+    <!-- Grid view -->
+    <InfiniteScroll
+        v-else
+        class="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3"
+        preserve-url
+        data="roles"
+    >
+        <div
+            v-for="role in roles.data"
+            :key="role.id"
+            class="flex flex-col gap-4 rounded-3xl border bg-card p-5 transition-shadow hover:shadow-md"
+        >
+            <!-- Top: checkbox + users count -->
+            <div class="flex items-start justify-between gap-3">
+                <Checkbox
+                    :modelValue="selectedIds"
+                    @update:modelValue="emit('update:selectedIds', $event)"
+                    :value="role.id"
+                />
+                <span class="inline-flex h-8 w-8 items-center justify-center rounded-full bg-muted text-xs font-semibold">
+                    {{ role.users_count }}
+                </span>
+            </div>
+
+            <!-- Identity -->
+            <div class="flex flex-col gap-1">
+                <h3 class="truncate text-xs font-medium uppercase tracking-wider text-foreground">{{ role.name }}</h3>
+                <p class="text-sm text-muted-foreground">{{ t('users_count') }}: {{ role.users_count }}</p>
+            </div>
+
+            <!-- Status + actions -->
+            <div class="mt-auto flex items-center justify-between gap-2 border-t pt-4">
+                <button
+                    class="relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:outline-none"
+                    :class="role.is_active ? 'bg-primary' : 'bg-border'"
+                    @click="toggleStatus(role)"
+                    :disabled="role.name === 'super_admin' || role.name === 'fallback'"
+                    :style="role.name === 'super_admin' || role.name === 'fallback' ? 'opacity: 0.5; cursor: not-allowed;' : ''"
+                >
+                    <span
+                        class="inline-block h-4 w-4 transform rounded-full bg-white transition-transform"
+                        :class="role.is_active ? 'translate-x-6 rtl:-translate-x-6' : 'translate-x-1 rtl:-translate-x-1'"
+                    />
+                </button>
+
+                <div class="flex items-center gap-2">
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        class="border-yellow-500/50 text-yellow-600 shadow-none! hover:bg-yellow-500 hover:text-white"
+                        @click="emit('edit', role)"
+                        :disabled="role.name === 'super_admin' || role.name === 'fallback'"
+                    >
+                        {{ t('edit') }}
+                    </Button>
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        class="border-red-500/50 text-red-600 shadow-none! hover:bg-red-500 hover:text-white"
+                        @click="emit('delete', role)"
+                        :disabled="
+                            currentUserRoles.includes(role.name) || role.name === 'super_admin' || role.name === 'fallback'
+                        "
+                    >
+                        {{ t('delete') }}
+                    </Button>
+                </div>
+            </div>
+        </div>
+    </InfiniteScroll>
 </template>

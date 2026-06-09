@@ -1,5 +1,5 @@
 <script setup>
-import { Link, useForm, usePage } from '@inertiajs/vue3';
+import { Link, useForm, usePage, router } from '@inertiajs/vue3';
 import { useMouse, useWindowSize } from '@vueuse/core';
 import {
     Home,
@@ -17,6 +17,7 @@ import {
     UserIcon,
     FileText,
     Bell,
+    X,
 } from 'lucide-vue-next';
 import NotificationBell from '@/components/notification/NotificationBell.vue';
 import { useAdminNotifications } from '@/composables/useAdminNotifications';
@@ -36,9 +37,29 @@ const currentLocale = computed(() => page.props.locale);
 
 const isMouseOver = ref(false);
 
+// Explicit open state for touch devices (tap the edge handle / hamburger).
+// Desktop keeps the hover-on-edge behavior below.
+const isOpen = ref(false);
+
+const closeSidebar = () => {
+    isOpen.value = false;
+    isMouseOver.value = false;
+};
+
 const isSidebarOpen = computed(() => {
+    if (isOpen.value) return true;
+    // Edge-hover opening is desktop-only. On touch/small screens there is no
+    // real cursor (useMouse stays at 0,0) so the drawer is driven by isOpen.
+    if (width.value < 1024) return false;
     if (isMouseOver.value) return true;
     return currentLocale.value.code == 'en' ? x.value < 30 : x.value > width.value - 30;
+});
+
+// Auto-close the drawer after any navigation so mobile users land on the page.
+onMounted(() => {
+    router.on('navigate', () => {
+        isOpen.value = false;
+    });
 });
 
 // Live unread count — drives the badge on the open-arrow when navbar is closed.
@@ -115,11 +136,19 @@ const isRouteActive = (name) => {
 <template>
     <div>
         <div
+            @click="closeSidebar"
             :class="[isSidebarOpen ? 'opacity-100' : 'pointer-events-none opacity-0']"
             class="fixed inset-0 z-[50] bg-black/40 backdrop-blur-sm transition-all duration-300"
         ></div>
 
-        <div class="fixed start-2 top-1/2 z-[30] -translate-y-1/2">
+        <!-- Edge handle: tap target to open the drawer (touch) + hover hint (desktop) -->
+        <button
+            type="button"
+            @click="isOpen = true"
+            :aria-label="t('open_menu')"
+            class="fixed start-1 top-1/2 z-[30] -translate-y-1/2 rounded-full bg-card/80 p-2 shadow-md ring-1 ring-border backdrop-blur transition-opacity lg:bg-transparent lg:p-0 lg:shadow-none lg:ring-0"
+            :class="isSidebarOpen ? 'pointer-events-none opacity-0' : 'opacity-100'"
+        >
             <div class="relative">
                 <ChevronRight class="size-8 text-foreground ltr:rotate-180" />
                 <span
@@ -129,7 +158,7 @@ const isRouteActive = (name) => {
                     {{ navbarUnread > 99 ? '99+' : navbarUnread }}
                 </span>
             </div>
-        </div>
+        </button>
 
         <div
             @mouseenter="isMouseOver = true"
@@ -139,7 +168,15 @@ const isRouteActive = (name) => {
         >
             <!-- Header -->
             <div class="border-b border-border p-4 py-6">
-                <div class="flex items-center justify-between">
+                <div class="flex items-center justify-between gap-2">
+                    <button
+                        type="button"
+                        @click="closeSidebar"
+                        :aria-label="t('close_menu')"
+                        class="rounded-full p-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground lg:hidden"
+                    >
+                        <X class="size-5" />
+                    </button>
                     <h2 class="flex flex-1 items-center justify-center text-lg font-semibold text-foreground">
                         <img src="/images/logo.png" class="w-[60%]" />
                     </h2>

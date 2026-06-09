@@ -1,12 +1,12 @@
 <script setup>
 import { useForm } from '@inertiajs/vue3';
 import { useI18n } from 'vue-i18n';
-import { computed } from 'vue';
-import { XIcon, Loader2, AlertCircle, ImagePlus } from 'lucide-vue-next';
+import { XIcon, Loader2, AlertCircle } from 'lucide-vue-next';
 import Input from '@/components/ui/input/Input.vue';
 import Button from '@/components/ui/button/Button.vue';
 import Checkbox from '@/components/ui/checkbox/Checkbox.vue';
 import TranslatableInput from '@/components/ui/translatable-input/TranslatableInput.vue';
+import ImageUpload from '@/components/ui/image-upload/ImageUpload.vue';
 
 const { t } = useI18n();
 
@@ -26,17 +26,6 @@ const form = useForm({
         content: {},
     },
 });
-
-const imagePreview = computed(() => {
-    if (form.image) {
-        return URL.createObjectURL(form.image);
-    }
-    return null;
-});
-
-const handleImageChange = (e) => {
-    form.image = e.target.files[0] || null;
-};
 
 const close = () => {
     emit('close');
@@ -113,28 +102,11 @@ const submit = () => {
                             </div>
 
                             <!-- Image -->
-                            <div class="space-y-2">
-                                <label class="block text-sm font-medium text-foreground">
-                                    {{ t('image') }}
-                                </label>
-                                <div class="flex items-center gap-4">
-                                    <div class="flex h-16 w-16 items-center justify-center rounded-lg bg-muted overflow-hidden">
-                                        <img
-                                            v-if="imagePreview"
-                                            :src="imagePreview"
-                                            alt=""
-                                            class="h-full w-full object-cover"
-                                        />
-                                        <ImagePlus v-else class="h-6 w-6 text-muted-foreground" />
-                                    </div>
-                                    <input
-                                        type="file"
-                                        accept="image/*"
-                                        @change="handleImageChange"
-                                        class="block w-full text-sm text-muted-foreground file:me-4 file:rounded-full file:border-0 file:bg-primary/10 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-primary hover:file:bg-primary/20"
-                                    />
-                                </div>
-                            </div>
+                            <ImageUpload
+                                v-model="form.image"
+                                :label="t('image')"
+                                :error="form.errors.image"
+                            />
 
                             <!-- Active Checkbox -->
                             <div class="flex items-center gap-2">

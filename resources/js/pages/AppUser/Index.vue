@@ -14,6 +14,8 @@ import ForceDeleteModal from '@/components/Shared/ForceDeleteModal.vue';
 import BulkRestoreModal from '@/components/Shared/BulkRestoreModal.vue';
 import BulkForceDeleteModal from '@/components/Shared/BulkForceDeleteModal.vue';
 import ExportButton from '@/components/Shared/ExportButton.vue';
+import ViewToggle from '@/components/Shared/ViewToggle.vue';
+import { useViewMode } from '@/composables/useViewMode';
 
 defineOptions({
     layout: Default,
@@ -22,6 +24,7 @@ defineOptions({
 const { t } = useI18n();
 const page = usePage();
 const pageTitle = computed(() => page.props.app_users ? t('app_users') : t('guest_users'));
+const { view } = useViewMode('app_users');
 
 const props = defineProps({
     users: Object,
@@ -158,7 +161,7 @@ const confirmBulkForceDelete = (done) => {
     <Head :title="pageTitle" />
 
     <div class="h-full min-h-[100dvh] w-full bg-background">
-        <div class="mx-auto flex w-full max-w-[1300px] flex-col gap-5 px-4 py-20 text-start">
+        <div class="mx-auto flex w-full max-w-[1300px] flex-col gap-5 px-4 py-10 md:py-20 text-start">
             <!-- Filters Component -->
             <AppUserFilters :filters="filters" :has-soft-deletes="hasSoftDeletes" />
 
@@ -174,14 +177,16 @@ const confirmBulkForceDelete = (done) => {
                 @clear="selectedIds = []"
             />
 
-            <div v-if="hasExport" class="flex w-full items-center justify-end rounded-xl border bg-card p-4">
+            <div class="flex w-full flex-col items-stretch justify-end gap-3 rounded-xl border bg-card p-4 sm:flex-row sm:items-center">
+                <ViewToggle v-model="view" />
                 <ExportButton route-name="app_users.export" :filters="filters" :show="hasExport" />
             </div>
 
-            <!-- Table Component -->
+            <!-- Table / Grid Component -->
             <AppUserTable
                 v-model:selected-ids="selectedIds"
                 :users="users"
+                :view="view"
                 :has-soft-deletes="hasSoftDeletes"
                 @edit="openEditModal"
                 @delete="openDeleteModal"

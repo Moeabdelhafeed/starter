@@ -5,9 +5,11 @@ import { ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 
 import Button from '@/components/ui/button/Button.vue';
+import ViewToggle from '@/components/Shared/ViewToggle.vue';
 import TranslationFilters from '@/components/translation/TranslationFilters.vue';
 import TranslationTable from '@/components/translation/TranslationTable.vue';
 import TranslationEditModal from '@/components/translation/TranslationEditModal.vue';
+import { useViewMode } from '@/composables/useViewMode';
 
 defineOptions({
     layout: Default,
@@ -21,6 +23,8 @@ const props = defineProps({
     languages: Array,
     groups: Array,
 });
+
+const { view } = useViewMode('translations');
 
 const defaultLang = props.languages?.find(l => l.is_default);
 const activeLocale = ref(route().params.locale || defaultLang?.code || 'en');
@@ -50,7 +54,7 @@ const openEditModal = (translation) => {
     <Head :title="t('translations')" />
 
     <div class="h-full min-h-[100dvh] w-full bg-background">
-        <div class="mx-auto flex w-full max-w-[1300px] flex-col gap-5 px-4 py-20 text-start">
+        <div class="mx-auto flex w-full max-w-[1300px] flex-col gap-5 px-4 py-10 md:py-20 text-start">
             <!-- Filters Component -->
             <TranslationFilters
                 :filters="filters"
@@ -58,8 +62,8 @@ const openEditModal = (translation) => {
                 :groups="groups"
             />
 
-            <!-- Locale Switcher -->
-            <div class="flex flex-col gap-5 rounded-3xl border bg-card p-4">
+            <!-- Locale Switcher + View Toggle -->
+            <div class="flex flex-col gap-4 rounded-3xl border bg-card p-4 sm:flex-row sm:items-center sm:justify-between">
                 <div class="flex w-max gap-2 rounded-xl bg-muted p-2">
                     <Button
                         v-for="lang in languages"
@@ -70,10 +74,12 @@ const openEditModal = (translation) => {
                         {{ lang.native_name }}
                     </Button>
                 </div>
+
+                <ViewToggle v-model="view" />
             </div>
 
             <!-- Table Component -->
-            <TranslationTable :translations="translations" :active-locale="activeLocale" @edit="openEditModal" />
+            <TranslationTable :translations="translations" :active-locale="activeLocale" :view="view" @edit="openEditModal" />
         </div>
     </div>
 

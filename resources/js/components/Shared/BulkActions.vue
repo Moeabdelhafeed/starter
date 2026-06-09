@@ -34,7 +34,7 @@ const emit = defineEmits(['delete', 'turnOn', 'turnOff', 'clear', 'restore', 'fo
         leave-from-class="opacity-100 translate-y-0"
         leave-to-class="opacity-0 -translate-y-4"
     >
-        <div v-if="selectedCount > 0" class="flex items-center justify-between overflow-hidden rounded-xl border bg-card p-4 ">
+        <div v-if="selectedCount > 0" class="flex flex-col gap-3 rounded-xl border bg-card p-4 sm:flex-row sm:items-center sm:justify-between">
             <div class="flex items-center gap-4">
                 <div class="flex h-10 w-10 items-center justify-center rounded-2xl bg-primary/10 text-primary">
                     <span class="text-sm font-bold">{{ selectedCount }}</span>
@@ -45,7 +45,7 @@ const emit = defineEmits(['delete', 'turnOn', 'turnOff', 'clear', 'restore', 'fo
                 </div>
             </div>
 
-            <div class="flex items-center gap-3">
+            <div class="flex flex-wrap items-center gap-2 sm:gap-3">
                 <Button
                     v-if="actions.statusOn"
                     variant="outline"

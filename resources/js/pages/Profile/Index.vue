@@ -1,11 +1,11 @@
 <script setup>
 import Default from '@/layouts/default.vue';
 import { Head, useForm } from '@inertiajs/vue3';
-import { ref } from 'vue';
 import { useI18n } from 'vue-i18n';
-import { Loader2, AlertCircle, UserIcon } from 'lucide-vue-next';
+import { Loader2, AlertCircle } from 'lucide-vue-next';
 import Input from '@/components/ui/input/Input.vue';
 import Button from '@/components/ui/button/Button.vue';
+import ImageUpload from '@/components/ui/image-upload/ImageUpload.vue';
 
 defineOptions({
     layout: Default,
@@ -20,18 +20,9 @@ const props = defineProps({
 const form = useForm({
     name: props.user.name,
     image: null,
+    remove_image: false,
     _method: 'PUT',
 });
-
-const imagePreview = ref(props.user.image?.image_api || null);
-
-const handleImageChange = (e) => {
-    const file = e.target.files[0] || null;
-    form.image = file;
-    if (file) {
-        imagePreview.value = URL.createObjectURL(file);
-    }
-};
 
 const submit = () => {
     form.post(route('profile.update'), {
@@ -48,7 +39,7 @@ const submit = () => {
     <Head :title="t('profile')" />
 
     <div class="h-full min-h-[100dvh] w-full bg-background">
-        <div class="mx-auto flex w-full max-w-[1300px] flex-col gap-5 px-4 py-20 text-start">
+        <div class="mx-auto flex w-full max-w-[1300px] flex-col gap-5 px-4 py-10 md:py-20 text-start">
             <!-- Header -->
             <div class="flex w-full items-center justify-between rounded-xl border bg-card p-4">
                 <h2 class="text-lg font-semibold text-foreground">{{ t('profile') }}</h2>
@@ -70,34 +61,17 @@ const submit = () => {
                 </div>
 
                 <form @submit.prevent="submit" class="space-y-6">
-                    <div class="grid grid-cols-1 gap-6 md:grid-cols-[auto_1fr]">
+                    <div class="grid grid-cols-1 gap-6 md:grid-cols-[16rem_1fr]">
                         <!-- Avatar Section -->
-                        <div class="flex flex-col items-center gap-3">
-                            <div class="relative h-24 w-24 overflow-hidden rounded-full bg-muted">
-                                <img
-                                    v-if="imagePreview"
-                                    :src="imagePreview"
-                                    alt="Profile image"
-                                    class="h-full w-full object-cover"
-                                />
-                                <div v-else class="flex h-full w-full items-center justify-center">
-                                    <UserIcon class="h-12 w-12 text-muted-foreground" />
-                                </div>
-                            </div>
-                            <label
-                                class="cursor-pointer rounded-full bg-primary/10 px-4 py-2 text-sm font-semibold text-primary transition-colors hover:bg-primary/20"
-                            >
-                                {{ t('change_image') }}
-                                <input
-                                    type="file"
-                                    accept="image/*"
-                                    class="hidden"
-                                    @change="handleImageChange"
-                                />
-                            </label>
-                            <div v-if="form.errors.image" class="text-sm text-red-600">
-                                {{ form.errors.image }}
-                            </div>
+                        <div class="space-y-2">
+                            <label class="block text-sm font-medium text-foreground">{{ t('image') }}</label>
+                            <ImageUpload
+                                v-model="form.image"
+                                v-model:removed="form.remove_image"
+                                :preview-url="user.image?.image_api || null"
+                                :error="form.errors.image"
+                                shape="circle"
+                            />
                         </div>
 
                         <!-- Fields Section -->

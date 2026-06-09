@@ -7,6 +7,7 @@ import { Loader2, Hammer, Sun, Moon, Flame, CheckCircle, XCircle, Send, ImageIco
 import Checkbox from '@/components/ui/checkbox/Checkbox.vue';
 import Input from '@/components/ui/input/Input.vue';
 import Button from '@/components/ui/button/Button.vue';
+import ImageUpload from '@/components/ui/image-upload/ImageUpload.vue';
 
 defineOptions({
     layout: Default,
@@ -1063,9 +1064,6 @@ const logoForm = useForm({ logo: null });
 const faviconForm = useForm({ favicon: null });
 const logoCopied = ref(false);
 
-const handleLogoFile = (e) => {
-    logoForm.logo = e.target.files[0] || null;
-};
 const uploadLogo = () => {
     logoForm.post(route('dev_settings.logo'), {
         preserveScroll: true,
@@ -1074,9 +1072,6 @@ const uploadLogo = () => {
     });
 };
 
-const handleFaviconFile = (e) => {
-    faviconForm.favicon = e.target.files[0] || null;
-};
 const uploadFavicon = () => {
     faviconForm.post(route('dev_settings.favicon'), {
         preserveScroll: true,
@@ -1108,7 +1103,7 @@ const sendTestFcm = () => {
     <Head :title="t('developer_settings')" />
 
     <div class="h-full min-h-[100dvh] w-full bg-background">
-        <div class="mx-auto flex w-full max-w-[1300px] gap-6 px-4 py-20 text-start">
+        <div class="mx-auto flex w-full max-w-[1300px] gap-6 px-4 py-10 md:py-20 text-start">
             <!-- Sidebar -->
             <aside class="sticky top-20 h-fit w-64 shrink-0 rounded-2xl border bg-card p-3 hidden lg:block">
                 <div class="flex items-center gap-3 px-3 py-2 mb-2">
@@ -2055,10 +2050,9 @@ const sendTestFcm = () => {
                                     {{ logoCopied ? t('copied') : t('copy_logo_path') }}
                                 </button>
                             </div>
-                            <form @submit.prevent="uploadLogo" class="flex items-center gap-3">
-                                <input type="file" accept="image/*" @change="handleLogoFile"
-                                    class="block w-full text-sm text-muted-foreground file:me-4 file:rounded-full file:border-0 file:bg-primary/10 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-primary hover:file:bg-primary/20" />
-                                <Button type="submit" :disabled="logoForm.processing || !logoForm.logo">
+                            <form @submit.prevent="uploadLogo" class="space-y-3">
+                                <ImageUpload v-model="logoForm.logo" :removable="false" :error="logoForm.errors.logo" />
+                                <Button type="submit" :disabled="logoForm.processing || !logoForm.logo" class="w-full sm:w-auto">
                                     <Loader2 v-if="logoForm.processing" class="me-2 h-4 w-4 animate-spin" />
                                     {{ logoForm.processing ? t('uploading') : t('upload_logo') }}
                                 </Button>
@@ -2075,10 +2069,9 @@ const sendTestFcm = () => {
                                         class="max-h-full max-w-full object-contain" />
                                 </div>
                             </div>
-                            <form @submit.prevent="uploadFavicon" class="flex items-center gap-3">
-                                <input type="file" accept="image/*" @change="handleFaviconFile"
-                                    class="block w-full text-sm text-muted-foreground file:me-4 file:rounded-full file:border-0 file:bg-primary/10 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-primary hover:file:bg-primary/20" />
-                                <Button type="submit" :disabled="faviconForm.processing || !faviconForm.favicon">
+                            <form @submit.prevent="uploadFavicon" class="space-y-3">
+                                <ImageUpload v-model="faviconForm.favicon" :removable="false" accept="image/*,.ico" :error="faviconForm.errors.favicon" />
+                                <Button type="submit" :disabled="faviconForm.processing || !faviconForm.favicon" class="w-full sm:w-auto">
                                     <Loader2 v-if="faviconForm.processing" class="me-2 h-4 w-4 animate-spin" />
                                     {{ faviconForm.processing ? t('uploading') : t('upload_favicon') }}
                                 </Button>

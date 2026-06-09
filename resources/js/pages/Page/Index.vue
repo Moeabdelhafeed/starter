@@ -12,12 +12,15 @@ import PageCreateModal from '@/components/page/PageCreateModal.vue';
 import DeleteModal from '@/components/Shared/DeleteModal.vue';
 import BulkActions from '@/components/Shared/BulkActions.vue';
 import BulkDeleteModal from '@/components/Shared/BulkDeleteModal.vue';
+import ViewToggle from '@/components/Shared/ViewToggle.vue';
+import { useViewMode } from '@/composables/useViewMode';
 
 defineOptions({
     layout: Default,
 });
 
 const { t } = useI18n();
+const { view } = useViewMode('pages');
 
 const props = defineProps({
     pages: Object,
@@ -88,7 +91,7 @@ const handleBulkTurnOff = () => {
     <Head :title="t('pages')" />
 
     <div class="h-full min-h-[100dvh] w-full bg-background">
-        <div class="mx-auto flex w-full max-w-[1300px] flex-col gap-5 px-4 py-20 text-start">
+        <div class="mx-auto flex w-full max-w-[1300px] flex-col gap-5 px-4 py-10 md:py-20 text-start">
             <!-- Filters Component -->
             <PageFilters :filters="filters" />
 
@@ -102,15 +105,16 @@ const handleBulkTurnOff = () => {
             />
 
             <!-- Create Page Button -->
-            <div class="flex w-full items-center justify-between rounded-xl border bg-card p-4">
+            <div class="flex w-full flex-col items-stretch justify-between gap-3 rounded-xl border bg-card p-4 sm:flex-row sm:items-center">
                 <Button @click="openCreateModal">
                     <Plus class="me-2" />
                     {{ t('create_page') }}
                 </Button>
+                <ViewToggle v-model="view" />
             </div>
 
-            <!-- Table Component -->
-            <PageTable v-model:selected-ids="selectedIds" :pages="pages" @delete="openDeleteModal" />
+            <!-- Table / Grid Component -->
+            <PageTable v-model:selected-ids="selectedIds" :pages="pages" :view="view" @delete="openDeleteModal" />
         </div>
     </div>
 

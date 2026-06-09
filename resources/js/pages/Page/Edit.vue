@@ -2,15 +2,15 @@
 import Default from '@/layouts/default.vue';
 import { Head, useForm, Link } from '@inertiajs/vue3';
 import { useI18n } from 'vue-i18n';
-import { ArrowLeft, Loader2, Save, ImagePlus } from 'lucide-vue-next';
+import { ArrowLeft, Loader2, Save } from 'lucide-vue-next';
 import { useTranslations } from '@/composables/useTranslations';
-import { computed } from 'vue';
 
 import Button from '@/components/ui/button/Button.vue';
 import Input from '@/components/ui/input/Input.vue';
 import Checkbox from '@/components/ui/checkbox/Checkbox.vue';
 import TranslatableInput from '@/components/ui/translatable-input/TranslatableInput.vue';
 import TranslatableMarkdown from '@/components/ui/translatable-input/TranslatableMarkdown.vue';
+import ImageUpload from '@/components/ui/image-upload/ImageUpload.vue';
 
 defineOptions({
     layout: Default,
@@ -31,19 +31,9 @@ const form = useForm({
     slug: props.page.slug || '',
     is_active: props.page.is_active,
     image: null,
+    remove_image: false,
     translations: translations,
 });
-
-const imagePreview = computed(() => {
-    if (form.image) {
-        return URL.createObjectURL(form.image);
-    }
-    return props.page.image?.image_api || null;
-});
-
-const handleImageChange = (e) => {
-    form.image = e.target.files[0] || null;
-};
 
 const submit = () => {
     form.post(route('pages.update', props.page.id), {
@@ -58,7 +48,7 @@ const submit = () => {
     <Head :title="t('edit_page') + ' - ' + page.name_api" />
 
     <div class="h-full min-h-[100dvh] w-full bg-background">
-        <div class="mx-auto flex w-full max-w-[1300px] flex-col gap-5 px-4 py-20 text-start">
+        <div class="mx-auto flex w-full max-w-[1300px] flex-col gap-5 px-4 py-10 md:py-20 text-start">
             <!-- Header -->
             <div class="flex flex-col gap-5 rounded-3xl border bg-card p-6">
                 <div class="flex items-center justify-between">
@@ -99,28 +89,13 @@ const submit = () => {
                     </div>
 
                     <!-- Image -->
-                    <div class="space-y-2">
-                        <label class="block text-sm font-medium text-foreground">
-                            {{ t('image') }}
-                        </label>
-                        <div class="flex items-center gap-4">
-                            <div class="flex h-16 w-16 items-center justify-center rounded-lg bg-muted overflow-hidden">
-                                <img
-                                    v-if="imagePreview"
-                                    :src="imagePreview"
-                                    :alt="page.name_api"
-                                    class="h-full w-full object-cover"
-                                />
-                                <ImagePlus v-else class="h-6 w-6 text-muted-foreground" />
-                            </div>
-                            <input
-                                type="file"
-                                accept="image/*"
-                                @change="handleImageChange"
-                                class="block w-full text-sm text-muted-foreground file:me-4 file:rounded-full file:border-0 file:bg-primary/10 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-primary hover:file:bg-primary/20"
-                            />
-                        </div>
-                    </div>
+                    <ImageUpload
+                        v-model="form.image"
+                        v-model:removed="form.remove_image"
+                        :preview-url="page.image?.image_api || null"
+                        :label="t('image')"
+                        :error="form.errors.image"
+                    />
 
                     <!-- Active Checkbox -->
                     <div class="flex items-center gap-2">
