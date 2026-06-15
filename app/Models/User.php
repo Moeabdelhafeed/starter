@@ -21,29 +21,9 @@ use Spatie\Permission\Traits\HasRoles;
 class User extends Authenticatable
 {
     /** @use HasFactory<UserFactory> */
-    use Exportable, HasApiTokens, HasFactory, HasImage, HasRoles, LogsActivity, Notifiable, NotifiesAdmin, SoftDeletes;
+    use Exportable, HasApiTokens, HasFactory, HasImage, HasRoles, LogsActivity, Notifiable, SoftDeletes;
 
-    /**
-     * Events that trigger admin notifications.
-     * Only 'created' for new app user registrations.
-     */
-    protected static array $notifyEvents = ['created'];
 
-    /**
-     * Notification type for this model.
-     */
-    protected static string $notifyType = 'app_users';
-
-    /**
-     * Determine if a notification should be created for this event.
-     * Only notify for app users (created via API, not admin panel).
-     */
-    protected function shouldNotify(string $event): bool
-    {
-        // Only notify if no admin user is logged in (API registration)
-        // This means the user is being created via the mobile app, not the admin panel
-        return ! auth()->guard('web')->check();
-    }
 
     /**
      * The attributes that are mass assignable.

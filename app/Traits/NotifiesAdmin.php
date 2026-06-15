@@ -130,7 +130,13 @@ trait NotifiesAdmin
             ]),
         ]);
 
-        // Push live to any subscribed admin via Pusher.
-        broadcast(new AdminNotificationCreated($notification));
+        // Push live to any subscribed admin via Pusher. A broadcasting failure
+        // (misconfigured/unreachable Pusher, e.g. during seeding) must never abort
+        // the originating write — the notification row is already persisted.
+        try {
+            broadcast(new AdminNotificationCreated($notification));
+        } catch (\Throwable $e) {
+            report($e);
+        }
     }
 }
