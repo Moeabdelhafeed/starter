@@ -35,6 +35,8 @@ class DevSettingController extends Controller
         'APP_GUESTS',
         'HAS_TRANSLATIONS',
         'HAS_NOTIFICATION_TEMPLATES',
+        'HAS_PAGES',
+        'HAS_ACTIVITY_LOGS',
         'IS_TESTING',
         'APP_DEBUG',
         'IS_OTP_WHATSAPP',
@@ -311,19 +313,6 @@ class DevSettingController extends Controller
 
         $key = $validated['key'];
         $value = filter_var($validated['value'], FILTER_VALIDATE_BOOLEAN) ? 'true' : 'false';
-
-        // Guard: at least one of APP_USERS / APP_GUESTS must stay on.
-        // Disabling both at once bricks the api (no user resolution possible).
-        if ($value === 'false' && in_array($key, ['APP_USERS', 'APP_GUESTS'], true)) {
-            $other = $key === 'APP_USERS' ? 'APP_GUESTS' : 'APP_USERS';
-            $otherOn = filter_var(env($other), FILTER_VALIDATE_BOOLEAN);
-            if (! $otherOn) {
-                return redirect()->back()->with(
-                    'error',
-                    'At least one of APP_USERS or APP_GUESTS must remain enabled.',
-                );
-            }
-        }
 
         $this->setEnvValue($key, $value);
 

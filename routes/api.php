@@ -98,6 +98,8 @@ if (filter_var(env('HAS_TRANSLATIONS', true), FILTER_VALIDATE_BOOLEAN)) {
 Route::middleware('throttle:api')->group(function () {
 
     // Page routes
-    Route::get('/pages', [ApiPageController::class, 'index']);
-    Route::get('/pages/{slug}', [ApiPageController::class, 'show']);
+    if (filter_var(env('HAS_PAGES', true), FILTER_VALIDATE_BOOLEAN)) {
+        Route::get('/pages', [ApiPageController::class, 'index']);
+        Route::get('/pages/{slug}', [ApiPageController::class, 'show']);
+    }
 });

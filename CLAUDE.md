@@ -1176,6 +1176,8 @@ Key `.env` flags that affect behavior:
 - `APP_USERS` — enables mobile app user module and API auth routes.
 - `HAS_TRANSLATIONS` — enables app translations feature (admin panel routes, navbar links, and API endpoints for translations/languages).
 - `HAS_NOTIFICATION_TEMPLATES` — enables the notification templates feature (admin panel routes + navbar link). Default `true`. Gated in `routes/web.php`, exposed as Inertia shared prop `has_notification_templates`, toggleable via DevSettings.
+- `HAS_PAGES` — enables the pages feature (admin CRUD, public `/p/{slug}` route, and API page endpoints). Default `true`. Gated in `routes/web.php` + `routes/api.php`, exposed as `has_pages`, toggleable via DevSettings.
+- `HAS_ACTIVITY_LOGS` — enables the activity logs admin feature (routes + navbar link). Default `true`. Models still record logs via `LogsActivity`; only the admin viewer is gated. Exposed as `has_activity_logs`, toggleable via DevSettings.
 - `AUTH_IDENTIFIERS` — comma-separated login identifiers (e.g. `email`, `email,phone`).
 - `HAS_EMAIL_FIELD` / `HAS_PHONE_FIELD` / `HAS_USERNAME_FIELD` — toggle extra profile fields (only for non-identifier fields).
 - `IS_TESTING` — testing mode flag (exposes OTP in API responses).

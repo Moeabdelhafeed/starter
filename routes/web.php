@@ -21,7 +21,9 @@ use Illuminate\Support\Facades\Route;
 Route::post('/set-locale', [LocaleController::class, 'setLocale'])->name('locale.post');
 
 // public pages — render an active Page record by slug (terms, privacy, etc.).
-Route::get('/p/{slug}', [App\Http\Controllers\Page\PageController::class, 'show'])->name('public_page.show');
+if (filter_var(env('HAS_PAGES', true), FILTER_VALIDATE_BOOLEAN)) {
+    Route::get('/p/{slug}', [App\Http\Controllers\Page\PageController::class, 'show'])->name('public_page.show');
+}
 
 // guest
 Route::middleware('guest')->group(function () {
@@ -89,12 +91,14 @@ Route::middleware('auth')->group(function () {
     });
 
     // activity logs
-    Route::prefix('activity-logs')->middleware('permission:activity_logs')->group(function () {
-        Route::get('/', [ActivityLogController::class, 'index'])->name('activity_logs');
-        Route::get('/export', [ActivityLogController::class, 'export'])->name('activity_logs.export');
-        Route::delete('/bulk-destroy', [ActivityLogController::class, 'bulkDestroy'])->name('activity_logs.bulk-destroy');
-        Route::delete('/{id}', [ActivityLogController::class, 'destroy'])->name('activity_logs.destroy');
-    });
+    if (filter_var(env('HAS_ACTIVITY_LOGS', true), FILTER_VALIDATE_BOOLEAN)) {
+        Route::prefix('activity-logs')->middleware('permission:activity_logs')->group(function () {
+            Route::get('/', [ActivityLogController::class, 'index'])->name('activity_logs');
+            Route::get('/export', [ActivityLogController::class, 'export'])->name('activity_logs.export');
+            Route::delete('/bulk-destroy', [ActivityLogController::class, 'bulkDestroy'])->name('activity_logs.bulk-destroy');
+            Route::delete('/{id}', [ActivityLogController::class, 'destroy'])->name('activity_logs.destroy');
+        });
+    }
 
     // notifications (sidebar only - available to all authenticated users)
     Route::prefix('notifications')->group(function () {
@@ -116,15 +120,17 @@ Route::middleware('auth')->group(function () {
     }
 
     // pages
-    Route::prefix('pages')->middleware('permission:pages')->group(function () {
-        Route::get('/', [PageController::class, 'index'])->name('pages');
-        Route::post('/', [PageController::class, 'store'])->name('pages.store');
-        Route::put('/bulk-update', [PageController::class, 'bulkUpdate'])->name('pages.bulk-update');
-        Route::delete('/bulk-destroy', [PageController::class, 'bulkDestroy'])->name('pages.bulk-destroy');
-        Route::get('/{page}/edit', [PageController::class, 'edit'])->name('pages.edit');
-        Route::put('/{page}', [PageController::class, 'update'])->name('pages.update');
-        Route::delete('/{page}', [PageController::class, 'destroy'])->name('pages.destroy');
-    });
+    if (filter_var(env('HAS_PAGES', true), FILTER_VALIDATE_BOOLEAN)) {
+        Route::prefix('pages')->middleware('permission:pages')->group(function () {
+            Route::get('/', [PageController::class, 'index'])->name('pages');
+            Route::post('/', [PageController::class, 'store'])->name('pages.store');
+            Route::put('/bulk-update', [PageController::class, 'bulkUpdate'])->name('pages.bulk-update');
+            Route::delete('/bulk-destroy', [PageController::class, 'bulkDestroy'])->name('pages.bulk-destroy');
+            Route::get('/{page}/edit', [PageController::class, 'edit'])->name('pages.edit');
+            Route::put('/{page}', [PageController::class, 'update'])->name('pages.update');
+            Route::delete('/{page}', [PageController::class, 'destroy'])->name('pages.destroy');
+        });
+    }
 
     // app users (and/or guests)
     if (env('APP_USERS') === true || env('APP_GUESTS') === true) {

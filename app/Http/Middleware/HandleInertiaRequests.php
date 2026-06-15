@@ -56,6 +56,8 @@ class HandleInertiaRequests extends Middleware
             'app_guests' => filter_var(env('APP_GUESTS', false), FILTER_VALIDATE_BOOLEAN),
             'has_translations' => filter_var(env('HAS_TRANSLATIONS', true), FILTER_VALIDATE_BOOLEAN),
             'has_notification_templates' => filter_var(env('HAS_NOTIFICATION_TEMPLATES', true), FILTER_VALIDATE_BOOLEAN),
+            'has_pages' => filter_var(env('HAS_PAGES', true), FILTER_VALIDATE_BOOLEAN),
+            'has_activity_logs' => filter_var(env('HAS_ACTIVITY_LOGS', true), FILTER_VALIDATE_BOOLEAN),
             'is_local' => app()->environment('local'),
             'is_testing' => filter_var(env('IS_TESTING', false), FILTER_VALIDATE_BOOLEAN),
             'multi_session' => (bool) config('auth.multi_session_enabled'),

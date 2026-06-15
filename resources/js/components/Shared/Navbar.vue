@@ -259,7 +259,7 @@ const isRouteActive = (name) => {
                 </div>
 
                 <!-- Website Settings Accordion -->
-                <div v-if="(page.props.has_translations && page.props.auth.permissions.find((p) => p === 'translations')) || page.props.auth.permissions.find((p) => p === 'activity_logs') || page.props.auth.permissions.find((p) => p === 'pages')" class="space-y-1">
+                <div v-if="(page.props.has_translations && page.props.auth.permissions.find((p) => p === 'translations')) || (page.props.has_activity_logs && page.props.auth.permissions.find((p) => p === 'activity_logs')) || (page.props.has_pages && page.props.auth.permissions.find((p) => p === 'pages')) || (page.props.has_notification_templates && page.props.auth.permissions.find((p) => p === 'notification_templates'))" class="space-y-1">
                     <button
                         @click="toggleAccordion('websiteSettings')"
                         class="flex w-full items-center justify-between rounded-lg p-3 transition-colors hover:bg-primary/10"
@@ -304,7 +304,7 @@ const isRouteActive = (name) => {
                                 </Button>
                             </Link>
                         </div>
-                        <div v-if="page.props.auth.permissions.find((p) => p === 'activity_logs')" class="space-y-2">
+                        <div v-if="page.props.has_activity_logs && page.props.auth.permissions.find((p) => p === 'activity_logs')" class="space-y-2">
                             <Link :href="route('activity_logs')" class="w-full">
                                 <Button
                                     variant="ghost"
@@ -316,7 +316,7 @@ const isRouteActive = (name) => {
                                 </Button>
                             </Link>
                         </div>
-                        <div v-if="page.props.auth.permissions.find((p) => p === 'pages')" class="space-y-2">
+                        <div v-if="page.props.has_pages && page.props.auth.permissions.find((p) => p === 'pages')" class="space-y-2">
                             <Link :href="route('pages')" class="w-full">
                                 <Button
                                     variant="ghost"

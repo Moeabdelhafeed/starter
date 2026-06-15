@@ -198,6 +198,8 @@ const envLabel = (key) => {
         'APP_GUESTS': 'App Guests Module',
         'HAS_TRANSLATIONS': 'App Translations',
         'HAS_NOTIFICATION_TEMPLATES': 'Notification Templates',
+        'HAS_PAGES': 'Pages',
+        'HAS_ACTIVITY_LOGS': 'Activity Logs',
         'IS_TESTING': 'Testing Mode',
         'APP_DEBUG': 'Debug Mode',
         'IS_OTP_WHATSAPP': 'OTP via WhatsApp',
@@ -211,6 +213,8 @@ const envDescription = (key) => {
         'APP_GUESTS': 'Enable/disable lazy guest user creation in IdentifyDevice middleware. When off, X-Device-Id + X-Platform headers are still required but no guest row is created.',
         'HAS_TRANSLATIONS': 'Enable/disable app translations feature (admin routes, navbar links, API endpoints for translations/languages)',
         'HAS_NOTIFICATION_TEMPLATES': 'Enable/disable the notification templates feature (admin routes and navbar link). Some apps do not need it.',
+        'HAS_PAGES': 'Enable/disable the pages feature (admin CRUD, public /p/{slug} page, and API page endpoints).',
+        'HAS_ACTIVITY_LOGS': 'Enable/disable the activity logs admin feature (routes + navbar link). Models still record logs; only the admin viewer is hidden.',
         'IS_TESTING': 'Enable/disable testing mode for the application',
         'APP_DEBUG': 'Enable/disable detailed error pages and debug info',
         'IS_OTP_WHATSAPP': 'If true, OTPs sent via WhatsApp. If false, sent via SMS. Only applies when identifier is phone.',
@@ -2670,13 +2674,7 @@ const sendTestFcm = () => {
                                 <button
                                     class="relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
                                     :class="envValues[key] ? 'bg-primary' : 'bg-muted'"
-                                    :disabled="envToggling[key]
-                                        || (key === 'APP_USERS' && envValues.APP_USERS && !envValues.APP_GUESTS)
-                                        || (key === 'APP_GUESTS' && envValues.APP_GUESTS && !envValues.APP_USERS)"
-                                    :title="((key === 'APP_USERS' && envValues.APP_USERS && !envValues.APP_GUESTS)
-                                        || (key === 'APP_GUESTS' && envValues.APP_GUESTS && !envValues.APP_USERS))
-                                        ? 'At least one of APP_USERS or APP_GUESTS must stay on'
-                                        : ''"
+                                    :disabled="envToggling[key]"
                                     @click="toggleEnv(key, envValues[key])">
                                     <span
                                         class="inline-block h-4 w-4 transform rounded-full bg-white transition-transform"
