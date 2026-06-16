@@ -51,7 +51,7 @@ const statCards = computed(() => [
         bgColor: 'bg-emerald-500/10',
         route: 'app_users',
         permission: 'app_users',
-        showIf: page.props.app_users,
+        showIf: page.props.app_users || page.props.app_guests,
     },
     {
         key: 'roles',
@@ -72,6 +72,7 @@ const statCards = computed(() => [
         bgColor: 'bg-amber-500/10',
         route: 'languages',
         permission: 'languages',
+        showIf: page.props.has_translations,
     },
     {
         key: 'pages',
@@ -82,6 +83,7 @@ const statCards = computed(() => [
         bgColor: 'bg-rose-500/10',
         route: 'pages',
         permission: 'pages',
+        showIf: page.props.has_pages,
     },
     {
         key: 'translations',
@@ -92,6 +94,7 @@ const statCards = computed(() => [
         bgColor: 'bg-cyan-500/10',
         route: 'translations',
         permission: 'translations',
+        showIf: page.props.has_translations,
     },
 ]);
 
@@ -180,7 +183,7 @@ const getSubjectName = (subjectType) => {
                             <h2 class="text-lg font-semibold text-foreground">{{ t('recent_activity') }}</h2>
                         </div>
                         <Link
-                            v-if="page.props.auth.permissions?.includes('activity_logs')"
+                            v-if="page.props.has_activity_logs && page.props.auth.permissions?.includes('activity_logs')"
                             :href="route('activity_logs')"
                             class="text-sm text-primary hover:underline"
                         >
@@ -247,7 +250,7 @@ const getSubjectName = (subjectType) => {
                         </Link>
 
                         <Link
-                            v-if="page.props.auth.permissions?.includes('translations')"
+                            v-if="page.props.has_translations && page.props.auth.permissions?.includes('translations')"
                             :href="route('translations')"
                             class="flex w-full items-center gap-3 rounded-xl border border-border bg-background p-4 transition-colors hover:border-primary/50 hover:bg-muted/50"
                         >
