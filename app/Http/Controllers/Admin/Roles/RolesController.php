@@ -41,7 +41,7 @@ class RolesController extends Controller
 
         return Inertia::render('Roles/Index', [
             'roles' => Inertia::scroll($roles),
-            'permissions' => Permission::all(),
+            'permissions' => Permission::whereNotIn('name', $this->disabledFeaturePermissions())->get(),
             'filters' => [
                 'search' => $search,
                 'is_active' => $isActive,
@@ -89,7 +89,12 @@ class RolesController extends Controller
         ]);
 
         if (isset($validated['permissions'])) {
-            $role->syncPermissions($validated['permissions']);
+            // Preserve permissions for disabled features (hidden from the form) so
+            // toggling a feature off doesn't silently strip them on the next edit.
+            $preserved = $role->permissions->pluck('name')
+                ->intersect($this->disabledFeaturePermissions())
+                ->all();
+            $role->syncPermissions(array_values(array_unique(array_merge($validated['permissions'], $preserved))));
         }
 
         if (isset($validated['is_active'])) {
@@ -175,5 +180,26 @@ class RolesController extends Controller
         }
 
         return redirect()->back()->with('success', __('admin.deleted_successfully'));
+    }
+
+    /**
+     * Permission names whose feature is currently disabled via env toggles.
+     * These are hidden from the role form so admins can't grant access to a
+     * feature that has no routes/UI.
+     *
+     * @return array<int, string>
+     */
+    private function disabledFeaturePermissions(): array
+    {
+        $features = [
+            'translations' => filter_var(env('HAS_TRANSLATIONS', true), FILTER_VALIDATE_BOOLEAN),
+            'pages' => filter_var(env('HAS_PAGES', true), FILTER_VALIDATE_BOOLEAN),
+            'activity_logs' => filter_var(env('HAS_ACTIVITY_LOGS', true), FILTER_VALIDATE_BOOLEAN),
+            'notification_templates' => filter_var(env('HAS_NOTIFICATION_TEMPLATES', true), FILTER_VALIDATE_BOOLEAN),
+            'app_users' => filter_var(env('APP_USERS'), FILTER_VALIDATE_BOOLEAN)
+                || filter_var(env('APP_GUESTS', false), FILTER_VALIDATE_BOOLEAN),
+        ];
+
+        return array_keys(array_filter($features, fn ($enabled) => ! $enabled));
     }
 }
