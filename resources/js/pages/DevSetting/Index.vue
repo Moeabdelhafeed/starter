@@ -1524,7 +1524,16 @@ const sendTestFcm = () => {
                             </div>
                             <div class="space-y-2 sm:col-span-2">
                                 <label class="block text-sm font-medium text-foreground">{{ t('domain') }}</label>
-                                <Input v-model="sshForm.domain" type="text" placeholder="example.hostingersite.com" />
+                                <div class="flex items-stretch overflow-hidden rounded-md border border-input bg-transparent transition-[color,box-shadow] focus-within:border-ring focus-within:ring-[3px] focus-within:ring-ring/50">
+                                    <span class="flex select-none items-center border-e border-input bg-muted px-3 text-sm text-muted-foreground">https://</span>
+                                    <Input
+                                        v-model="sshForm.domain"
+                                        type="text"
+                                        placeholder="example.hostingersite.com"
+                                        class="h-9 flex-1 rounded-none border-0 shadow-none focus-visible:ring-0"
+                                    />
+                                </div>
+                                <p class="text-xs text-muted-foreground">{{ t('domain_https_hint') }}</p>
                             </div>
                         </div>
 

@@ -3,6 +3,7 @@
 namespace App\Traits;
 
 use App\Events\AdminNotificationCreated;
+use App\Helpers\Broadcaster;
 use App\Models\AdminNotification;
 
 trait NotifiesAdmin
@@ -130,13 +131,9 @@ trait NotifiesAdmin
             ]),
         ]);
 
-        // Push live to any subscribed admin via Pusher. A broadcasting failure
-        // (misconfigured/unreachable Pusher, e.g. during seeding) must never abort
-        // the originating write — the notification row is already persisted.
-        try {
-            broadcast(new AdminNotificationCreated($notification));
-        } catch (\Throwable $e) {
-            report($e);
-        }
+        // Push live to subscribed admins. Skips silently when broadcasting isn't
+        // configured (no Pusher) and never aborts the write on failure — the
+        // notification row is already persisted.
+        Broadcaster::safe(new AdminNotificationCreated($notification));
     }
 }

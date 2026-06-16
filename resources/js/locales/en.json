@@ -356,6 +356,7 @@
     "ssh_username": "SSH Username",
     "ssh_password": "SSH Password",
     "domain": "Domain",
+    "domain_https_hint": "https:// is added automatically — enter just the domain (e.g. example.com).",
     "save_ssh_config": "Save SSH Config",
     "ssh_configured": "SSH configured",
     "ssh_not_configured": "SSH not configured",

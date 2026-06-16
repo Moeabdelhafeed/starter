@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\AppUser;
 
 use App\Events\DeviceRevoked;
 use App\Helpers\ApiResponse;
+use App\Helpers\Broadcaster;
 use App\Helpers\EmailHelper;
 use App\Helpers\SendSMS;
 use App\Helpers\SendWhatsapp;
@@ -564,7 +565,7 @@ class AppUserController extends Controller
 
         $request->user()->tokens()->where('id', $tokenId)->delete();
 
-        broadcast(new DeviceRevoked($request->user()->id, (int) $tokenId));
+        Broadcaster::safe(new DeviceRevoked($request->user()->id, (int) $tokenId));
 
         return ApiResponse::success(null, Trans::get('api.device_revoked'));
     }
@@ -1146,7 +1147,7 @@ class AppUserController extends Controller
         if (! config('auth.multi_session_enabled')) {
             $siblings = $user->tokens()->where('id', '!=', $accessToken->id)->get();
             foreach ($siblings as $sibling) {
-                broadcast(new DeviceRevoked($user->id, (int) $sibling->id));
+                Broadcaster::safe(new DeviceRevoked($user->id, (int) $sibling->id));
                 $sibling->delete(); // FK cascade drops user_devices row
             }
         }

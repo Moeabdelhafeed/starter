@@ -1547,7 +1547,14 @@ HTEOF;
 
         $content = file_get_contents($prodPath);
         if (preg_match('/^'.preg_quote($key, '/').'\s*=\s*(.*)$/m', $content, $match)) {
-            return trim($match[1]);
+            $raw = trim($match[1]);
+
+            // Unwrap a quoted value ("..."), reversing escapeEnvValue().
+            if (strlen($raw) >= 2 && str_starts_with($raw, '"') && str_ends_with($raw, '"')) {
+                $raw = str_replace('\\"', '"', substr($raw, 1, -1));
+            }
+
+            return $raw;
         }
 
         return '';
@@ -1645,15 +1652,16 @@ HTEOF;
         }
 
         foreach ($overrides as $key => $value) {
-            $value = $value ?? '';
+            $line = $key.'='.$this->escapeEnvValue($value ?? '');
             if (preg_match('/^'.preg_quote($key, '/').'\s*=\s*.+$/m', $prodEnv)) {
-                $prodEnv = preg_replace(
+                // Callback replacement so $ and \ in the value aren't treated as backrefs.
+                $prodEnv = preg_replace_callback(
                     '/^'.preg_quote($key, '/').'\s*=\s*.+$/m',
-                    $key.'='.$value,
+                    fn () => $line,
                     $prodEnv
                 );
             } else {
-                $prodEnv .= "\n".$key.'='.$value;
+                $prodEnv .= "\n".$line;
             }
         }
 
@@ -1700,21 +1708,29 @@ HTEOF;
         }
     }
 
+    /**
+     * Quote an env value when it contains spaces or characters (#, ") that would
+     * otherwise truncate/break the line. `#` starts a comment in dotenv, so an
+     * unquoted password like `Admin@123#` would be silently cut to `Admin@123`.
+     */
+    private function escapeEnvValue(string $value): string
+    {
+        return (str_contains($value, ' ') || str_contains($value, '#') || str_contains($value, '"'))
+            ? '"'.addcslashes($value, '"').'"'
+            : $value;
+    }
+
     private function writeEnvKey(string $path, string $key, string $value): void
     {
         $env = file_get_contents($path);
 
-        // Quote values that contain spaces or special characters
-        $escaped = (str_contains($value, ' ') || str_contains($value, '#') || str_contains($value, '"'))
-            ? '"'.addcslashes($value, '"').'"'
-            : $value;
-
-        $line = $key.'='.$escaped;
+        $line = $key.'='.$this->escapeEnvValue($value);
 
         if (preg_match('/^'.preg_quote($key, '/').'\s*=\s*.+$/m', $env)) {
-            $env = preg_replace(
+            // Callback replacement so $ and \ in the value aren't treated as backrefs.
+            $env = preg_replace_callback(
                 '/^'.preg_quote($key, '/').'\s*=\s*.+$/m',
-                $line,
+                fn () => $line,
                 $env
             );
         } else {

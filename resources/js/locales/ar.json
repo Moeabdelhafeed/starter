@@ -356,6 +356,7 @@
     "ssh_username": "اسم مستخدم SSH",
     "ssh_password": "كلمة مرور SSH",
     "domain": "النطاق",
+    "domain_https_hint": "تتم إضافة https:// تلقائيًا — أدخل النطاق فقط (مثال: example.com).",
     "save_ssh_config": "حفظ إعدادات SSH",
     "ssh_configured": "SSH مُهيأ",
     "ssh_not_configured": "SSH غير مُهيأ",
