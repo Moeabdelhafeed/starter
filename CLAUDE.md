@@ -465,7 +465,12 @@ Bulk delete MUST use `BulkDeleteModal` component — never `confirm()` or `alert
 
 - Use `useForm()` from Inertia.
 - File uploads: add `forceFormData: true`.
-- PUT with files: add `_method: 'PUT'` to form data and submit via `form.post()`.
+- **NEVER send a real `PUT`/`PATCH`/`DELETE` request — the production host (LiteSpeed/Apache) blocks those verbs and the request white-screens.** Always POST with method spoofing:
+  - `useForm` update → `form.transform((d) => ({ ...d, _method: 'PUT' })).post(url, opts)` (or put `_method: 'PUT'` in the form fields and call `form.post`).
+  - `useForm` delete → `form.transform((d) => ({ ...d, _method: 'DELETE' })).post(url, opts)`.
+  - `router.put(url, data, opts)` → `router.post(url, { ...data, _method: 'PUT' }, opts)`.
+  - `router.delete(url, { data, ...opts })` → `router.post(url, { ...data, _method: 'DELETE' }, opts)`.
+  - The route stays `Route::put(...)` / `Route::delete(...)`; Laravel resolves it from `_method` (HTTP method override is enabled in the kernel). The shared `DeleteModal` / `ForceDeleteModal` already do this — reuse them for deletes.
 - Every Inertia request MUST include `reset: ['{dataKey}', 'success', 'error', 'filters']`.
 - Every request should include `preserveScroll: true` and `preserveState: true`.
 
@@ -1206,6 +1211,8 @@ The API is documented in `Starter.postman_collection.json` at the project root. 
 - `{{token}}` — Bearer token from login/register response
 
 When adding new API endpoints, always update this collection file to keep it in sync.
+
+**Method override on the API:** the production host blocks real `PUT`/`PATCH`/`DELETE`. Mobile/API clients must send those as **`POST` + an `X-HTTP-Method-Override` header** carrying the real verb (e.g. `X-HTTP-Method-Override: DELETE`). Laravel's kernel has method override enabled, so it routes the request to the matching `Route::delete(...)`. The Postman collection already uses this pattern for `update-profile` (PUT) and the delete endpoints — mirror it when adding new `PUT`/`DELETE` API requests, and tell mobile devs to do the same. (Routes themselves stay `Route::put`/`Route::delete`.)
 
 ---
 

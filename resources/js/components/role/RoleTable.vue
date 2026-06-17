@@ -40,10 +40,11 @@ const toggleStatus = (role) => {
     const newStatus = !role.is_active;
     role.is_active = newStatus;
 
-    router.put(
+    router.post(
         route('roles.update', role.id),
         {
             is_active: newStatus,
+            _method: 'PUT',
         },
         {
             preserveScroll: true,

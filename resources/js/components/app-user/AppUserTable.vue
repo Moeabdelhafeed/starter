@@ -49,12 +49,12 @@ const toggleStatus = (user) => {
     const newStatus = !user.is_active;
     user.is_active = newStatus;
 
-    const data = { name: user.name, is_active: newStatus };
+    const data = { name: user.name, is_active: newStatus, _method: 'PUT' };
     if (authFields.value.email) data.email = user.email;
     if (authFields.value.phone) data.phone = user.phone;
     if (authFields.value.username) data.username = user.username;
 
-    router.put(
+    router.post(
         route('app_users.update', user.id),
         data,
         {

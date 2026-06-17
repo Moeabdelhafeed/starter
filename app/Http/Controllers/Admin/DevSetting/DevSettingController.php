@@ -1416,9 +1416,10 @@ class DevSettingController extends Controller
         $ssh->exec("rm -f {$backendPath}/public/hot");
 
         // Step 8: Laravel commands
-        if ($isFirstTime) {
-            $output .= $ssh->exec("cd {$backendPath} && {$php} artisan key:generate --force 2>&1")."\n";
-        }
+        // APP_KEY comes from .env.production and must stay stable across deploys —
+        // regenerating it breaks encryption of existing data. Only generate when
+        // the deployed .env has no key (self-heal), never overwrite an existing one.
+        $output .= $ssh->exec("cd {$backendPath} && grep -q '^APP_KEY=base64:' .env || {$php} artisan key:generate --force 2>&1")."\n";
 
         // Run migrations based on option
         // If first time deployment, fresh_seed doesn't make sense (no tables to drop)

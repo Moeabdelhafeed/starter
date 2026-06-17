@@ -85,8 +85,7 @@ const handleBulkDelete = () => {
 };
 
 const confirmBulkDelete = (done) => {
-    router.delete(route('users.bulk-destroy'), {
-        data: { ids: selectedIds.value },
+    router.post(route('users.bulk-destroy'), { ids: selectedIds.value, _method: 'DELETE' }, {
         onSuccess: () => {
             selectedIds.value = [];
             isBulkDeleteModalOpen.value = false;
@@ -97,18 +96,20 @@ const confirmBulkDelete = (done) => {
 };
 
 const handleBulkTurnOn = () => {
-    router.put(route('users.bulk-update'), {
+    router.post(route('users.bulk-update'), {
         ids: selectedIds.value,
         is_active: true,
+        _method: 'PUT',
     }, {
         onSuccess: () => (selectedIds.value = []),
     });
 };
 
 const handleBulkTurnOff = () => {
-    router.put(route('users.bulk-update'), {
+    router.post(route('users.bulk-update'), {
         ids: selectedIds.value,
         is_active: false,
+        _method: 'PUT',
     }, {
         onSuccess: () => (selectedIds.value = []),
     });

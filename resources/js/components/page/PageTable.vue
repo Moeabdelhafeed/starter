@@ -38,11 +38,12 @@ const toggleStatus = (page) => {
     const newStatus = !page.is_active;
     page.is_active = newStatus;
 
-    router.put(
+    router.post(
         route('pages.update', page.id),
         {
             slug: page.slug,
             is_active: newStatus,
+            _method: 'PUT',
             translations: page.translations.reduce((acc, t) => {
                 if (!acc[t.field]) acc[t.field] = {};
                 acc[t.field][t.locale] = t.value;

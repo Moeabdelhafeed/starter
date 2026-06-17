@@ -639,7 +639,7 @@
                                 {
                                     "name": "Update Profile",
                                     "request": {
-                                        "method": "PUT",
+                                        "method": "POST",
                                         "header": [
                                             {
                                                 "key": "Accept-Language",
@@ -669,6 +669,11 @@
                                             {
                                                 "key": "X-FCM-Token",
                                                 "value": "fake-fcm-token",
+                                                "type": "text"
+                                            },
+                                            {
+                                                "key": "X-HTTP-Method-Override",
+                                                "value": "PUT",
                                                 "type": "text"
                                             }
                                         ],
@@ -773,7 +778,7 @@
                                 {
                                     "name": "Delete Account",
                                     "request": {
-                                        "method": "DELETE",
+                                        "method": "POST",
                                         "header": [
                                             {
                                                 "key": "Accept-Language",
@@ -803,6 +808,11 @@
                                             {
                                                 "key": "X-FCM-Token",
                                                 "value": "fake-fcm-token",
+                                                "type": "text"
+                                            },
+                                            {
+                                                "key": "X-HTTP-Method-Override",
+                                                "value": "DELETE",
                                                 "type": "text"
                                             }
                                         ],
@@ -998,7 +1008,7 @@
                                 {
                                     "name": "Unlink Social Account",
                                     "request": {
-                                        "method": "DELETE",
+                                        "method": "POST",
                                         "header": [
                                             {
                                                 "key": "Accept-Language",
@@ -1028,6 +1038,11 @@
                                             {
                                                 "key": "X-FCM-Token",
                                                 "value": "fake-fcm-token",
+                                                "type": "text"
+                                            },
+                                            {
+                                                "key": "X-HTTP-Method-Override",
+                                                "value": "DELETE",
                                                 "type": "text"
                                             }
                                         ],
@@ -1381,7 +1396,7 @@
                         {
                             "name": "Revoke Device",
                             "request": {
-                                "method": "DELETE",
+                                "method": "POST",
                                 "header": [
                                     {
                                         "key": "Accept-Language",
@@ -1411,6 +1426,11 @@
                                     {
                                         "key": "X-FCM-Token",
                                         "value": "fake-fcm-token",
+                                        "type": "text"
+                                    },
+                                    {
+                                        "key": "X-HTTP-Method-Override",
+                                        "value": "DELETE",
                                         "type": "text"
                                     }
                                 ],
@@ -1644,23 +1664,60 @@
                     "request": {
                         "method": "POST",
                         "header": [
-                            { "key": "Accept-Language", "value": "en", "type": "text" },
-                            { "key": "X-API-TOKEN", "value": "{{x-api-token}}", "type": "text" },
-                            { "key": "Accept", "value": "application/json", "type": "text" },
-                            { "key": "Content-Type", "value": "application/json", "type": "text" },
-                            { "key": "X-Device-Id", "value": "test-device-uuid", "type": "text" },
-                            { "key": "X-Platform", "value": "web", "type": "text" },
-                            { "key": "X-FCM-Token", "value": "fake-fcm-token", "type": "text" }
+                            {
+                                "key": "Accept-Language",
+                                "value": "en",
+                                "type": "text"
+                            },
+                            {
+                                "key": "X-API-TOKEN",
+                                "value": "{{x-api-token}}",
+                                "type": "text"
+                            },
+                            {
+                                "key": "Accept",
+                                "value": "application/json",
+                                "type": "text"
+                            },
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json",
+                                "type": "text"
+                            },
+                            {
+                                "key": "X-Device-Id",
+                                "value": "test-device-uuid",
+                                "type": "text"
+                            },
+                            {
+                                "key": "X-Platform",
+                                "value": "web",
+                                "type": "text"
+                            },
+                            {
+                                "key": "X-FCM-Token",
+                                "value": "fake-fcm-token",
+                                "type": "text"
+                            }
                         ],
                         "body": {
                             "mode": "raw",
                             "raw": "{\n  \"identifier\": \"user@example.com\",\n  \"name\": \"User\"\n}",
-                            "options": { "raw": { "language": "json" } }
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
                         },
                         "url": {
                             "raw": "{{base_url}}/api/login",
-                            "host": ["{{base_url}}"],
-                            "path": ["api", "login"]
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "api",
+                                "login"
+                            ]
                         },
                         "description": "OTP-mode login (active when `AUTH_MODE=otp`). Body: `identifier` (email or phone) + optional `name` for first-time users (auto-create). No password.\n\nBackend sends an OTP via the user's identifier channel (email/phone). Response carries no token — client follows with `POST /api/verify-login` to complete.\n\nFails when `AUTH_MODE=password` (use the regular Login request instead)."
                     },
@@ -1679,23 +1736,60 @@
                     "request": {
                         "method": "POST",
                         "header": [
-                            { "key": "Accept-Language", "value": "en", "type": "text" },
-                            { "key": "X-API-TOKEN", "value": "{{x-api-token}}", "type": "text" },
-                            { "key": "Accept", "value": "application/json", "type": "text" },
-                            { "key": "Content-Type", "value": "application/json", "type": "text" },
-                            { "key": "X-Device-Id", "value": "test-device-uuid", "type": "text" },
-                            { "key": "X-Platform", "value": "web", "type": "text" },
-                            { "key": "X-FCM-Token", "value": "fake-fcm-token", "type": "text" }
+                            {
+                                "key": "Accept-Language",
+                                "value": "en",
+                                "type": "text"
+                            },
+                            {
+                                "key": "X-API-TOKEN",
+                                "value": "{{x-api-token}}",
+                                "type": "text"
+                            },
+                            {
+                                "key": "Accept",
+                                "value": "application/json",
+                                "type": "text"
+                            },
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json",
+                                "type": "text"
+                            },
+                            {
+                                "key": "X-Device-Id",
+                                "value": "test-device-uuid",
+                                "type": "text"
+                            },
+                            {
+                                "key": "X-Platform",
+                                "value": "web",
+                                "type": "text"
+                            },
+                            {
+                                "key": "X-FCM-Token",
+                                "value": "fake-fcm-token",
+                                "type": "text"
+                            }
                         ],
                         "body": {
                             "mode": "raw",
                             "raw": "{\n  \"identifier\": \"user@example.com\",\n  \"otp\": \"123456\"\n}",
-                            "options": { "raw": { "language": "json" } }
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
                         },
                         "url": {
                             "raw": "{{base_url}}/api/verify-login",
-                            "host": ["{{base_url}}"],
-                            "path": ["api", "verify-login"]
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "api",
+                                "verify-login"
+                            ]
                         },
                         "description": "Submit the OTP issued by `POST /api/login` (OTP mode) to receive a Sanctum token. Stamps `verified_at` on first success. Returns 404 when `AUTH_MODE=password`.\n\nReviewer accounts: accept any OTP value (bypass)."
                     },
@@ -1888,17 +1982,46 @@
                     "request": {
                         "method": "POST",
                         "header": [
-                            { "key": "Accept-Language", "value": "en", "type": "text" },
-                            { "key": "X-API-TOKEN", "value": "{{x-api-token}}", "type": "text" },
-                            { "key": "Accept", "value": "application/json", "type": "text" },
-                            { "key": "X-Device-Id", "value": "test-device-uuid", "type": "text" },
-                            { "key": "X-Platform", "value": "web", "type": "text" },
-                            { "key": "X-FCM-Token", "value": "fake-fcm-token", "type": "text" }
+                            {
+                                "key": "Accept-Language",
+                                "value": "en",
+                                "type": "text"
+                            },
+                            {
+                                "key": "X-API-TOKEN",
+                                "value": "{{x-api-token}}",
+                                "type": "text"
+                            },
+                            {
+                                "key": "Accept",
+                                "value": "application/json",
+                                "type": "text"
+                            },
+                            {
+                                "key": "X-Device-Id",
+                                "value": "test-device-uuid",
+                                "type": "text"
+                            },
+                            {
+                                "key": "X-Platform",
+                                "value": "web",
+                                "type": "text"
+                            },
+                            {
+                                "key": "X-FCM-Token",
+                                "value": "fake-fcm-token",
+                                "type": "text"
+                            }
                         ],
                         "url": {
                             "raw": "{{base_url}}/api/guest",
-                            "host": ["{{base_url}}"],
-                            "path": ["api", "guest"]
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "api",
+                                "guest"
+                            ]
                         },
                         "description": "Explicit guest creation. Idempotent — returns the existing guest when the device's `X-Device-Id` already maps to one. 403 when the device is claimed by a registered user (real user has a `user_devices` row for the same UUID). 403 when `APP_GUESTS=false`.\n\nClients call this once on first launch before any other endpoint that needs `$request->user()`. Guests are NO LONGER auto-created on every api request — `IdentifyDevice` middleware only resolves existing guests.\n\nNo body. Headers do the work."
                     },

@@ -63,8 +63,7 @@ const handleBulkDelete = () => {
 };
 
 const confirmBulkDelete = (done) => {
-    router.delete(route('notification_templates.bulk-destroy'), {
-        data: { ids: selectedIds.value },
+    router.post(route('notification_templates.bulk-destroy'), { ids: selectedIds.value, _method: 'DELETE' }, {
         preserveScroll: true,
         preserveState: true,
         reset: ['templates', 'success', 'error', 'filters'],

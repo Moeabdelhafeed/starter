@@ -49,13 +49,14 @@ const toggleStatus = (user) => {
     user.is_active = newStatus;
 
     const userRole = user.roles.length > 0 ? user.roles[0].name : '';
-    router.put(
+    router.post(
         route('users.update', user.id),
         {
             name: user.name,
             email: user.email,
             role: userRole,
             is_active: newStatus,
+            _method: 'PUT',
         },
         {
             preserveScroll: true,

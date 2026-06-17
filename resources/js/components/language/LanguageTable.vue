@@ -21,7 +21,7 @@ const toggleStatus = (lang) => {
     const newStatus = !lang.is_active;
     lang.is_active = newStatus;
 
-    router.put(
+    router.post(
         route('languages.update', lang.id),
         {
             code: lang.code,
@@ -30,6 +30,7 @@ const toggleStatus = (lang) => {
             direction: lang.direction,
             is_active: newStatus,
             is_default: lang.is_default,
+            _method: 'PUT',
         },
         {
             preserveScroll: true,

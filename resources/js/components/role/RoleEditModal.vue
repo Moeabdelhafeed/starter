@@ -44,7 +44,8 @@ const close = () => {
 };
 
 const submit = () => {
-    form.put(route('roles.update', form.id), {
+    // POST + _method spoof — the production host blocks real PUT.
+    form.transform((data) => ({ ...data, _method: 'PUT' })).post(route('roles.update', form.id), {
         preserveScroll: true,
         preserveState: true,
         reset: ['roles', 'success', 'error', 'filters'],

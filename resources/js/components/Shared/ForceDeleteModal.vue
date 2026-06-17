@@ -41,7 +41,8 @@ const close = () => {
 const submit = () => {
     if (!props.itemId) return;
 
-    form.delete(route(props.routeName, props.itemId), {
+    // POST + _method spoof — the production host blocks real DELETE.
+    form.transform((data) => ({ ...data, _method: 'DELETE' })).post(route(props.routeName, props.itemId), {
         preserveScroll: true,
         preserveState: true,
         reset: props.resetKeys,

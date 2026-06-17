@@ -169,9 +169,10 @@ const envToggling = ref({});
 const toggleEnv = (key, currentValue) => {
     envToggling.value[key] = true;
     const newValue = !currentValue;
-    router.put(route('dev_settings.env'), {
+    router.post(route('dev_settings.env'), {
         key: key,
         value: newValue,
+        _method: 'PUT',
     }, {
         preserveScroll: true,
         preserveState: true,
@@ -183,9 +184,10 @@ const toggleEnv = (key, currentValue) => {
 const prodEnvToggling = ref({});
 const toggleProdEnv = (key, currentValue) => {
     prodEnvToggling.value[key] = true;
-    router.put(route('dev_settings.production_env'), {
+    router.post(route('dev_settings.production_env'), {
         key: key,
         value: !currentValue,
+        _method: 'PUT',
     }, {
         preserveScroll: true,
         onFinish: () => { prodEnvToggling.value[key] = false; },
@@ -764,7 +766,7 @@ const submitGit = () => {
 const disconnectingGit = ref(false);
 const disconnectGit = () => {
     disconnectingGit.value = true;
-    router.delete(route('dev_settings.git_disconnect'), {
+    router.post(route('dev_settings.git_disconnect'), { _method: 'DELETE' }, {
         preserveScroll: true,
         onFinish: () => { disconnectingGit.value = false; },
     });

@@ -57,8 +57,7 @@ const handleBulkDelete = () => {
 };
 
 const confirmBulkDelete = (done) => {
-    router.delete(route('roles.bulk-destroy'), {
-        data: { ids: selectedIds.value },
+    router.post(route('roles.bulk-destroy'), { ids: selectedIds.value, _method: 'DELETE' }, {
         preserveScroll: true,
         preserveState: true,
         reset: ['roles', 'success', 'error', 'filters'],
@@ -72,9 +71,10 @@ const confirmBulkDelete = (done) => {
 };
 
 const handleBulkTurnOn = () => {
-    router.put(route('roles.bulk-update'), {
+    router.post(route('roles.bulk-update'), {
         ids: selectedIds.value,
         is_active: true,
+        _method: 'PUT',
     }, {
         preserveScroll: true,
         preserveState: true,
@@ -84,9 +84,10 @@ const handleBulkTurnOn = () => {
 };
 
 const handleBulkTurnOff = () => {
-    router.put(route('roles.bulk-update'), {
+    router.post(route('roles.bulk-update'), {
         ids: selectedIds.value,
         is_active: false,
+        _method: 'PUT',
     }, {
         preserveScroll: true,
         preserveState: true,
