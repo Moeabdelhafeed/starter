@@ -42,6 +42,8 @@ class DevSettingController extends Controller
         'IS_OTP_WHATSAPP',
     ];
 
+    private array $deployFlavors = ['dev', 'staging', 'uat', 'production'];
+
     public function index()
     {
         $cssPath = resource_path('css/app.css');
@@ -64,6 +66,7 @@ class DevSettingController extends Controller
             'envToggles' => $this->envToggles,
             'firebaseConfigExists' => file_exists($firebasePath),
             'firebaseCredentialsPath' => env('FIREBASE_CREDENTIALS', ''),
+            'baseFirebaseExists' => file_exists($this->baseFirebasePath()),
             'authConfig' => [
                 'identifiers' => array_map('trim', explode(',', env('AUTH_IDENTIFIERS', 'email'))),
                 'has_email_field' => filter_var(env('HAS_EMAIL_FIELD', true), FILTER_VALIDATE_BOOLEAN),
@@ -83,23 +86,25 @@ class DevSettingController extends Controller
                 ],
             ],
             'git' => $this->getGitStatus(),
-            'productionDb' => $this->getProductionDb(),
-            'productionMail' => $this->getProductionMail(),
+            // ".env.production" is the BASE config inherited by all deploy targets.
+            // Exposed to the UI as "base*" so it reads as a foundation, not the prod site.
+            'baseDb' => $this->getProductionDb(),
+            'baseMail' => $this->getProductionMail(),
             'localMail' => $this->getLocalMail(),
-            'productionTesting' => $this->getProductionEnvValue('IS_TESTING'),
+            'baseTesting' => $this->getProductionEnvValue('IS_TESTING'),
             'deployConfig' => $this->getDeployConfig(),
             'deployLog' => session('deploy_log'),
             'appName' => env('APP_NAME', 'Starter'),
             'apiToken' => [
                 'local' => env('APP_X_API_TOKEN', ''),
-                'production' => $this->getProductionEnvString('APP_X_API_TOKEN'),
+                'base' => $this->getProductionEnvString('APP_X_API_TOKEN'),
             ],
             'adminCredentials' => [
                 'local' => [
                     'ADMIN_EMAIL' => env('ADMIN_EMAIL', ''),
                     'ADMIN_PASSWORD' => env('ADMIN_PASSWORD', ''),
                 ],
-                'production' => [
+                'base' => [
                     'ADMIN_EMAIL' => $this->getProductionEnvString('ADMIN_EMAIL'),
                     'ADMIN_PASSWORD' => $this->getProductionEnvString('ADMIN_PASSWORD'),
                 ],
@@ -109,7 +114,7 @@ class DevSettingController extends Controller
                     'APP_URL' => env('APP_URL', 'http://localhost'),
                     'FRONTEND_URL' => env('FRONTEND_URL', 'http://localhost:5173'),
                 ],
-                'production' => [
+                'base' => [
                     'APP_URL' => $this->getProductionEnvString('APP_URL'),
                     'FRONTEND_URL' => $this->getProductionEnvString('FRONTEND_URL'),
                 ],
@@ -125,7 +130,7 @@ class DevSettingController extends Controller
                     'app_secret' => env('PUSHER_APP_SECRET', ''),
                     'app_cluster' => env('PUSHER_APP_CLUSTER', 'eu'),
                 ],
-                'production' => $this->getProductionPusher(),
+                'base' => $this->getProductionPusher(),
             ],
             'rateLimitConfig' => [
                 'api' => [
@@ -343,6 +348,64 @@ class DevSettingController extends Controller
         Artisan::call('config:clear');
 
         return redirect()->back()->with('success', 'Firebase credentials uploaded for project: '.$json['project_id']);
+    }
+
+    public function uploadBaseFirebase(Request $request)
+    {
+        $request->validate([
+            'firebase_json' => ['required', 'file', 'mimes:json', 'max:1024'],
+        ]);
+
+        $contents = file_get_contents($request->file('firebase_json')->getRealPath());
+        $json = json_decode($contents, true);
+        if (! $json || ! isset($json['project_id'])) {
+            return redirect()->back()->with('error', 'Invalid Firebase credentials JSON.');
+        }
+
+        file_put_contents($this->baseFirebasePath(), $contents);
+
+        return redirect()->back()->with('success', 'Base Firebase credentials saved for project: '.$json['project_id']);
+    }
+
+    public function deleteBaseFirebase()
+    {
+        if (file_exists($this->baseFirebasePath())) {
+            @unlink($this->baseFirebasePath());
+        }
+
+        return redirect()->back()->with('success', 'Base Firebase credentials removed.');
+    }
+
+    public function uploadFlavorFirebase(Request $request)
+    {
+        $validated = $request->validate([
+            'flavor' => ['required', 'in:'.implode(',', $this->deployFlavors)],
+            'firebase_json' => ['required', 'file', 'mimes:json', 'max:1024'],
+        ]);
+
+        $contents = file_get_contents($request->file('firebase_json')->getRealPath());
+        $json = json_decode($contents, true);
+        if (! $json || ! isset($json['project_id'])) {
+            return redirect()->back()->with('error', 'Invalid Firebase credentials JSON.');
+        }
+
+        file_put_contents($this->firebasePathForFlavor($validated['flavor']), $contents);
+
+        return redirect()->back()->with('success', ucfirst($validated['flavor']).' Firebase credentials saved for project: '.$json['project_id']);
+    }
+
+    public function deleteFlavorFirebase(Request $request)
+    {
+        $validated = $request->validate([
+            'flavor' => ['required', 'in:'.implode(',', $this->deployFlavors)],
+        ]);
+
+        $path = $this->firebasePathForFlavor($validated['flavor']);
+        if (file_exists($path)) {
+            @unlink($path);
+        }
+
+        return redirect()->back()->with('success', ucfirst($validated['flavor']).' Firebase credentials removed.');
     }
 
     public function testFcm(Request $request)
@@ -750,19 +813,78 @@ class DevSettingController extends Controller
     public function saveDeployConfig(Request $request)
     {
         $validated = $request->validate([
-            'ssh_host' => ['required', 'string', 'max:255'],
-            'ssh_port' => ['required', 'integer', 'min:1', 'max:65535'],
-            'ssh_username' => ['required', 'string', 'max:255'],
-            'ssh_password' => ['required', 'string', 'max:255'],
-            'domain' => ['required', 'string', 'max:255'],
+            'share_ssh' => ['required', 'boolean'],
+            'ssh.host' => ['nullable', 'string', 'max:255'],
+            'ssh.port' => ['nullable', 'integer', 'min:1', 'max:65535'],
+            'ssh.username' => ['nullable', 'string', 'max:255'],
+            'ssh.password' => ['nullable', 'string', 'max:255'],
+            'flavors' => ['required', 'array'],
+            'flavors.*.domain' => ['nullable', 'string', 'max:255'],
+            'flavors.*.ssh.host' => ['nullable', 'string', 'max:255'],
+            'flavors.*.ssh.port' => ['nullable', 'integer', 'min:1', 'max:65535'],
+            'flavors.*.ssh.username' => ['nullable', 'string', 'max:255'],
+            'flavors.*.ssh.password' => ['nullable', 'string', 'max:255'],
+            'flavors.*.db.DB_HOST' => ['nullable', 'string', 'max:255'],
+            'flavors.*.db.DB_PORT' => ['nullable', 'string', 'max:10'],
+            'flavors.*.db.DB_DATABASE' => ['nullable', 'string', 'max:255'],
+            'flavors.*.db.DB_USERNAME' => ['nullable', 'string', 'max:255'],
+            'flavors.*.db.DB_PASSWORD' => ['nullable', 'string', 'max:255'],
+            'flavors.*.env.APP_DEBUG' => ['nullable', 'in:inherit,true,false'],
+            'flavors.*.env.IS_TESTING' => ['nullable', 'in:inherit,true,false'],
+            'flavors.*.env.FRONTEND_URL' => ['nullable', 'string', 'max:255'],
+            'flavors.*.inherit_pusher' => ['nullable', 'boolean'],
+            'flavors.*.inherit_mail' => ['nullable', 'boolean'],
+            'flavors.*.pusher.PUSHER_APP_ID' => ['nullable', 'string', 'max:255'],
+            'flavors.*.pusher.PUSHER_APP_KEY' => ['nullable', 'string', 'max:255'],
+            'flavors.*.pusher.PUSHER_APP_SECRET' => ['nullable', 'string', 'max:255'],
+            'flavors.*.pusher.PUSHER_APP_CLUSTER' => ['nullable', 'string', 'max:50'],
+            'flavors.*.mail.MAIL_MAILER' => ['nullable', 'string', 'max:50'],
+            'flavors.*.mail.MAIL_HOST' => ['nullable', 'string', 'max:255'],
+            'flavors.*.mail.MAIL_PORT' => ['nullable', 'string', 'max:10'],
+            'flavors.*.mail.MAIL_USERNAME' => ['nullable', 'string', 'max:255'],
+            'flavors.*.mail.MAIL_PASSWORD' => ['nullable', 'string', 'max:255'],
+            'flavors.*.mail.MAIL_ENCRYPTION' => ['nullable', 'string', 'max:10'],
+            'flavors.*.mail.MAIL_FROM_ADDRESS' => ['nullable', 'string', 'max:255'],
         ]);
 
-        file_put_contents(base_path('.deploy.json'), json_encode($validated, JSON_PRETTY_PRINT));
+        $clean = [
+            'share_ssh' => (bool) $validated['share_ssh'],
+            'ssh' => $this->cleanSsh($validated['ssh'] ?? []),
+            'flavors' => [],
+        ];
 
-        // Sync domain to production APP_URL
-        $this->rebuildProductionEnv([
-            'APP_URL' => 'https://'.$validated['domain'],
-        ]);
+        foreach ($this->deployFlavors as $flavor) {
+            $fv = $validated['flavors'][$flavor] ?? [];
+            $clean['flavors'][$flavor] = [
+                'domain' => $fv['domain'] ?? '',
+                'ssh' => $this->cleanSsh($fv['ssh'] ?? []),
+                'db' => [
+                    'DB_HOST' => $fv['db']['DB_HOST'] ?? '',
+                    'DB_PORT' => $fv['db']['DB_PORT'] ?? '3306',
+                    'DB_DATABASE' => $fv['db']['DB_DATABASE'] ?? '',
+                    'DB_USERNAME' => $fv['db']['DB_USERNAME'] ?? '',
+                    'DB_PASSWORD' => $fv['db']['DB_PASSWORD'] ?? '',
+                ],
+                'env' => [
+                    'APP_DEBUG' => $fv['env']['APP_DEBUG'] ?? 'inherit',
+                    'IS_TESTING' => $fv['env']['IS_TESTING'] ?? 'inherit',
+                    'FRONTEND_URL' => $fv['env']['FRONTEND_URL'] ?? '',
+                ],
+                'inherit_pusher' => (bool) ($fv['inherit_pusher'] ?? true),
+                'pusher' => array_merge($this->blankPusher(), $fv['pusher'] ?? []),
+                'inherit_mail' => (bool) ($fv['inherit_mail'] ?? true),
+                'mail' => array_merge($this->blankMail(), $fv['mail'] ?? []),
+            ];
+        }
+
+        file_put_contents(base_path('.deploy.json'), json_encode($clean, JSON_PRETTY_PRINT));
+
+        // Keep production APP_URL in sync with the production flavor domain.
+        if (! empty($clean['flavors']['production']['domain'])) {
+            $this->rebuildProductionEnv([
+                'APP_URL' => 'https://'.$clean['flavors']['production']['domain'],
+            ]);
+        }
 
         return redirect()->back()->with('success', 'Deploy config saved.');
     }
@@ -770,6 +892,7 @@ class DevSettingController extends Controller
     public function deploy(Request $request)
     {
         $validated = $request->validate([
+            'flavor' => ['required', 'in:'.implode(',', $this->deployFlavors)],
             'migration_option' => ['required', 'in:migrate,migrate_seed,fresh_seed,none'],
             'run_seeders' => ['boolean'],
             'safe_storage_deploy' => ['boolean'],
@@ -786,7 +909,28 @@ class DevSettingController extends Controller
         }
 
         if (! file_exists($deployPath)) {
-            return redirect()->back()->with('error', 'No SSH config found. Save SSH settings first.');
+            return redirect()->back()->with('error', 'No deploy config found. Save deployment targets first.');
+        }
+
+        $config = $this->getDeployConfig();
+        $flavor = $validated['flavor'];
+        $flavorCfg = $config['flavors'][$flavor] ?? null;
+
+        if (! $flavorCfg || empty($flavorCfg['domain'])) {
+            return redirect()->back()->with('error', 'No domain configured for the '.$flavor.' target.');
+        }
+
+        // Resolve SSH credentials. Honor the share toggle, but fall back to
+        // whichever scope actually has a host so a half-filled toggle still works.
+        $shared = $config['ssh'];
+        $own = $flavorCfg['ssh'];
+        if ($config['share_ssh']) {
+            $ssh = ! empty($shared['host']) ? $shared : $own;
+        } else {
+            $ssh = ! empty($own['host']) ? $own : $shared;
+        }
+        if (empty($ssh['host']) || empty($ssh['username'])) {
+            return redirect()->back()->with('error', 'SSH credentials missing for the '.$flavor.' target.');
         }
 
         // Step 1: Build assets locally
@@ -800,18 +944,27 @@ class DevSettingController extends Controller
         // Remove hot file
         @unlink($base.'/public/hot');
 
-        // Step 2: Deploy via SCP with options
-        $config = json_decode(file_get_contents($deployPath), true);
+        // Step 2: Deploy via SSH/SFTP to the resolved target.
+        $sshConfig = [
+            'ssh_host' => $ssh['host'],
+            'ssh_port' => $ssh['port'] ?? 65002,
+            'ssh_username' => $ssh['username'],
+            'ssh_password' => $ssh['password'] ?? '',
+            'domain' => $flavorCfg['domain'],
+        ];
+
         $deployOptions = [
             'migration_option' => $validated['migration_option'],
             'run_seeders' => $validated['run_seeders'] ?? false,
             'safe_storage_deploy' => $validated['safe_storage_deploy'] ?? false,
+            'flavor' => $flavor,
+            'flavor_config' => $flavorCfg,
         ];
-        $sshResult = $this->runSshDeploy($config, $deployOptions);
+        $sshResult = $this->runSshDeploy($sshConfig, $deployOptions);
 
         if ($sshResult['success']) {
             return redirect()->back()
-                ->with('success', 'Deployed successfully. '.$sshResult['message'])
+                ->with('success', ucfirst($flavor).' deployed successfully. '.$sshResult['message'])
                 ->with('deploy_log', $sshResult['log'] ?? '');
         }
 
@@ -1300,24 +1453,235 @@ class DevSettingController extends Controller
         return null;
     }
 
+    private function blankSsh(): array
+    {
+        return ['host' => '', 'port' => 65002, 'username' => '', 'password' => ''];
+    }
+
+    private function blankDb(): array
+    {
+        return ['DB_HOST' => '', 'DB_PORT' => '3306', 'DB_DATABASE' => '', 'DB_USERNAME' => '', 'DB_PASSWORD' => ''];
+    }
+
+    private function blankPusher(): array
+    {
+        return ['PUSHER_APP_ID' => '', 'PUSHER_APP_KEY' => '', 'PUSHER_APP_SECRET' => '', 'PUSHER_APP_CLUSTER' => ''];
+    }
+
+    private function blankMail(): array
+    {
+        return [
+            'MAIL_MAILER' => '',
+            'MAIL_HOST' => '',
+            'MAIL_PORT' => '',
+            'MAIL_USERNAME' => '',
+            'MAIL_PASSWORD' => '',
+            'MAIL_ENCRYPTION' => '',
+            'MAIL_FROM_ADDRESS' => '',
+        ];
+    }
+
+    /**
+     * Per-flavor scalar env overrides. Empty string / 'inherit' = use the base
+     * .env.production value.
+     */
+    private function blankFlavorEnv(): array
+    {
+        return [
+            'APP_DEBUG' => 'inherit',   // inherit | true | false
+            'IS_TESTING' => 'inherit',  // inherit | true | false
+            'FRONTEND_URL' => '',
+        ];
+    }
+
+    /**
+     * APP_ENV is derived from the flavor automatically — never set by hand.
+     * Production keeps Laravel's production env; other flavors use their name.
+     */
+    private function appEnvForFlavor(string $flavor): string
+    {
+        return $flavor === 'production' ? 'production' : $flavor;
+    }
+
+    private function firebasePathForFlavor(string $flavor): string
+    {
+        return storage_path("app/private/firebase-{$flavor}.json");
+    }
+
+    /**
+     * Base Firebase credentials uploaded to every deploy target when a flavor
+     * has no per-flavor file. Separate from the local firebase-auth.json.
+     */
+    private function baseFirebasePath(): string
+    {
+        return storage_path('app/private/firebase-base.json');
+    }
+
+    private function defaultFlavorConfig(): array
+    {
+        return [
+            'domain' => '',
+            'ssh' => $this->blankSsh(),
+            'db' => $this->blankDb(),
+            'env' => $this->blankFlavorEnv(),
+            'inherit_pusher' => true,
+            'pusher' => $this->blankPusher(),
+            'inherit_mail' => true,
+            'mail' => $this->blankMail(),
+        ];
+    }
+
+    private function cleanSsh(array $ssh): array
+    {
+        return [
+            'host' => $ssh['host'] ?? '',
+            'port' => (int) ($ssh['port'] ?? 65002),
+            'username' => $ssh['username'] ?? '',
+            'password' => $ssh['password'] ?? '',
+        ];
+    }
+
     private function getDeployConfig(): array
     {
         $path = base_path('.deploy.json');
-        $defaults = [
-            'ssh_host' => '',
-            'ssh_port' => 65002,
-            'ssh_username' => '',
-            'ssh_password' => '',
-            'domain' => '',
-        ];
 
-        if (! file_exists($path)) {
-            return array_merge($defaults, ['has_config' => false]);
+        $config = [
+            'share_ssh' => true,
+            'ssh' => $this->blankSsh(),
+            'flavors' => [],
+            'has_config' => false,
+        ];
+        foreach ($this->deployFlavors as $flavor) {
+            $config['flavors'][$flavor] = array_merge(
+                $this->defaultFlavorConfig(),
+                ['has_firebase' => file_exists($this->firebasePathForFlavor($flavor))],
+            );
         }
 
-        $config = json_decode(file_get_contents($path), true) ?? [];
+        if (! file_exists($path)) {
+            return $config;
+        }
 
-        return array_merge($defaults, $config, ['has_config' => true]);
+        $raw = json_decode(file_get_contents($path), true) ?? [];
+
+        // Migrate the legacy single-target shape ({ssh_host, ssh_port, ...domain})
+        // into the production flavor with shared SSH credentials.
+        if (! isset($raw['flavors'])) {
+            $config['share_ssh'] = true;
+            $config['ssh'] = $this->cleanSsh([
+                'host' => $raw['ssh_host'] ?? '',
+                'port' => $raw['ssh_port'] ?? 65002,
+                'username' => $raw['ssh_username'] ?? '',
+                'password' => $raw['ssh_password'] ?? '',
+            ]);
+            $config['flavors']['production']['domain'] = $raw['domain'] ?? '';
+            $config['flavors']['production']['db'] = array_merge($this->blankDb(), $this->getProductionDb());
+            $config['has_config'] = ! empty($raw['domain']);
+
+            return $config;
+        }
+
+        $config['share_ssh'] = (bool) ($raw['share_ssh'] ?? true);
+        $config['ssh'] = $this->cleanSsh($raw['ssh'] ?? []);
+        foreach ($this->deployFlavors as $flavor) {
+            $stored = $raw['flavors'][$flavor] ?? [];
+            $config['flavors'][$flavor] = [
+                'domain' => $stored['domain'] ?? '',
+                'ssh' => $this->cleanSsh($stored['ssh'] ?? []),
+                'db' => array_merge($this->blankDb(), $stored['db'] ?? []),
+                'env' => array_merge($this->blankFlavorEnv(), $stored['env'] ?? []),
+                'inherit_pusher' => (bool) ($stored['inherit_pusher'] ?? true),
+                'pusher' => array_merge($this->blankPusher(), $stored['pusher'] ?? []),
+                'inherit_mail' => (bool) ($stored['inherit_mail'] ?? true),
+                'mail' => array_merge($this->blankMail(), $stored['mail'] ?? []),
+                'has_firebase' => file_exists($this->firebasePathForFlavor($flavor)),
+            ];
+        }
+        $config['has_config'] = true;
+
+        return $config;
+    }
+
+    /**
+     * Build a flavor-specific .env from the .env.production base. Overrides DB,
+     * pusher, mail and scalar env values — but only the ones explicitly set for
+     * the flavor; everything left blank inherits the base. APP_URL is always set
+     * to the target domain.
+     */
+    private function buildFlavorEnv(array $flavor, string $appUrl, string $flavorName): string
+    {
+        $content = file_get_contents(base_path('.env.production'));
+
+        $notBlank = fn ($v) => $v !== '' && $v !== null;
+
+        $db = $flavor['db'] ?? [];
+        $env = $flavor['env'] ?? [];
+        // Whole groups inherit the base unless explicitly overridden for the flavor.
+        $pusher = ($flavor['inherit_pusher'] ?? true) ? [] : ($flavor['pusher'] ?? []);
+        $mail = ($flavor['inherit_mail'] ?? true) ? [] : ($flavor['mail'] ?? []);
+
+        // DB + mail + pusher: copy through only the non-empty keys.
+        $overrides = array_filter([
+            'DB_HOST' => $db['DB_HOST'] ?? '',
+            'DB_PORT' => $db['DB_PORT'] ?? '',
+            'DB_DATABASE' => $db['DB_DATABASE'] ?? '',
+            'DB_USERNAME' => $db['DB_USERNAME'] ?? '',
+            'DB_PASSWORD' => $db['DB_PASSWORD'] ?? '',
+            'MAIL_MAILER' => $mail['MAIL_MAILER'] ?? '',
+            'MAIL_HOST' => $mail['MAIL_HOST'] ?? '',
+            'MAIL_PORT' => $mail['MAIL_PORT'] ?? '',
+            'MAIL_USERNAME' => $mail['MAIL_USERNAME'] ?? '',
+            'MAIL_PASSWORD' => $mail['MAIL_PASSWORD'] ?? '',
+            'MAIL_ENCRYPTION' => $mail['MAIL_ENCRYPTION'] ?? '',
+            'MAIL_FROM_ADDRESS' => $mail['MAIL_FROM_ADDRESS'] ?? '',
+            'PUSHER_APP_ID' => $pusher['PUSHER_APP_ID'] ?? '',
+            'PUSHER_APP_KEY' => $pusher['PUSHER_APP_KEY'] ?? '',
+            'PUSHER_APP_SECRET' => $pusher['PUSHER_APP_SECRET'] ?? '',
+            'PUSHER_APP_CLUSTER' => $pusher['PUSHER_APP_CLUSTER'] ?? '',
+            'FRONTEND_URL' => $env['FRONTEND_URL'] ?? '',
+        ], $notBlank);
+
+        // APP_ENV is always derived from the flavor — not user-editable.
+        $overrides['APP_ENV'] = $this->appEnvForFlavor($flavorName);
+
+        // When pusher is overridden with a key, mirror to the Vite keys + enable the driver.
+        if (! empty($pusher['PUSHER_APP_KEY'] ?? '')) {
+            $overrides['VITE_PUSHER_APP_KEY'] = $pusher['PUSHER_APP_KEY'];
+            $overrides['BROADCAST_CONNECTION'] = 'pusher';
+        }
+        if (! empty($pusher['PUSHER_APP_CLUSTER'] ?? '')) {
+            $overrides['VITE_PUSHER_APP_CLUSTER'] = $pusher['PUSHER_APP_CLUSTER'];
+        }
+
+        // Boolean toggles: inherit | true | false.
+        foreach (['APP_DEBUG' => $env['APP_DEBUG'] ?? 'inherit', 'IS_TESTING' => $env['IS_TESTING'] ?? 'inherit'] as $key => $val) {
+            if ($val === 'true' || $val === 'false') {
+                $overrides[$key] = $val;
+            }
+        }
+
+        $overrides['APP_URL'] = $appUrl;
+
+        foreach ($overrides as $key => $value) {
+            $content = $this->replaceEnvKeyInString($content, $key, (string) $value);
+        }
+
+        return $content;
+    }
+
+    private function replaceEnvKeyInString(string $env, string $key, string $value): string
+    {
+        $line = $key.'='.$this->escapeEnvValue($value);
+
+        if (preg_match('/^'.preg_quote($key, '/').'\s*=\s*.*$/m', $env)) {
+            return preg_replace_callback(
+                '/^'.preg_quote($key, '/').'\s*=\s*.*$/m',
+                fn () => $line,
+                $env
+            );
+        }
+
+        return $env."\n".$line;
     }
 
     private function runSshDeploy(array $config, array $options = []): array
@@ -1406,8 +1770,32 @@ class DevSettingController extends Controller
             $output .= "[safe-storage] Restored storage/app/public from backup.\n";
         }
 
-        // Step 5: Setup env
-        $output .= $ssh->exec("cd {$backendPath} && cp .env.production .env 2>&1")."\n";
+        // Step 5: Setup env — build from the .env.production base, overriding DB +
+        // APP_URL for this flavor, and upload it as the deployed .env. Falls back
+        // to copying .env.production verbatim if the upload fails.
+        $flavor = $options['flavor'] ?? 'production';
+        $flavorEnv = $this->buildFlavorEnv($options['flavor_config'] ?? [], 'https://'.$domain, $flavor);
+        $envUploaded = $sftp->put("{$backendPath}/.env", $flavorEnv, SFTP::SOURCE_STRING);
+        if ($envUploaded) {
+            $output .= "[env] Uploaded .env for '{$flavor}' target ({$domain}).\n";
+        } else {
+            $output .= "[env] WARNING: .env upload failed, copying .env.production as-is.\n";
+            $output .= $ssh->exec("cd {$backendPath} && cp .env.production .env 2>&1")."\n";
+        }
+
+        // Firebase credentials precedence: per-flavor file > base file > leave the
+        // local firebase-auth.json that shipped in the zip.
+        $flavorFirebase = $this->firebasePathForFlavor($flavor);
+        $firebaseSource = file_exists($flavorFirebase)
+            ? ['path' => $flavorFirebase, 'label' => $flavor]
+            : (file_exists($this->baseFirebasePath()) ? ['path' => $this->baseFirebasePath(), 'label' => 'base'] : null);
+
+        if ($firebaseSource) {
+            $fbUploaded = $sftp->put("{$backendPath}/storage/app/private/firebase-auth.json", $firebaseSource['path'], SFTP::SOURCE_LOCAL_FILE);
+            $output .= $fbUploaded
+                ? "[firebase] Uploaded {$firebaseSource['label']} Firebase credentials.\n"
+                : "[firebase] WARNING: {$firebaseSource['label']} Firebase upload failed.\n";
+        }
 
         // Step 6: Composer install
         $output .= $ssh->exec("cd {$backendPath} && {$php} /usr/local/bin/composer install --no-dev --optimize-autoloader --ignore-platform-reqs 2>&1")."\n";

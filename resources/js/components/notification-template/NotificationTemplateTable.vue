@@ -6,8 +6,10 @@ import Button from '@/components/ui/button/Button.vue';
 import Checkbox from '@/components/ui/checkbox/Checkbox.vue';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { CheckCircle, XCircle } from 'lucide-vue-next';
+import { useDateFormat } from '@/composables/useDateFormat';
 
 const { t } = useI18n();
+const { formatDate } = useDateFormat();
 
 const props = defineProps({
     templates: Object,
@@ -87,7 +89,7 @@ const triggerSummary = (row) => {
                                 </span>
                             </TableCell>
                             <TableCell class="text-xs text-muted-foreground">
-                                <span v-if="row.last_sent_at">{{ new Date(row.last_sent_at).toLocaleString() }}</span>
+                                <span v-if="row.last_sent_at">{{ formatDate(row.last_sent_at) }}</span>
                                 <span v-else>—</span>
                             </TableCell>
                             <TableCell class="sticky-actions">
@@ -161,7 +163,7 @@ const triggerSummary = (row) => {
                 </div>
                 <div class="flex items-center gap-2">
                     <span class="text-muted-foreground">{{ t('last_sent_at') }}:</span>
-                    <span v-if="row.last_sent_at" class="text-foreground">{{ new Date(row.last_sent_at).toLocaleString() }}</span>
+                    <span v-if="row.last_sent_at" class="text-foreground">{{ formatDate(row.last_sent_at) }}</span>
                     <span v-else class="text-foreground">—</span>
                 </div>
             </div>

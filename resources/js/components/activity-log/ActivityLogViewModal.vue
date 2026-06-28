@@ -3,8 +3,10 @@ import { useI18n } from 'vue-i18n';
 import { User, Activity, Clock, XIcon, Layers } from 'lucide-vue-next';
 import Button from '@/components/ui/button/Button.vue';
 import { computed } from 'vue';
+import { useDateFormat } from '@/composables/useDateFormat';
 
 const { t } = useI18n();
+const { formatDate } = useDateFormat();
 
 const props = defineProps({
     isOpen: Boolean,
@@ -26,9 +28,6 @@ const getActionColor = (action) => {
     }
 };
 
-const formatDate = (dateString) => {
-    return dateString ? new Date(dateString).toLocaleString() : '';
-};
 
 const getModelName = (subjectType) => {
     if (!subjectType) return 'N/A';

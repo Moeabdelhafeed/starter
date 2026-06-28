@@ -4,6 +4,7 @@ import { usePage, router } from '@inertiajs/vue3';
 import { useI18n } from 'vue-i18n';
 import { Bell, Check, CheckCheck, X, User, Activity, Clock } from 'lucide-vue-next';
 import { useAdminNotifications } from '@/composables/useAdminNotifications';
+import { useDateFormat } from '@/composables/useDateFormat';
 
 const props = defineProps({
     navbarOpen: {
@@ -16,6 +17,7 @@ const emit = defineEmits(['close']);
 
 const { t } = useI18n();
 const page = usePage();
+const { formatDateOnly } = useDateFormat();
 
 const isOpen = ref(false);
 
@@ -151,10 +153,7 @@ const formatDate = (dateString) => {
     if (diffHours < 24) return t('hours_ago', { count: diffHours });
     if (diffDays < 7) return t('days_ago', { count: diffDays });
 
-    return date.toLocaleDateString(page.props.locale?.code || 'en', {
-        month: 'short',
-        day: 'numeric',
-    });
+    return formatDateOnly(dateString);
 };
 
 // Close sidebar on escape key

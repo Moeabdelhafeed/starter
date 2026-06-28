@@ -3,6 +3,7 @@ import { usePage, router } from '@inertiajs/vue3';
 import { onMounted, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import Navbar from '../components/Shared/Navbar.vue';
+import TimezonePicker from '../components/Shared/TimezonePicker.vue';
 import { AlertCircle, CheckCircle, X } from 'lucide-vue-next';
 import { useDeviceRevocation } from '@/composables/useDeviceRevocation';
 
@@ -72,6 +73,7 @@ onMounted(() => {
 <template>
     <div id="main_div" class="text-scondary font-[Cairo]" :dir="page.props.locale.dir">
         <Navbar v-if="page.props.auth.user" />
+        <TimezonePicker />
 
         <!-- Success Toast -->
         <Transition

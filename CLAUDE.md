@@ -23,7 +23,7 @@ app/Http/Controllers/
 └── Api/            # Mobile app REST API
 
 app/Models/         # Eloquent models
-app/Traits/         # HasImage, HasVideo, LogsActivity, HasTranslations, HasSoftDeleteActions, NotifiesAdmin, BlocksRestoreIfParentTrashed, Exportable
+app/Traits/         # HasImage, HasVideo, LogsActivity, HasTranslations, HasSoftDeleteActions, NotifiesAdmin, BlocksRestoreIfParentTrashed, Exportable, HasUserTimezone
 app/Helpers/        # ApiResponse, EmailHelper, FCMHelper, SendSMS, SendWhatsapp
 
 resources/js/
@@ -185,6 +185,35 @@ class User extends Model {
 - Stream from a controller scoped to current filters: `return User::query()->where(...)->exportCsv('users.csv');`
 - The Inertia page receives `hasExport: true` (controller passes `in_array(Exportable::class, class_uses_recursive(Model::class))`) and renders the shared `<ExportButton route-name="users.export" :filters="filters" :show="hasExport" />` button. URL inherits the active filters so the export matches what the admin sees.
 - Every export writes a row to `activity_logs` with `action='exported'`, `subject_type=ModelClass`, `subject_id=null`, and `new_data={ filename, count, filters, columns }` — admin can audit who exported what and when.
+
+**`HasUserTimezone` — ALWAYS use for user-set date/time fields (MANDATORY).**
+Any time a CMS feature lets a user pick a date/time (publish date, schedule, start/end, etc.), the model MUST use this trait. Never store a user-entered datetime raw. The DB always holds **UTC**; the trait converts the value from the admin's active timezone to UTC on save, and the frontend (`useDateFormat`) converts back to the viewer's timezone for display. This is the single fix for "the time is off by N hours" bugs.
+
+```php
+use App\Traits\HasUserTimezone;
+
+class Event extends Model {
+    use HasUserTimezone;
+
+    // List every column that holds a user-entered datetime.
+    protected array $userTimezoneDates = ['starts_at', 'ends_at', 'published_at'];
+
+    protected function casts(): array {
+        return ['starts_at' => 'datetime', 'ends_at' => 'datetime', 'published_at' => 'datetime'];
+    }
+}
+```
+
+How it works:
+- The admin's active timezone rides on every request as the `X-Timezone` header (set in [resources/js/app.ts](resources/js/app.ts) from the timezone picker; updated live by [useDateFormat](resources/js/composables/useDateFormat.ts) `setTimezone`).
+- On `saving`, for each `$userTimezoneDates` field that is **dirty**, the trait interprets the value as wall-clock time in that timezone and stores it as UTC (`Y-m-d H:i:s`). Fields the user didn't change are left alone.
+- Missing/invalid header → falls back to `config('app.timezone')` (UTC) and no shift happens.
+
+Rules:
+- `config('app.timezone')` MUST stay `UTC`. Do not change it.
+- Validate the field as usual (`['date']` / `['date_format:...']`) — the trait only converts, it does not validate.
+- Frontend: render stored UTC datetimes through `useDateFormat().formatDate(...)`; never display a raw DB datetime.
+- Do NOT also hand-convert in the controller — the trait owns the conversion. Double-converting shifts twice.
 
 **`BlocksRestoreIfParentTrashed`** — use on any soft-deletable child model whose parent must be alive for the row to make sense:
 ```php

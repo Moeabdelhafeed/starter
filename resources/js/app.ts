@@ -1,6 +1,6 @@
 import '../css/app.css';
 
-import { createInertiaApp } from '@inertiajs/vue3';
+import { createInertiaApp, router } from '@inertiajs/vue3';
 import { resolvePageComponent } from 'laravel-vite-plugin/inertia-helpers';
 import type { DefineComponent } from 'vue';
 import { createApp, h, Fragment } from 'vue';
@@ -14,6 +14,21 @@ const appName = import.meta.env.VITE_APP_NAME || 'Laravel';
 import ar from './locales/ar.json';
 import en from './locales/en.json';
 import { configureEcho } from '@laravel/echo-vue';
+
+// Send the admin's active timezone on every Inertia request so the backend
+// HasUserTimezone trait can convert user-entered datetimes to UTC before save.
+const resolveCmsTimezone = (): string => {
+    try {
+        const stored = localStorage.getItem('cms_timezone');
+        if (stored && stored !== 'auto') return stored;
+        return Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
+    } catch {
+        return 'UTC';
+    }
+};
+router.on('before', (event) => {
+    event.detail.visit.headers['X-Timezone'] = resolveCmsTimezone();
+});
 
 configureEcho({
     broadcaster: 'pusher',

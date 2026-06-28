@@ -3,6 +3,7 @@ import { Head, usePage, Link } from '@inertiajs/vue3';
 import { computed } from 'vue';
 import { useI18n } from 'vue-i18n';
 import Default from '@/layouts/default.vue';
+import { useDateFormat } from '@/composables/useDateFormat';
 import {
     Users,
     Smartphone,
@@ -106,15 +107,7 @@ const visibleStats = computed(() => {
     });
 });
 
-const formatDate = (dateString) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString(page.props.locale?.code || 'en', {
-        month: 'short',
-        day: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
-    });
-};
+const { formatDate } = useDateFormat();
 
 const getActionColor = (action) => {
     switch (action) {

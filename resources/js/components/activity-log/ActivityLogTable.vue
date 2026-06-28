@@ -7,8 +7,10 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Eye, Trash2, User, Clock } from 'lucide-vue-next';
 import { computed } from 'vue';
 import { useHighlight } from '@/composables/useHighlight';
+import { useDateFormat } from '@/composables/useDateFormat';
 
 const { isHighlighted } = useHighlight();
+const { formatDate } = useDateFormat();
 
 const { t } = useI18n();
 
@@ -47,9 +49,6 @@ const getActionColor = (action) => {
     }
 };
 
-const formatDate = (dateString) => {
-    return new Date(dateString).toLocaleString();
-};
 
 const getModelName = (subjectType) => {
     if (!subjectType) return 'N/A';

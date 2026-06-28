@@ -7,8 +7,10 @@ import Checkbox from '@/components/ui/checkbox/Checkbox.vue';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { CheckCircle, XCircle, Globe, Smartphone } from 'lucide-vue-next';
 import { useHighlight } from '@/composables/useHighlight';
+import { useDateFormat } from '@/composables/useDateFormat';
 
 const { isHighlighted } = useHighlight();
+const { formatDate } = useDateFormat();
 
 const { t } = useI18n();
 const page = usePage();
@@ -184,7 +186,7 @@ const toggleStatus = (user) => {
                         </TableCell>
 
                         <TableCell class="text-xs text-muted-foreground">
-                            <span v-if="user.last_seen_at">{{ new Date(user.last_seen_at).toLocaleString() }}</span>
+                            <span v-if="user.last_seen_at">{{ formatDate(user.last_seen_at) }}</span>
                             <span v-else>—</span>
                         </TableCell>
 
@@ -327,7 +329,7 @@ const toggleStatus = (user) => {
 
             <!-- Last seen -->
             <div class="text-xs text-muted-foreground">
-                <span v-if="user.last_seen_at">{{ t('last_seen') }}: {{ new Date(user.last_seen_at).toLocaleString() }}</span>
+                <span v-if="user.last_seen_at">{{ t('last_seen') }}: {{ formatDate(user.last_seen_at) }}</span>
                 <span v-else>{{ t('last_seen') }}: —</span>
             </div>
 

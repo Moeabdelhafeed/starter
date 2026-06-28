@@ -188,6 +188,10 @@ Route::middleware('auth')->group(function () {
             Route::put('/production-mail', [DevSettingController::class, 'updateProductionMail'])->name('dev_settings.production_mail');
             Route::post('/deploy', [DevSettingController::class, 'deploy'])->name('dev_settings.deploy');
             Route::put('/deploy-config', [DevSettingController::class, 'saveDeployConfig'])->name('dev_settings.deploy_config');
+            Route::post('/base-firebase', [DevSettingController::class, 'uploadBaseFirebase'])->name('dev_settings.base_firebase');
+            Route::post('/base-firebase-delete', [DevSettingController::class, 'deleteBaseFirebase'])->name('dev_settings.base_firebase_delete');
+            Route::post('/flavor-firebase', [DevSettingController::class, 'uploadFlavorFirebase'])->name('dev_settings.flavor_firebase');
+            Route::post('/flavor-firebase-delete', [DevSettingController::class, 'deleteFlavorFirebase'])->name('dev_settings.flavor_firebase_delete');
             Route::post('/logo', [DevSettingController::class, 'uploadLogo'])->name('dev_settings.logo');
             Route::post('/favicon', [DevSettingController::class, 'uploadFavicon'])->name('dev_settings.favicon');
             Route::get('/postman', [DevSettingController::class, 'downloadPostman'])->name('dev_settings.postman');

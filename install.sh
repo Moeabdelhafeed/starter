@@ -134,6 +134,18 @@ echo "║                                                           ║"
 echo "╚═══════════════════════════════════════════════════════════╝"
 echo -e "${NC}"
 
+# Conventions reminder
+echo -e "${YELLOW}═══════════════════════════════════════════════════════════${NC}"
+echo -e "${YELLOW}  Conventions:${NC}"
+echo -e "${GREEN}  • Timezones:${NC} the DB always stores UTC. For any user-set"
+echo -e "    date/time field, add the ${GREEN}HasUserTimezone${NC} trait to the model and"
+echo -e "    list the columns in ${GREEN}\$userTimezoneDates${NC}. It converts the admin's"
+echo -e "    timezone (X-Timezone header) to UTC on save; the frontend"
+echo -e "    (${GREEN}useDateFormat${NC}) converts back for display. Keep APP_TIMEZONE=UTC."
+echo -e "    See CLAUDE.md → Traits → HasUserTimezone."
+echo -e "${YELLOW}═══════════════════════════════════════════════════════════${NC}"
+echo ""
+
 echo -e "${BLUE}Starting the development server...${NC}"
 echo ""
 echo -e "${YELLOW}═══════════════════════════════════════════════════════════${NC}"
