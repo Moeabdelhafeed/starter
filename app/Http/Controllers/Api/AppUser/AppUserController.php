@@ -29,6 +29,23 @@ use Spatie\Permission\Models\Role;
 
 class AppUserController extends Controller
 {
+    /**
+     * Register
+     *
+     * Create a new mobile-app account. Only available when AUTH_MODE=password (route disappears entirely
+     * under AUTH_MODE=otp — login covers registration there instead). Does NOT issue a token — call
+     * POST /api/login afterwards to obtain one. When the resolved identifier kind is `username` (no OTP
+     * channel), the account is auto-verified and no OTP is sent.
+     *
+     * @group Authentication
+     *
+     * @groupDescription Register, log in, and manage OTP-based verification and password resets for mobile-app users.
+     *
+     * @response 200 scenario="Registered — OTP sent (email/phone identifier)" {"success": true, "message": "User registered successfully.", "data": {"user": {"id": 42, "name": "Jane Doe", "email": "jane@example.com", "phone": null, "username": null, "is_active": true, "verified_at": null, "created_at": "2026-07-19T10:00:00.000000Z"}, "otp_expires_in_minutes": 5}, "errors": null}
+     * @response 422 scenario="Validation failed" {"success": false, "message": "The given data was invalid.", "errors": {"identifier": ["The identifier field is required."], "password": ["The password field is required."]}, "data": null}
+     * @response 422 scenario="Identifier does not match any configured kind" {"success": false, "message": "The given data was invalid.", "errors": {"identifier": ["The identifier must be a valid email or phone."]}, "data": null}
+     * @response 500 scenario="API user role missing (RoleSeeder not run)" {"success": false, "message": "User role not found for api guard.", "errors": null, "data": null}
+     */
     public function register(Request $request)
     {
         $identifiers = $this->getAuthIdentifiers();
@@ -137,6 +154,17 @@ class AppUserController extends Controller
         return ApiResponse::success($responseData, Trans::get('api.user_registered'));
     }
 
+    /**
+     * Resend Verification OTP
+     *
+     * Resend the `verify` OTP to the authenticated (but unverified) user's delivery channel.
+     *
+     * @group Authentication
+     *
+     * @response 200 scenario="Success" {"success": true, "message": "Verification code sent successfully.", "data": {"user": {"id": 42, "name": "Jane Doe", "email": "jane@example.com", "verified_at": null}, "otp_expires_in_minutes": 5}, "errors": null}
+     * @response 404 scenario="No user resolved (missing/invalid Bearer)" {"success": false, "message": "User not found.", "errors": null, "data": null}
+     * @response 400 scenario="No deliverable channel (username-only account)" {"success": false, "message": "OTP not available for this identifier type.", "errors": null, "data": null}
+     */
     public function sendOtp(Request $request)
     {
         $user = $request->user();
@@ -163,6 +191,30 @@ class AppUserController extends Controller
         return ApiResponse::success($responseData, Trans::get('api.otp_sent'));
     }
 
+    /**
+     * Login
+     *
+     * Behavior branches on AUTH_MODE (see GET /api/config → auth_mode):
+     * - `password` (default): body is `identifier` + `password` (+ optional `remember_me`). Issues a Sanctum
+     *   token immediately. An unverified account still gets a token (usable with verify-otp) plus a fresh
+     *   verify OTP.
+     * - `otp`: body is `identifier` only (+ optional `name` for first-time users). Auto-creates the user if
+     *   missing (promoting any existing guest tied to the same X-Device-Id), sends a `login` OTP, and does
+     *   NOT issue a token — client follows with POST /api/verify-login.
+     *
+     * @group Authentication
+     *
+     * @response 200 scenario="password mode — verified" {"success": true, "message": "Login successful.", "token": "1|abcdef123456", "data": {"user": {"id": 42, "name": "Jane Doe", "email": "jane@example.com", "verified_at": "2026-07-18T09:00:00.000000Z"}, "is_verified": true, "account_restored": false, "token_id": 7, "token": "1|abcdef123456"}, "errors": null}
+     * @response 200 scenario="password mode — unverified (fresh OTP sent)" {"success": true, "message": "Account not verified. Please check your email.", "token": "1|abcdef123456", "data": {"user": {"id": 42, "name": "Jane Doe", "verified_at": null}, "is_verified": false, "token_id": 7, "otp_expires_in_minutes": 5, "token": "1|abcdef123456"}, "errors": null}
+     * @response 200 scenario="otp mode — OTP sent, no token yet" {"success": true, "message": "Login code sent. Enter the code to complete sign in.", "data": {"identifier": "jane@example.com", "channel": "email", "otp_expires_in_minutes": 5}, "errors": null}
+     * @response 422 scenario="missing required fields" {"success": false, "message": "The identifier field is required. (and 1 more error)", "errors": {"identifier": ["The identifier field is required."], "password": ["The password field is required."]}, "data": null}
+     * @response 422 scenario="password mode — user not found" {"success": false, "message": "User not found.", "errors": {"identifier": ["User not found."]}, "data": null}
+     * @response 422 scenario="password mode — invalid password" {"success": false, "message": "Invalid credentials.", "errors": {"password": ["Invalid credentials."]}, "data": null}
+     * @response 422 scenario="otp mode — identifier is not a valid email/phone" {"success": false, "message": "The identifier must be a valid email or phone.", "errors": {"identifier": ["The identifier must be a valid email or phone."]}, "data": null}
+     * @response 403 scenario="account suspended (admin-trashed)" {"success": false, "message": "Your account is suspended. Please contact support.", "errors": null, "data": null}
+     * @response 403 scenario="account inactive" {"success": false, "message": "Your account is inactive.", "errors": null, "data": null}
+     * @response 403 scenario="user role missing/wrong guard" {"success": false, "message": "Unauthorized access.", "errors": null, "data": null}
+     */
     public function login(Request $request)
     {
         if ($this->isOtpMode()) {
@@ -252,6 +304,16 @@ class AppUserController extends Controller
         ], Trans::get($accountRestored ? 'api.account_restored' : 'api.login_successful'), $token);
     }
 
+    /**
+     * Get App Config
+     *
+     * Live app configuration for mobile/web clients to adapt their UI on boot. Always available (not
+     * gated on APP_USERS). Public, no auth required beyond the standard device/API-token headers.
+     *
+     * @group Authentication
+     *
+     * @response 200 scenario="Success" {"success": true, "message": "Operation successful", "data": {"identifiers": ["email"], "has_username_field": false, "has_email_field": false, "has_phone_field": false, "social_providers": ["google.com", "apple.com"], "max_social_accounts": 0, "social_auth_available": true, "is_otp_whatsapp": false, "multi_session": true, "app_users": true, "app_guests": true, "auth_mode": "otp", "allowed_email_domains": "all", "allowed_phone_countries": "all"}, "errors": null}
+     */
     public function config()
     {
         $identifiers = $this->getAuthIdentifiers();
@@ -269,7 +331,26 @@ class AppUserController extends Controller
             'app_users' => filter_var(env('APP_USERS', true), FILTER_VALIDATE_BOOLEAN),
             'app_guests' => filter_var(env('APP_GUESTS', true), FILTER_VALIDATE_BOOLEAN),
             'auth_mode' => $this->isOtpMode() ? 'otp' : 'password',
+            'allowed_email_domains' => $this->parseAllowedList(env('ALLOWED_EMAIL_DOMAINS', 'all')),
+            'allowed_phone_countries' => $this->parseAllowedList(env('ALLOWED_PHONE_COUNTRIES', 'all')),
         ]);
+    }
+
+    /**
+     * Normalize an ALLOWED_* env value: the literal string "all" (or empty) means
+     * unrestricted; otherwise a comma-separated list becomes a trimmed array.
+     *
+     * @return string|array<int, string>
+     */
+    private function parseAllowedList(?string $value): string|array
+    {
+        $value = trim((string) $value);
+
+        if ($value === '' || strtolower($value) === 'all') {
+            return 'all';
+        }
+
+        return array_values(array_filter(array_map('trim', explode(',', $value))));
     }
 
     private function isOtpMode(): bool
@@ -355,6 +436,20 @@ class AppUserController extends Controller
      * issue a Sanctum token, and track the device. Reviewer accounts auto-pass
      * any OTP value (consistent with verifyOtp).
      */
+    /**
+     * Verify Login OTP
+     *
+     * OTP-mode only: consume the `login` OTP sent by POST /api/login and issue a Sanctum token.
+     * Reviewer accounts auto-pass any OTP value.
+     *
+     * @group Authentication
+     *
+     * @response 200 scenario="Success" {"success": true, "message": "Login successful.", "token": "1|abcdef123456", "data": {"user": {"id": 42, "name": "Jane Doe", "verified_at": "2026-07-19T10:00:00.000000Z"}, "is_verified": true, "account_restored": false, "token_id": 7, "token": "1|abcdef123456"}, "errors": null}
+     * @response 404 scenario="Wrong auth mode (route logically disabled)" {"success": false, "message": "Endpoint not available in the current auth mode.", "errors": null, "data": null}
+     * @response 422 scenario="User not found" {"success": false, "message": "User not found.", "errors": {"identifier": ["User not found."]}, "data": null}
+     * @response 422 scenario="Invalid or expired OTP" {"success": false, "message": "Invalid or expired verification code.", "errors": {"otp": ["Invalid or expired verification code."]}, "data": null}
+     * @response 403 scenario="Account suspended/inactive/wrong role" {"success": false, "message": "Your account is suspended. Please contact support.", "errors": null, "data": null}
+     */
     public function verifyLogin(Request $request)
     {
         if (! $this->isOtpMode()) {
@@ -428,6 +523,19 @@ class AppUserController extends Controller
      * the device's X-Device-Id already maps to one. 403 when the device is
      * claimed by a registered user. 403 when `APP_GUESTS=false`.
      */
+    /**
+     * Create Guest Session
+     *
+     * Explicit guest creation. Idempotent — returns the existing guest if X-Device-Id already matches one.
+     *
+     * @group Devices & Guests
+     *
+     * @groupDescription Manage guest sessions and the authenticated user's registered devices/sessions.
+     *
+     * @response 200 scenario="Success" {"success": true, "message": "Guest created.", "data": {"user": {"id": 99, "name": "Guest", "is_guest": true, "guest_id": "11111111-1111-4111-8111-111111111111", "platform": "web", "is_active": true}}, "errors": null}
+     * @response 403 scenario="Guests disabled (APP_GUESTS=false)" {"success": false, "message": "Guest mode is disabled.", "errors": null, "data": null}
+     * @response 403 scenario="Device already claimed by a registered user" {"success": false, "message": "This endpoint is only available for guests.", "errors": {"auth": ["This endpoint is only available for guests."]}, "data": null}
+     */
     public function createGuest(Request $request)
     {
         if (! filter_var(env('APP_GUESTS', true), FILTER_VALIDATE_BOOLEAN)) {
@@ -450,6 +558,18 @@ class AppUserController extends Controller
         return ApiResponse::success(['user' => $user->fresh()], Trans::get('api.guest_created'));
     }
 
+    /**
+     * Check Identifier
+     *
+     * Pre-submit uniqueness/state check for an email/phone/username value — used before register,
+     * update-profile (username), request-identifier-change, and to pick a forgot-password `type`.
+     *
+     * @group Authentication
+     *
+     * @response 200 scenario="Match found" {"success": true, "message": "Operation successful", "data": {"exists": true, "pending_deletion": false, "suspended": false, "available_channels": ["email"], "has_password": true, "social_providers": ["google.com"], "verified": true, "is_guest": false}, "errors": null}
+     * @response 200 scenario="No match" {"success": true, "message": "Operation successful", "data": {"exists": false, "pending_deletion": false, "suspended": false, "available_channels": [], "has_password": false, "social_providers": [], "verified": false, "is_guest": false}, "errors": null}
+     * @response 422 scenario="Missing identifier" {"success": false, "message": "The identifier field is required.", "errors": {"identifier": ["The identifier field is required."]}, "data": null}
+     */
     public function checkIdentifier(Request $request)
     {
         $request->validate([
@@ -521,6 +641,15 @@ class AppUserController extends Controller
         ]);
     }
 
+    /**
+     * Logout
+     *
+     * Revoke the current Sanctum token. Requires auth:sanctum.
+     *
+     * @group Authentication
+     *
+     * @response 200 scenario="Success" {"success": true, "message": "Logout successful.", "data": null, "errors": null}
+     */
     public function logout(Request $request)
     {
         $request->user()->currentAccessToken()->delete();
@@ -531,6 +660,16 @@ class AppUserController extends Controller
     /**
      * List the authenticated user's active devices. The current device is
      * flagged so the client can highlight it / disable its revoke button.
+     */
+    /**
+     * List Devices
+     *
+     * List the authenticated user's active devices/sessions (only meaningful when MULTI_SESSION_ENABLED=true —
+     * otherwise there is always exactly one).
+     *
+     * @group Devices & Guests
+     *
+     * @response 200 scenario="Success" {"success": true, "message": "Operation successful", "data": {"devices": [{"id": 3, "device_name": null, "platform": "ios", "ip": "10.0.0.1", "user_agent": "MyApp/1.0", "last_seen_at": "2026-07-19T09:00:00.000000Z", "created_at": "2026-07-10T08:00:00.000000Z", "is_current": true}, {"id": 2, "device_name": null, "platform": "android", "ip": "10.0.0.2", "user_agent": "MyApp/1.0", "last_seen_at": "2026-07-15T09:00:00.000000Z", "created_at": "2026-07-01T08:00:00.000000Z", "is_current": false}]}, "errors": null}
      */
     public function devices(Request $request)
     {
@@ -558,6 +697,18 @@ class AppUserController extends Controller
      * cascade drops the device row) and broadcasts `device.revoked` so the
      * kicked client clears its local creds.
      */
+    /**
+     * Revoke Device
+     *
+     * Revoke a specific device by id (from GET /api/devices). Deletes its Sanctum token (FK cascade drops
+     * the device row) and broadcasts `device.revoked` on private-user.{userId} so that client clears its
+     * local credentials.
+     *
+     * @group Devices & Guests
+     *
+     * @response 200 scenario="Success" {"success": true, "message": "Device signed out.", "data": null, "errors": null}
+     * @response 404 scenario="Device id not found for this user (findOrFail — Laravel default shape, NOT the ApiResponse envelope)" {"message": "No query results for model [App\\Models\\UserDevice] 999"}
+     */
     public function revokeDevice(Request $request, int $deviceId)
     {
         $device = $request->user()->devices()->findOrFail($deviceId);
@@ -570,6 +721,17 @@ class AppUserController extends Controller
         return ApiResponse::success(null, Trans::get('api.device_revoked'));
     }
 
+    /**
+     * Verify OTP
+     *
+     * Consume a `verify` OTP (sent by register or send-otp) and stamp the account verified.
+     * Reviewer accounts bypass the OTP check entirely.
+     *
+     * @group Authentication
+     *
+     * @response 200 scenario="Success" {"success": true, "message": "Code verified successfully.", "data": {"user": {"id": 42, "name": "Jane Doe", "verified_at": "2026-07-19T10:00:00.000000Z"}}, "errors": null}
+     * @response 422 scenario="Invalid or expired OTP" {"success": false, "message": "Invalid or expired verification code.", "errors": {"otp": ["Invalid or expired verification code."]}, "data": null}
+     */
     public function verifyOtp(Request $request)
     {
         $request->validate([
@@ -610,6 +772,19 @@ class AppUserController extends Controller
         return ApiResponse::success(['user' => $user->fresh()], Trans::get('api.otp_verified'));
     }
 
+    /**
+     * Forgot Password
+     *
+     * Send a `reset_password` OTP. Only meaningful under AUTH_MODE=password (route disappears under
+     * AUTH_MODE=otp). Channel is auto-picked (`email` > `phone` priority) unless `type` is explicitly passed.
+     *
+     * @group Authentication
+     *
+     * @response 200 scenario="Success" {"success": true, "message": "Password reset code sent.", "data": {"identifier": "jane@example.com", "channel": "email", "otp_expires_in_minutes": 5}, "errors": null}
+     * @response 422 scenario="User not found" {"success": false, "message": "User not found.", "errors": {"identifier": ["User not found."]}, "data": null}
+     * @response 422 scenario="Requested `type` channel not populated on this user" {"success": false, "message": "OTP not available for this identifier type.", "errors": {"type": ["OTP not available for this identifier type."]}, "data": null}
+     * @response 403 scenario="Account inactive" {"success": false, "message": "Your account is inactive.", "errors": null, "data": null}
+     */
     public function forgotPassword(Request $request)
     {
         $request->validate([
@@ -683,6 +858,19 @@ class AppUserController extends Controller
         return ApiResponse::success($responseData, Trans::get('api.forgot_password_otp_sent'));
     }
 
+    /**
+     * Verify Forgot-Password OTP
+     *
+     * Verify a `reset_password` OTP (from forgot-password) WITHOUT consuming it — the OTP is echoed back
+     * so the client can pass it again to POST /api/change-forgot-password, which performs the actual reset.
+     *
+     * @group Authentication
+     *
+     * @response 200 scenario="Success" {"success": true, "message": "Code verified successfully.", "data": {"identifier": "jane@example.com", "otp": "482913"}, "errors": null}
+     * @response 422 scenario="User not found" {"success": false, "message": "User not found.", "errors": {"identifier": ["User not found."]}, "data": null}
+     * @response 422 scenario="Invalid or expired OTP" {"success": false, "message": "Invalid or expired verification code.", "errors": {"otp": ["Invalid or expired verification code."]}, "data": null}
+     * @response 403 scenario="Account inactive" {"success": false, "message": "Your account is inactive.", "errors": null, "data": null}
+     */
     public function verifyForgotPasswordOtp(Request $request)
     {
         $request->validate([
@@ -724,6 +912,19 @@ class AppUserController extends Controller
         ], Trans::get('api.otp_verified'));
     }
 
+    /**
+     * Reset Password
+     *
+     * Complete a password reset: re-verifies the `reset_password` OTP and sets the new password.
+     * Revokes all of the user's existing tokens.
+     *
+     * @group Authentication
+     *
+     * @response 200 scenario="Success" {"success": true, "message": "Password changed successfully.", "data": null, "errors": null}
+     * @response 422 scenario="User not found" {"success": false, "message": "User not found.", "errors": {"identifier": ["User not found."]}, "data": null}
+     * @response 422 scenario="Invalid or expired OTP" {"success": false, "message": "Invalid or expired verification code.", "errors": {"otp": ["Invalid or expired verification code."]}, "data": null}
+     * @response 403 scenario="Account inactive" {"success": false, "message": "Your account is inactive.", "errors": null, "data": null}
+     */
     public function changeForgotPassword(Request $request)
     {
         $request->validate([
@@ -769,6 +970,19 @@ class AppUserController extends Controller
         return ApiResponse::success(null, Trans::get('api.password_changed_successfully'));
     }
 
+    /**
+     * Change Password
+     *
+     * Change the authenticated user's password. `old_password` is required unless the account has no
+     * password yet (social-only account setting its first password). Revokes every OTHER token (keeps
+     * the current session alive).
+     *
+     * @group Authentication
+     *
+     * @response 200 scenario="Success — had a password" {"success": true, "message": "Password changed successfully.", "data": null, "errors": null}
+     * @response 200 scenario="Success — first password (social-only account)" {"success": true, "message": "Password set successfully.", "data": null, "errors": null}
+     * @response 422 scenario="Wrong current password" {"success": false, "message": "Old password is incorrect.", "errors": {"old_password": ["Old password is incorrect."]}, "data": null}
+     */
     public function changePassword(Request $request)
     {
         $user = $request->user();
@@ -799,6 +1013,22 @@ class AppUserController extends Controller
         ));
     }
 
+    /**
+     * Delete Account
+     *
+     * Delete the authenticated account. Guests are force-deleted immediately (no retention). Real users
+     * are soft-marked (`account_deleted_at`) and restorable by logging back in within
+     * ACCOUNT_DELETION_RETENTION_DAYS (default 30) before the purge middleware force-deletes the row.
+     * All tokens are revoked. Real users must be verified.
+     *
+     * @group Profile & Account
+     *
+     * @groupDescription View and update the authenticated user's profile, identifiers, and account lifecycle.
+     *
+     * @response 200 scenario="Success" {"success": true, "message": "Account deleted successfully.", "data": null, "errors": null}
+     * @response 404 scenario="No user resolved" {"success": false, "message": "User not found.", "errors": null, "data": null}
+     * @response 403 scenario="Real user not yet verified" {"success": false, "message": "Account not verified. Please check your email.", "errors": null, "data": null}
+     */
     public function deleteAccount(Request $request)
     {
         $user = $request->user();
@@ -828,6 +1058,22 @@ class AppUserController extends Controller
         return ApiResponse::success(null, Trans::get('api.account_deleted_successfully'));
     }
 
+    /**
+     * Request Identifier Change
+     *
+     * Start an email/phone identifier change: sends an OTP to `new_identifier`. Rate-limited via
+     * throttle:otp (3/5min). Blocked while the account is pending self-deletion or admin-trashed.
+     * Email changes on password-less accounts with linked social providers are blocked until a
+     * password is set first (email change wipes social links).
+     *
+     * @group Profile & Account
+     *
+     * @response 200 scenario="Success" {"success": true, "message": "Verification code sent to your new identifier.", "data": {"new_identifier": "new@example.com", "otp_expires_in_minutes": 5}, "errors": null}
+     * @response 422 scenario="new_identifier is not a valid/configured kind" {"success": false, "message": "The identifier must be a valid email or phone.", "errors": {"new_identifier": ["The identifier must be a valid email or phone."]}, "data": null}
+     * @response 422 scenario="new_identifier already taken" {"success": false, "message": "The given data was invalid.", "errors": {"new_identifier": ["The email has already been taken."]}, "data": null}
+     * @response 422 scenario="Password required before email change (social-only account)" {"success": false, "message": "Set a password before changing your email — your linked social accounts will be unlinked.", "errors": {"new_identifier": ["Set a password before changing your email — your linked social accounts will be unlinked."]}, "data": null}
+     * @response 403 scenario="Account pending deletion or suspended" {"success": false, "message": "Your account is in a frozen state and cannot be edited. Please log in to restore it or contact support.", "errors": {"new_identifier": ["Your account is in a frozen state and cannot be edited. Please log in to restore it or contact support."]}, "data": null}
+     */
     public function requestIdentifierChange(Request $request)
     {
         $identifiers = $this->getAuthIdentifiers();
@@ -927,6 +1173,20 @@ class AppUserController extends Controller
         return ApiResponse::success($responseData, Trans::get('api.identifier_change_otp_sent'));
     }
 
+    /**
+     * Verify Identifier Change
+     *
+     * Confirm the OTP from request-identifier-change and apply the new email/phone. An email change
+     * wipes all linked social accounts (they were authorized against the old email) and best-effort
+     * revokes their Firebase refresh tokens.
+     *
+     * @group Profile & Account
+     *
+     * @response 200 scenario="Success — phone change" {"success": true, "message": "Identifier changed successfully.", "data": {"user": {"id": 42, "phone": "+15551234567"}, "unlinked_providers": []}, "errors": null}
+     * @response 200 scenario="Success — email change (social accounts unlinked)" {"success": true, "message": "Identifier changed successfully.", "data": {"user": {"id": 42, "email": "new@example.com"}, "unlinked_providers": ["google.com"]}, "errors": null}
+     * @response 422 scenario="Invalid or expired OTP" {"success": false, "message": "Invalid or expired verification code.", "errors": {"otp": ["Invalid or expired verification code."]}, "data": null}
+     * @response 403 scenario="Account pending deletion or suspended" {"success": false, "message": "Your account is in a frozen state and cannot be edited. Please log in to restore it or contact support.", "errors": {"new_identifier": ["Your account is in a frozen state and cannot be edited. Please log in to restore it or contact support."]}, "data": null}
+     */
     public function verifyIdentifierChange(Request $request, FirebaseAuth $firebaseAuth)
     {
         $identifiers = $this->getAuthIdentifiers();
@@ -1019,6 +1279,19 @@ class AppUserController extends Controller
         ], Trans::get('api.identifier_changed_successfully'));
     }
 
+    /**
+     * Update Profile
+     *
+     * Update the authenticated user's profile. `name` always editable. `username` editable when
+     * HAS_USERNAME_FIELD=true (username is never an identifier). `email`/`phone` editable here ONLY
+     * when NOT configured as an identifier (HAS_EMAIL_FIELD/HAS_PHONE_FIELD extras) — otherwise use
+     * request-identifier-change instead.
+     *
+     * @group Profile & Account
+     *
+     * @response 200 scenario="Success" {"success": true, "message": "Profile updated successfully.", "data": {"user": {"id": 42, "name": "Jane A. Doe", "username": "janedoe"}}, "errors": null}
+     * @response 422 scenario="Validation failed" {"success": false, "message": "The username has already been taken.", "errors": {"username": ["The username has already been taken."]}, "data": null}
+     */
     public function updateProfile(Request $request)
     {
         $user = $request->user();
@@ -1389,6 +1662,26 @@ class AppUserController extends Controller
 
     // --- Firebase Social Auth ---
 
+    /**
+     * Firebase Login
+     *
+     * Login or register via a Firebase ID token (Google/Apple/Facebook/etc). Requires email configured
+     * as an identifier (AUTH_IDENTIFIERS). New users auto-verify and get the `user` role; existing
+     * password accounts block social login; social-only accounts link the provider automatically.
+     *
+     * @group Social Login
+     *
+     * @groupDescription Login and account linking via Firebase-verified social providers (Google, Apple, etc.).
+     *
+     * @response 200 scenario="Success — existing or new social user" {"success": true, "message": "Login successful.", "token": "1|abcdef123456", "data": {"user": {"id": 42, "name": "Jane Doe", "email": "jane@example.com"}, "is_verified": true, "token_id": 7, "is_new_user": false, "provider": "google.com", "provider_already_linked": true, "linked_providers": ["google.com"], "token": "1|abcdef123456"}, "errors": null}
+     * @response 422 scenario="Invalid/expired Firebase token" {"success": false, "message": "Invalid or expired Firebase token.", "errors": {"token": ["Invalid or expired Firebase token."]}, "data": null}
+     * @response 422 scenario="Token has no email claim" {"success": false, "message": "Email is required for social login.", "errors": {"token": ["Email is required for social login."]}, "data": null}
+     * @response 422 scenario="Provider not in SOCIAL_AUTH_PROVIDERS" {"success": false, "message": "This social provider is not allowed.", "errors": {"token": ["This social provider is not allowed."]}, "data": null}
+     * @response 422 scenario="Email already registered with a password" {"success": false, "message": "Account already exists. Please login with your password.", "errors": {"token": ["Account already exists. Please login with your password."]}, "data": null}
+     * @response 422 scenario="SOCIAL_AUTH_MAX_ACCOUNTS reached" {"success": false, "message": "Maximum number of social accounts reached.", "errors": {"token": ["Maximum number of social accounts reached."]}, "data": null}
+     * @response 400 scenario="Social auth unavailable (email not an identifier)" {"success": false, "message": "Social authentication is not available. Email must be configured as a login identifier.", "errors": null, "data": null}
+     * @response 403 scenario="Account inactive / wrong role" {"success": false, "message": "Your account is inactive.", "errors": null, "data": null}
+     */
     public function firebaseLogin(Request $request, FirebaseAuth $firebaseAuth)
     {
         // Social auth requires email as an identifier
@@ -1559,6 +1852,22 @@ class AppUserController extends Controller
         ], Trans::get($providerAlreadyLinked ? 'api.social_provider_already_linked' : 'api.login_successful'), $token);
     }
 
+    /**
+     * Link Social Account
+     *
+     * Link a Firebase social account to the authenticated (already logged in) user. Requires the
+     * verified token's email to match the user's account email.
+     *
+     * @group Social Login
+     *
+     * @response 200 scenario="Success" {"success": true, "message": "Social account linked successfully.", "data": {"user": {"id": 42, "email": "jane@example.com"}}, "errors": null}
+     * @response 422 scenario="Invalid/expired Firebase token" {"success": false, "message": "Invalid or expired Firebase token.", "errors": {"token": ["Invalid or expired Firebase token."]}, "data": null}
+     * @response 422 scenario="Provider already linked to another user" {"success": false, "message": "This social account is already linked to another user.", "errors": {"token": ["This social account is already linked to another user."]}, "data": null}
+     * @response 422 scenario="Provider already linked to you" {"success": false, "message": "This provider is already linked to your account. Logged in.", "errors": {"token": ["This provider is already linked to your account. Logged in."]}, "data": null}
+     * @response 422 scenario="Token email does not match account email" {"success": false, "message": "Social account email does not match your account email.", "errors": {"token": ["Social account email does not match your account email."]}, "data": null}
+     * @response 422 scenario="SOCIAL_AUTH_MAX_ACCOUNTS reached" {"success": false, "message": "Maximum number of social accounts reached.", "errors": {"token": ["Maximum number of social accounts reached."]}, "data": null}
+     * @response 400 scenario="Social auth unavailable (email not an identifier)" {"success": false, "message": "Social authentication is not available. Email must be configured as a login identifier.", "errors": null, "data": null}
+     */
     public function linkSocialAccount(Request $request, FirebaseAuth $firebaseAuth)
     {
         // Social auth requires email as an identifier
@@ -1667,6 +1976,18 @@ class AppUserController extends Controller
         ], Trans::get('api.social_account_linked'));
     }
 
+    /**
+     * Unlink Social Account
+     *
+     * Unlink a social provider by name. Blocked if it's the user's last auth method (no password AND
+     * no other linked provider) — set a password first.
+     *
+     * @group Social Login
+     *
+     * @response 200 scenario="Success" {"success": true, "message": "Social account unlinked successfully.", "data": {"user": {"id": 42, "email": "jane@example.com"}}, "errors": null}
+     * @response 422 scenario="Provider not linked to this user" {"success": false, "message": "This social provider is not linked to your account.", "errors": {"provider": ["This social provider is not linked to your account."]}, "data": null}
+     * @response 422 scenario="Would remove the user's last auth method" {"success": false, "message": "Cannot unlink social account. Please set a password first.", "errors": {"provider": ["Cannot unlink social account. Please set a password first."]}, "data": null}
+     */
     public function unlinkSocialAccount(Request $request)
     {
         $request->validate([
@@ -1733,6 +2054,15 @@ class AppUserController extends Controller
         ], Trans::get('api.social_account_unlinked'));
     }
 
+    /**
+     * List Social Accounts
+     *
+     * List the authenticated user's linked social accounts plus the account/provider limits.
+     *
+     * @group Social Login
+     *
+     * @response 200 scenario="Success" {"success": true, "message": "Social accounts retrieved successfully.", "data": {"social_accounts": [{"id": 1, "provider": "google.com", "email": "jane@example.com", "name": "Jane Doe"}], "allowed_providers": ["google.com", "apple.com"], "max_accounts": 0, "can_link_more": true}, "errors": null}
+     */
     public function getSocialAccounts(Request $request)
     {
         $user = $request->user();

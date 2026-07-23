@@ -21,11 +21,13 @@ class TranslationController extends Controller
     {
         $search = $request->input('search');
         $group = $request->input('group');
+        $subGroup = $request->input('sub_group');
         $activeLanguages = Language::active()->get();
         $localeCodes = $activeLanguages->pluck('code')->toArray();
 
         $translations = TranslationKey::query()
             ->group($group)
+            ->subGroup($subGroup)
             ->when($search, function ($query, $search) {
                 $query->where(function ($q) use ($search) {
                     $q->where('key', 'like', "%{$search}%")
@@ -49,6 +51,7 @@ class TranslationController extends Controller
                     'id' => $key->id,
                     'key' => $key->key,
                     'group' => $key->group,
+                    'sub_group' => $key->sub_group,
                 ];
 
                 foreach ($localeCodes as $code) {
@@ -58,13 +61,24 @@ class TranslationController extends Controller
                 return $row;
             });
 
+        // Distinct sub-groups (app/web only, api never has one) for the filter dropdown.
+        $subGroups = TranslationKey::query()
+            ->whereIn('group', ['app', 'web'])
+            ->where('sub_group', '!=', '')
+            ->distinct()
+            ->orderBy('sub_group')
+            ->pluck('sub_group')
+            ->toArray();
+
         return Inertia::render('Translation/Index', [
             'translations' => Inertia::scroll($translations),
             'languages' => $activeLanguages,
             'groups' => $this->groups,
+            'subGroups' => array_merge(['all'], $subGroups),
             'filters' => [
                 'search' => $search,
                 'group' => $group,
+                'sub_group' => $subGroup,
             ],
         ]);
     }

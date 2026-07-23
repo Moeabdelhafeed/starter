@@ -18,6 +18,9 @@ import {
     FileText,
     Bell,
     X,
+    Share2,
+    AlertTriangle,
+    HardDrive,
 } from 'lucide-vue-next';
 import NotificationBell from '@/components/notification/NotificationBell.vue';
 import { useAdminNotifications } from '@/composables/useAdminNotifications';
@@ -178,7 +181,9 @@ const isRouteActive = (name) => {
                         <X class="size-5" />
                     </button>
                     <h2 class="flex flex-1 items-center justify-center text-lg font-semibold text-foreground">
-                        <img src="/images/logo.png" class="w-[60%]" />
+                        <img src="/images/logo.png" class="w-[60%] dark:hidden" />
+                        <img src="/images/logo-dark.png" class="hidden w-[60%] dark:block"
+                            @error="$event.target.src = '/images/logo.png'" />
                     </h2>
                     <NotificationBell :navbar-open="isSidebarOpen" @close="isMouseOver = false" />
                 </div>
@@ -259,7 +264,7 @@ const isRouteActive = (name) => {
                 </div>
 
                 <!-- Website Settings Accordion -->
-                <div v-if="(page.props.has_translations && page.props.auth.permissions.find((p) => p === 'translations')) || (page.props.has_activity_logs && page.props.auth.permissions.find((p) => p === 'activity_logs')) || (page.props.has_pages && page.props.auth.permissions.find((p) => p === 'pages')) || (page.props.has_notification_templates && page.props.auth.permissions.find((p) => p === 'notification_templates'))" class="space-y-1">
+                <div v-if="(page.props.has_translations && page.props.auth.permissions.find((p) => p === 'translations')) || (page.props.has_activity_logs && page.props.auth.permissions.find((p) => p === 'activity_logs')) || (page.props.has_pages && page.props.auth.permissions.find((p) => p === 'pages')) || (page.props.has_dynamic_storage && page.props.auth.permissions.find((p) => p === 'dynamic_storage')) || (page.props.has_notification_templates && page.props.auth.permissions.find((p) => p === 'notification_templates'))" class="space-y-1">
                     <button
                         @click="toggleAccordion('websiteSettings')"
                         class="flex w-full items-center justify-between rounded-lg p-3 transition-colors hover:bg-primary/10"
@@ -325,6 +330,40 @@ const isRouteActive = (name) => {
                                 >
                                     <FileText class="size-4 text-muted-foreground" />
                                     <span class="text-sm text-foreground">{{ t('pages') }}</span>
+                                    <span v-if="page.props.translation_warnings?.pages > 0"
+                                        :title="t('translations_incomplete')"
+                                        class="ms-auto inline-flex items-center gap-1 rounded-full bg-amber-500/15 px-2 py-0.5 text-xs font-medium text-amber-600">
+                                        <AlertTriangle class="size-3" /> {{ page.props.translation_warnings.pages }}
+                                    </span>
+                                </Button>
+                            </Link>
+                        </div>
+                        <div v-if="page.props.has_app_settings && page.props.auth.permissions.find((p) => p === 'app_settings')" class="space-y-2">
+                            <Link :href="route('app_settings')" class="w-full">
+                                <Button
+                                    variant="ghost"
+                                    :class="{ 'bg-primary/10': isRouteActive('app_settings') }"
+                                    class="h-10 w-full cursor-pointer justify-start gap-3 hover:bg-primary/10 hover:text-primary"
+                                >
+                                    <Share2 class="size-4 text-muted-foreground" />
+                                    <span class="text-sm text-foreground">{{ t('app_settings') }}</span>
+                                    <span v-if="page.props.translation_warnings?.app_settings > 0"
+                                        :title="t('translations_incomplete')"
+                                        class="ms-auto inline-flex items-center gap-1 rounded-full bg-amber-500/15 px-2 py-0.5 text-xs font-medium text-amber-600">
+                                        <AlertTriangle class="size-3" /> {{ page.props.translation_warnings.app_settings }}
+                                    </span>
+                                </Button>
+                            </Link>
+                        </div>
+                        <div v-if="page.props.has_dynamic_storage && page.props.auth.permissions.find((p) => p === 'dynamic_storage')" class="space-y-2">
+                            <Link :href="route('media')" class="w-full">
+                                <Button
+                                    variant="ghost"
+                                    :class="{ 'bg-primary/10': isRouteActive('media') }"
+                                    class="h-10 w-full cursor-pointer justify-start gap-3 hover:bg-primary/10 hover:text-primary"
+                                >
+                                    <HardDrive class="size-4 text-muted-foreground" />
+                                    <span class="text-sm text-foreground">{{ t('dynamic_storage') }}</span>
                                 </Button>
                             </Link>
                         </div>

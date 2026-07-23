@@ -249,6 +249,14 @@ class TranslationSeeder extends Seeder
             'en' => 'No translations provided.',
             'ar' => 'لم يتم تقديم ترجمات.',
         ],
+        'translation_key_not_found' => [
+            'en' => 'Translation key not found.',
+            'ar' => 'مفتاح الترجمة غير موجود.',
+        ],
+        'translation_key_deleted' => [
+            'en' => 'Translation key deleted successfully.',
+            'ar' => 'تم حذف مفتاح الترجمة بنجاح.',
+        ],
 
         // Pages
         'pages' => [
@@ -262,6 +270,30 @@ class TranslationSeeder extends Seeder
         'page_not_found' => [
             'en' => 'Page not found.',
             'ar' => 'الصفحة غير موجودة.',
+        ],
+
+        // App Settings
+        'app_settings' => [
+            'en' => 'App settings retrieved successfully.',
+            'ar' => 'تم استرجاع إعدادات التطبيق بنجاح.',
+        ],
+
+        // Dynamic Storage (keyed media)
+        'media' => [
+            'en' => 'Media retrieved successfully.',
+            'ar' => 'تم استرجاع الوسائط بنجاح.',
+        ],
+        'media_saved' => [
+            'en' => 'Media saved successfully.',
+            'ar' => 'تم حفظ الوسائط بنجاح.',
+        ],
+        'media_not_found' => [
+            'en' => 'Media not found.',
+            'ar' => 'الوسائط غير موجودة.',
+        ],
+        'media_deleted' => [
+            'en' => 'Media deleted successfully.',
+            'ar' => 'تم حذف الوسائط بنجاح.',
         ],
 
         // Social Authentication
@@ -351,8 +383,8 @@ class TranslationSeeder extends Seeder
 
         foreach ($this->apiTranslations as $key => $translations) {
             $translationKey = TranslationKey::firstOrCreate(
-                ['key' => $key, 'group' => 'api'],
-                ['key' => $key, 'group' => 'api']
+                ['key' => $key, 'group' => 'api', 'sub_group' => ''],
+                ['key' => $key, 'group' => 'api', 'sub_group' => '']
             );
 
             foreach ($languages as $language) {
@@ -385,12 +417,14 @@ class TranslationSeeder extends Seeder
         foreach ($seeder->apiTranslations as $key => $translations) {
             $translationKey = TranslationKey::where('key', $key)
                 ->where('group', 'api')
+                ->where('sub_group', '')
                 ->first();
 
             if (! $translationKey) {
                 $translationKey = TranslationKey::create([
                     'key' => $key,
                     'group' => 'api',
+                    'sub_group' => '',
                 ]);
             }
 

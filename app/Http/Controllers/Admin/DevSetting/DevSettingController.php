@@ -36,6 +36,8 @@ class DevSettingController extends Controller
         'HAS_TRANSLATIONS',
         'HAS_NOTIFICATION_TEMPLATES',
         'HAS_PAGES',
+        'HAS_APP_SETTINGS',
+        'HAS_DYNAMIC_STORAGE',
         'HAS_ACTIVITY_LOGS',
         'IS_TESTING',
         'APP_DEBUG',
@@ -165,6 +167,10 @@ class DevSettingController extends Controller
                     'email' => env('GOOGLE_REVIEWER_EMAIL', ''),
                     'password' => env('GOOGLE_REVIEWER_PASSWORD', ''),
                 ],
+                'appgallery' => [
+                    'email' => env('APPGALLERY_REVIEWER_EMAIL', ''),
+                    'password' => env('APPGALLERY_REVIEWER_PASSWORD', ''),
+                ],
             ],
         ]);
     }
@@ -176,15 +182,19 @@ class DevSettingController extends Controller
             'apple.password' => ['nullable', 'string', 'min:6', 'max:255'],
             'google.email' => ['nullable', 'email', 'max:255'],
             'google.password' => ['nullable', 'string', 'min:6', 'max:255'],
+            'appgallery.email' => ['nullable', 'email', 'max:255'],
+            'appgallery.password' => ['nullable', 'string', 'min:6', 'max:255'],
         ]);
 
         $this->setEnvValue('APPLE_REVIEWER_EMAIL', (string) ($validated['apple']['email'] ?? ''));
         $this->setEnvValue('APPLE_REVIEWER_PASSWORD', (string) ($validated['apple']['password'] ?? ''));
         $this->setEnvValue('GOOGLE_REVIEWER_EMAIL', (string) ($validated['google']['email'] ?? ''));
         $this->setEnvValue('GOOGLE_REVIEWER_PASSWORD', (string) ($validated['google']['password'] ?? ''));
+        $this->setEnvValue('APPGALLERY_REVIEWER_EMAIL', (string) ($validated['appgallery']['email'] ?? ''));
+        $this->setEnvValue('APPGALLERY_REVIEWER_PASSWORD', (string) ($validated['appgallery']['password'] ?? ''));
 
         $role = Role::where('name', 'user')->where('guard_name', 'api')->first();
-        foreach (['apple', 'google'] as $slot) {
+        foreach (['apple', 'google', 'appgallery'] as $slot) {
             $email = trim((string) ($validated[$slot]['email'] ?? ''));
             $password = (string) ($validated[$slot]['password'] ?? '');
             if ($email === '' || $password === '') {
@@ -621,6 +631,25 @@ class DevSettingController extends Controller
         return redirect()->back()->with('success', 'Logo updated successfully.');
     }
 
+    public function uploadDarkLogo(Request $request)
+    {
+        $request->validate([
+            'logo' => ['required', 'image', 'max:5120'],
+        ]);
+
+        $image = $this->createImageWithAlpha($request->file('logo'));
+
+        if (! $image) {
+            return redirect()->back()->with('error', 'Could not process image.');
+        }
+
+        imagepng($image, public_path('images/logo-dark.png'));
+        imagepng($image, resource_path('js/resources/images/logo-dark.png'));
+        imagedestroy($image);
+
+        return redirect()->back()->with('success', 'Dark logo updated successfully.');
+    }
+
     public function uploadFavicon(Request $request)
     {
         $request->validate([
@@ -896,6 +925,7 @@ class DevSettingController extends Controller
             'migration_option' => ['required', 'in:migrate,migrate_seed,fresh_seed,none'],
             'run_seeders' => ['boolean'],
             'safe_storage_deploy' => ['boolean'],
+            'generate_docs' => ['boolean'],
         ]);
 
         set_time_limit(3000);
@@ -957,6 +987,7 @@ class DevSettingController extends Controller
             'migration_option' => $validated['migration_option'],
             'run_seeders' => $validated['run_seeders'] ?? false,
             'safe_storage_deploy' => $validated['safe_storage_deploy'] ?? false,
+            'generate_docs' => $validated['generate_docs'] ?? true,
             'flavor' => $flavor,
             'flavor_config' => $flavorCfg,
         ];
@@ -1862,6 +1893,21 @@ class DevSettingController extends Controller
         }
 
         $output .= $ssh->exec("cd {$backendPath} && {$php} artisan config:clear && {$php} artisan route:clear && {$php} artisan view:clear 2>&1")."\n";
+
+        // Step 8.5: Regenerate API docs (Scribe) against the .env + code that was just deployed,
+        // so /docs, /docs.postman, /docs.openapi reflect THIS target's real feature flags
+        // (AUTH_MODE, HAS_PAGES, HAS_DYNAMIC_STORAGE, etc.) — not whatever was active on the
+        // machine that ran the deploy. Writes public/vendor/scribe/ (must run before Step 9's
+        // copy) + resources/views/scribe/ + storage/app/private/scribe/{collection.json,openapi.yaml}.
+        // Best-effort: a docs-generation failure must not block the actual deploy.
+        // Opt-out per deploy (e.g. production) via the "Generate API Docs" checkbox — when off,
+        // any Scribe output already on the target from a previous deploy is left untouched.
+        if ($options['generate_docs'] ?? true) {
+            $output .= "[scribe] Regenerating API docs for the deployed environment...\n";
+            $output .= $ssh->exec("cd {$backendPath} && {$php} artisan scribe:generate --no-interaction 2>&1")."\n";
+        } else {
+            $output .= "[scribe] Skipped (Generate API Docs was off for this deploy).\n";
+        }
 
         // Step 9: Copy public/ contents to public_html/
         $output .= $ssh->exec("cp -rf {$backendPath}/public/* {$publicPath}/ 2>&1")."\n";

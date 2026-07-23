@@ -13,6 +13,7 @@ class TranslationKey extends Model
     protected $fillable = [
         'key',
         'group',
+        'sub_group',
     ];
 
     public function values()
@@ -39,6 +40,15 @@ class TranslationKey extends Model
     {
         if ($group && $group !== 'all') {
             return $query->where('group', $group);
+        }
+
+        return $query;
+    }
+
+    public function scopeSubGroup(Builder $query, ?string $subGroup): Builder
+    {
+        if ($subGroup && $subGroup !== 'all') {
+            return $query->where('sub_group', $subGroup);
         }
 
         return $query;

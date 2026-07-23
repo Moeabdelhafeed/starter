@@ -1,12 +1,14 @@
 <?php
 
 use App\Http\Controllers\Admin\ActivityLog\ActivityLogController;
+use App\Http\Controllers\Admin\AppSetting\AppSettingController;
 use App\Http\Controllers\Admin\AppUser\AppUserController;
 use App\Http\Controllers\Admin\Auth\AuthController;
 use App\Http\Controllers\Admin\Dashboard\DashboardController;
 use App\Http\Controllers\Admin\DevSetting\DevSettingController;
 use App\Http\Controllers\Admin\Language\LanguageController;
 use App\Http\Controllers\Admin\Locale\LocaleController;
+use App\Http\Controllers\Admin\Media\MediaController;
 use App\Http\Controllers\Admin\Notification\NotificationController;
 use App\Http\Controllers\Admin\NotificationTemplate\NotificationTemplateController;
 use App\Http\Controllers\Admin\Page\PageController;
@@ -132,6 +134,26 @@ Route::middleware('auth')->group(function () {
         });
     }
 
+    if (filter_var(env('HAS_APP_SETTINGS', true), FILTER_VALIDATE_BOOLEAN)) {
+        Route::prefix('app-settings')->middleware('permission:app_settings')->group(function () {
+            Route::get('/', [AppSettingController::class, 'index'])->name('app_settings');
+            Route::post('/', [AppSettingController::class, 'store'])->name('app_settings.store');
+            Route::put('/bulk-update', [AppSettingController::class, 'bulkUpdate'])->name('app_settings.bulk-update');
+            Route::delete('/bulk-destroy', [AppSettingController::class, 'bulkDestroy'])->name('app_settings.bulk-destroy');
+            Route::put('/{appSetting}', [AppSettingController::class, 'update'])->name('app_settings.update');
+            Route::delete('/{appSetting}', [AppSettingController::class, 'destroy'])->name('app_settings.destroy');
+        });
+    }
+
+    // dynamic storage (keyed media) — view + filter + download + replace (no delete)
+    if (filter_var(env('HAS_DYNAMIC_STORAGE', true), FILTER_VALIDATE_BOOLEAN)) {
+        Route::prefix('media')->middleware('permission:dynamic_storage')->group(function () {
+            Route::get('/', [MediaController::class, 'index'])->name('media');
+            Route::put('/{media}/remove', [MediaController::class, 'removeMedia'])->name('media.remove');
+            Route::put('/{media}', [MediaController::class, 'update'])->name('media.update');
+        });
+    }
+
     // app users (and/or guests)
     if (env('APP_USERS') === true || env('APP_GUESTS') === true) {
         Route::prefix('app-users')->middleware('permission:app_users')->group(function () {
@@ -193,6 +215,7 @@ Route::middleware('auth')->group(function () {
             Route::post('/flavor-firebase', [DevSettingController::class, 'uploadFlavorFirebase'])->name('dev_settings.flavor_firebase');
             Route::post('/flavor-firebase-delete', [DevSettingController::class, 'deleteFlavorFirebase'])->name('dev_settings.flavor_firebase_delete');
             Route::post('/logo', [DevSettingController::class, 'uploadLogo'])->name('dev_settings.logo');
+            Route::post('/dark-logo', [DevSettingController::class, 'uploadDarkLogo'])->name('dev_settings.dark_logo');
             Route::post('/favicon', [DevSettingController::class, 'uploadFavicon'])->name('dev_settings.favicon');
             Route::get('/postman', [DevSettingController::class, 'downloadPostman'])->name('dev_settings.postman');
         });

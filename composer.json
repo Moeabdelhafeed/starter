@@ -11,6 +11,7 @@
     "require": {
         "php": "^8.2",
         "inertiajs/inertia-laravel": "^3.0",
+        "knuckleswtf/scribe": "^5.11",
         "kornrunner/blurhash": "^1.2",
         "kreait/laravel-firebase": "^7.1",
         "laravel-lang/common": "^6.8",
@@ -68,6 +69,10 @@
         ],
         "lint": [
             "pint --parallel"
+        ],
+        "api-docs": [
+            "@php artisan scribe:generate",
+            "cp storage/app/private/scribe/collection.json Starter.postman_collection.json"
         ],
         "test:lint": [
             "pint --parallel --test"

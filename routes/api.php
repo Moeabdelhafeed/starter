@@ -1,8 +1,10 @@
 <?php
 
 use App\Helpers\ApiResponse;
+use App\Http\Controllers\Api\AppSetting\AppSettingController as ApiAppSettingController;
 use App\Http\Controllers\Api\AppUser\AppUserController;
 use App\Http\Controllers\Api\Language\LanguageController as ApiLanguageController;
+use App\Http\Controllers\Api\Media\MediaController as ApiMediaController;
 use App\Http\Controllers\Api\Page\PageController as ApiPageController;
 use App\Http\Controllers\Api\Translations\TranslationController;
 use Illuminate\Http\Request;
@@ -75,6 +77,17 @@ if (env('APP_USERS') === true) {
 // user. Real users still go through the verified gate; guests skip it.
 Route::delete('/delete-account', [AppUserController::class, 'deleteAccount']);
 
+/**
+ * Get Current User
+ *
+ * Get the currently resolved user (from Bearer token, claimed device, or guest lookup — see
+ * IdentifyDevice middleware). Returns the raw model, not wrapped in a `user` key.
+ *
+ * @group Profile & Account
+ *
+ * @response 200 scenario="Success" {"success": true, "message": "Operation successful", "data": {"id": 42, "name": "Jane Doe", "email": "jane@example.com", "is_guest": false}, "errors": null}
+ * @response 401 scenario="No user resolved" {"success": false, "message": "No user resolved", "errors": null, "data": null}
+ */
 Route::get('/user', function (Request $request) {
     $user = $request->user();
 
@@ -91,6 +104,7 @@ if (filter_var(env('HAS_TRANSLATIONS', true), FILTER_VALIDATE_BOOLEAN)) {
 
     Route::get('/translations', [TranslationController::class, 'index']);
     Route::post('/translations', [TranslationController::class, 'store']);
+    Route::delete('/translations', [TranslationController::class, 'destroy']);
     Route::get('/languages', [ApiLanguageController::class, 'index']);
 }
 
@@ -101,5 +115,17 @@ Route::middleware('throttle:api')->group(function () {
     if (filter_var(env('HAS_PAGES', true), FILTER_VALIDATE_BOOLEAN)) {
         Route::get('/pages', [ApiPageController::class, 'index']);
         Route::get('/pages/{slug}', [ApiPageController::class, 'show']);
+    }
+
+    // App settings (social links, contact, store links, etc.)
+    if (filter_var(env('HAS_APP_SETTINGS', true), FILTER_VALIDATE_BOOLEAN)) {
+        Route::get('/app-settings', [ApiAppSettingController::class, 'index']);
+    }
+
+    // Dynamic storage — keyed media (image/video/file) by group + sub_group + key.
+    if (filter_var(env('HAS_DYNAMIC_STORAGE', true), FILTER_VALIDATE_BOOLEAN)) {
+        Route::get('/media', [ApiMediaController::class, 'index']);
+        Route::post('/media', [ApiMediaController::class, 'store']);
+        Route::delete('/media', [ApiMediaController::class, 'destroy']);
     }
 });

@@ -148,6 +148,86 @@ trait HasTranslations
     }
 
     /**
+     * Active language codes, memoized per request.
+     *
+     * @var array<string>|null
+     */
+    protected static ?array $cachedActiveLocales = null;
+
+    public static function activeLocales(): array
+    {
+        if (static::$cachedActiveLocales === null) {
+            static::$cachedActiveLocales = Language::active()->pluck('code')->all();
+        }
+
+        return static::$cachedActiveLocales;
+    }
+
+    /**
+     * Which translatable fields must be filled for a row to count as "complete".
+     * Defaults to all translatable fields; override with `protected array
+     * $translationRequired = [...]` to only require certain fields.
+     */
+    public function translationCompletenessFields(): array
+    {
+        return ! empty($this->translationRequired)
+            ? $this->translationRequired
+            : $this->getTranslatableFields();
+    }
+
+    /**
+     * Locales for which this row is missing a required translation value.
+     *
+     * @return array<string>
+     */
+    public function missingTranslationLocales(?array $locales = null): array
+    {
+        $locales = $locales ?? static::activeLocales();
+
+        if (empty($locales)) {
+            return [];
+        }
+
+        if (! $this->relationLoaded('translations')) {
+            $this->load('translations');
+        }
+
+        $missing = [];
+        foreach ($locales as $locale) {
+            foreach ($this->translationCompletenessFields() as $field) {
+                $value = $this->translations
+                    ->first(fn ($t) => $t->field === $field && $t->locale === $locale)?->value;
+
+                if ($value === null || $value === '') {
+                    $missing[] = $locale;
+                    break;
+                }
+            }
+        }
+
+        return $missing;
+    }
+
+    /**
+     * Count rows that are missing a required translation in any active locale.
+     * Used for the navbar warning indicator.
+     */
+    public static function incompleteTranslationCount(?array $locales = null): int
+    {
+        $locales = $locales ?? static::activeLocales();
+
+        if (empty($locales)) {
+            return 0;
+        }
+
+        return static::query()
+            ->with('translations')
+            ->get()
+            ->filter(fn ($model) => count($model->missingTranslationLocales($locales)) > 0)
+            ->count();
+    }
+
+    /**
      * Override toArray to include translated _api attributes
      */
     public function toArray(): array
@@ -156,6 +236,13 @@ trait HasTranslations
 
         foreach ($this->getTranslatableFields() as $field) {
             $array[$field.'_api'] = $this->getTranslation($field);
+        }
+
+        // Surface which active locales are missing a required translation so the
+        // admin table/row can flag it. Only computed when translations are loaded
+        // to avoid lazy-loading on every serialization (e.g. API list mapping).
+        if ($this->relationLoaded('translations')) {
+            $array['missing_translations'] = $this->missingTranslationLocales();
         }
 
         return $array;

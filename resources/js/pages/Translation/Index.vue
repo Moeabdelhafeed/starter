@@ -22,6 +22,7 @@ const props = defineProps({
     filters: Object,
     languages: Array,
     groups: Array,
+    subGroups: Array,
 });
 
 const { view } = useViewMode('translations');
@@ -35,7 +36,7 @@ const changeLocale = (newLocale) => {
     activeLocale.value = newLocale;
     router.get(
         route('translations'),
-        { locale: newLocale, search: props.filters.search, group: props.filters.group },
+        { locale: newLocale, search: props.filters.search, group: props.filters.group, sub_group: props.filters.sub_group },
         {
             preserveState: true,
             preserveScroll: true,
@@ -60,6 +61,7 @@ const openEditModal = (translation) => {
                 :filters="filters"
                 :active-locale="activeLocale"
                 :groups="groups"
+                :sub-groups="subGroups"
             />
 
             <!-- Locale Switcher + View Toggle -->

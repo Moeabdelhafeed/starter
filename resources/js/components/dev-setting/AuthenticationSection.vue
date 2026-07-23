@@ -126,6 +126,10 @@ const reviewerForm = useForm({
         email: props.reviewerAccounts?.google?.email || '',
         password: props.reviewerAccounts?.google?.password || '',
     },
+    appgallery: {
+        email: props.reviewerAccounts?.appgallery?.email || '',
+        password: props.reviewerAccounts?.appgallery?.password || '',
+    },
 });
 
 const submitReviewerAccounts = () => {
@@ -373,9 +377,9 @@ const submitSessions = () => {
             <template #icon><Shield class="size-5 text-blue-500" /></template>
 
             <form @submit.prevent="submitReviewerAccounts" class="space-y-6">
-                <div v-for="slot in ['apple', 'google']" :key="slot" class="rounded-xl border bg-muted/30 p-4">
+                <div v-for="slot in ['apple', 'google', 'appgallery']" :key="slot" class="rounded-xl border bg-muted/30 p-4">
                     <div class="mb-3 flex items-center justify-between">
-                        <h3 class="text-sm font-semibold text-foreground">{{ t(slot === 'apple' ? 'apple_reviewer' : 'google_reviewer') }}</h3>
+                        <h3 class="text-sm font-semibold text-foreground">{{ t(slot + '_reviewer') }}</h3>
                         <Button
                             type="button"
                             variant="outline"

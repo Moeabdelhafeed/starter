@@ -1,0 +1,339 @@
+name: 'Profile & Account'
+description: ''
+endpoints:
+  -
+    custom: []
+    httpMethods:
+      - PUT
+    uri: api/update-profile
+    metadata:
+      custom: []
+      groupName: 'Profile & Account'
+      groupDescription: ''
+      subgroup: ''
+      subgroupDescription: ''
+      title: 'Update Profile'
+      description: |-
+        Update the authenticated user's profile. `name` always editable. `username` editable when
+        HAS_USERNAME_FIELD=true (username is never an identifier). `email`/`phone` editable here ONLY
+        when NOT configured as an identifier (HAS_EMAIL_FIELD/HAS_PHONE_FIELD extras) — otherwise use
+        request-identifier-change instead.
+      authenticated: false
+      deprecated: false
+    headers:
+      Content-Type: application/json
+      Accept: application/json
+      Accept-Language: en
+      X-API-TOKEN: '{YOUR_APP_X_API_TOKEN}'
+      X-Device-Id: 11111111-1111-4111-8111-111111111111
+      X-Platform: web
+    urlParameters: []
+    cleanUrlParameters: []
+    queryParameters: []
+    cleanQueryParameters: []
+    bodyParameters:
+      name:
+        custom: []
+        name: name
+        description: 'Must not be greater than 255 characters.'
+        required: false
+        example: b
+        type: string
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: true
+        deprecated: false
+    cleanBodyParameters:
+      name: b
+    fileParameters: []
+    responses:
+      -
+        custom: []
+        status: 200
+        content: '{"success": true, "message": "Profile updated successfully.", "data": {"user": {"id": 42, "name": "Jane A. Doe", "username": "janedoe"}}, "errors": null}'
+        headers: []
+        description: Success
+      -
+        custom: []
+        status: 422
+        content: '{"success": false, "message": "The username has already been taken.", "errors": {"username": ["The username has already been taken."]}, "data": null}'
+        headers: []
+        description: 'Validation failed'
+    responseFields: []
+    auth: []
+    controller: null
+    method: null
+    route: null
+  -
+    custom: []
+    httpMethods:
+      - POST
+    uri: api/request-identifier-change
+    metadata:
+      custom: []
+      groupName: 'Profile & Account'
+      groupDescription: ''
+      subgroup: ''
+      subgroupDescription: ''
+      title: 'Request Identifier Change'
+      description: |-
+        Start an email/phone identifier change: sends an OTP to `new_identifier`. Rate-limited via
+        throttle:otp (3/5min). Blocked while the account is pending self-deletion or admin-trashed.
+        Email changes on password-less accounts with linked social providers are blocked until a
+        password is set first (email change wipes social links).
+      authenticated: false
+      deprecated: false
+    headers:
+      Content-Type: application/json
+      Accept: application/json
+      Accept-Language: en
+      X-API-TOKEN: '{YOUR_APP_X_API_TOKEN}'
+      X-Device-Id: 11111111-1111-4111-8111-111111111111
+      X-Platform: web
+    urlParameters: []
+    cleanUrlParameters: []
+    queryParameters: []
+    cleanQueryParameters: []
+    bodyParameters:
+      new_identifier:
+        custom: []
+        name: new_identifier
+        description: 'Must not be greater than 255 characters.'
+        required: true
+        example: b
+        type: string
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: false
+        deprecated: false
+    cleanBodyParameters:
+      new_identifier: b
+    fileParameters: []
+    responses:
+      -
+        custom: []
+        status: 200
+        content: '{"success": true, "message": "Verification code sent to your new identifier.", "data": {"new_identifier": "new@example.com", "otp_expires_in_minutes": 5}, "errors": null}'
+        headers: []
+        description: Success
+      -
+        custom: []
+        status: 403
+        content: '{"success": false, "message": "Your account is in a frozen state and cannot be edited. Please log in to restore it or contact support.", "errors": {"new_identifier": ["Your account is in a frozen state and cannot be edited. Please log in to restore it or contact support."]}, "data": null}'
+        headers: []
+        description: 'Account pending deletion or suspended'
+      -
+        custom: []
+        status: 422
+        content: '{"success": false, "message": "The identifier must be a valid email or phone.", "errors": {"new_identifier": ["The identifier must be a valid email or phone."]}, "data": null}'
+        headers: []
+        description: 'new_identifier is not a valid/configured kind'
+      -
+        custom: []
+        status: 422
+        content: '{"success": false, "message": "The given data was invalid.", "errors": {"new_identifier": ["The email has already been taken."]}, "data": null}'
+        headers: []
+        description: 'new_identifier already taken'
+      -
+        custom: []
+        status: 422
+        content: '{"success": false, "message": "Set a password before changing your email — your linked social accounts will be unlinked.", "errors": {"new_identifier": ["Set a password before changing your email — your linked social accounts will be unlinked."]}, "data": null}'
+        headers: []
+        description: 'Password required before email change (social-only account)'
+    responseFields: []
+    auth: []
+    controller: null
+    method: null
+    route: null
+  -
+    custom: []
+    httpMethods:
+      - POST
+    uri: api/verify-identifier-change
+    metadata:
+      custom: []
+      groupName: 'Profile & Account'
+      groupDescription: ''
+      subgroup: ''
+      subgroupDescription: ''
+      title: 'Verify Identifier Change'
+      description: |-
+        Confirm the OTP from request-identifier-change and apply the new email/phone. An email change
+        wipes all linked social accounts (they were authorized against the old email) and best-effort
+        revokes their Firebase refresh tokens.
+      authenticated: false
+      deprecated: false
+    headers:
+      Content-Type: application/json
+      Accept: application/json
+      Accept-Language: en
+      X-API-TOKEN: '{YOUR_APP_X_API_TOKEN}'
+      X-Device-Id: 11111111-1111-4111-8111-111111111111
+      X-Platform: web
+    urlParameters: []
+    cleanUrlParameters: []
+    queryParameters: []
+    cleanQueryParameters: []
+    bodyParameters:
+      new_identifier:
+        custom: []
+        name: new_identifier
+        description: 'Must not be greater than 255 characters.'
+        required: true
+        example: b
+        type: string
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: false
+        deprecated: false
+      otp:
+        custom: []
+        name: otp
+        description: 'Must not be greater than 10 characters.'
+        required: true
+        example: ngzmiy
+        type: string
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: false
+        deprecated: false
+    cleanBodyParameters:
+      new_identifier: b
+      otp: ngzmiy
+    fileParameters: []
+    responses:
+      -
+        custom: []
+        status: 200
+        content: '{"success": true, "message": "Identifier changed successfully.", "data": {"user": {"id": 42, "phone": "+15551234567"}, "unlinked_providers": []}, "errors": null}'
+        headers: []
+        description: 'Success — phone change'
+      -
+        custom: []
+        status: 200
+        content: '{"success": true, "message": "Identifier changed successfully.", "data": {"user": {"id": 42, "email": "new@example.com"}, "unlinked_providers": ["google.com"]}, "errors": null}'
+        headers: []
+        description: 'Success — email change (social accounts unlinked)'
+      -
+        custom: []
+        status: 403
+        content: '{"success": false, "message": "Your account is in a frozen state and cannot be edited. Please log in to restore it or contact support.", "errors": {"new_identifier": ["Your account is in a frozen state and cannot be edited. Please log in to restore it or contact support."]}, "data": null}'
+        headers: []
+        description: 'Account pending deletion or suspended'
+      -
+        custom: []
+        status: 422
+        content: '{"success": false, "message": "Invalid or expired verification code.", "errors": {"otp": ["Invalid or expired verification code."]}, "data": null}'
+        headers: []
+        description: 'Invalid or expired OTP'
+    responseFields: []
+    auth: []
+    controller: null
+    method: null
+    route: null
+  -
+    custom: []
+    httpMethods:
+      - DELETE
+    uri: api/delete-account
+    metadata:
+      custom: []
+      groupName: 'Profile & Account'
+      groupDescription: ''
+      subgroup: ''
+      subgroupDescription: ''
+      title: 'Delete Account'
+      description: |-
+        Delete the authenticated account. Guests are force-deleted immediately (no retention). Real users
+        are soft-marked (`account_deleted_at`) and restorable by logging back in within
+        ACCOUNT_DELETION_RETENTION_DAYS (default 30) before the purge middleware force-deletes the row.
+        All tokens are revoked. Real users must be verified.
+      authenticated: false
+      deprecated: false
+    headers:
+      Content-Type: application/json
+      Accept: application/json
+      Accept-Language: en
+      X-API-TOKEN: '{YOUR_APP_X_API_TOKEN}'
+      X-Device-Id: 11111111-1111-4111-8111-111111111111
+      X-Platform: web
+    urlParameters: []
+    cleanUrlParameters: []
+    queryParameters: []
+    cleanQueryParameters: []
+    bodyParameters: []
+    cleanBodyParameters: []
+    fileParameters: []
+    responses:
+      -
+        custom: []
+        status: 200
+        content: '{"success": true, "message": "Account deleted successfully.", "data": null, "errors": null}'
+        headers: []
+        description: Success
+      -
+        custom: []
+        status: 403
+        content: '{"success": false, "message": "Account not verified. Please check your email.", "errors": null, "data": null}'
+        headers: []
+        description: 'Real user not yet verified'
+      -
+        custom: []
+        status: 404
+        content: '{"success": false, "message": "User not found.", "errors": null, "data": null}'
+        headers: []
+        description: 'No user resolved'
+    responseFields: []
+    auth: []
+    controller: null
+    method: null
+    route: null
+  -
+    custom: []
+    httpMethods:
+      - GET
+    uri: api/user
+    metadata:
+      custom: []
+      groupName: 'Profile & Account'
+      groupDescription: ''
+      subgroup: ''
+      subgroupDescription: ''
+      title: 'Get Current User'
+      description: |-
+        Get the currently resolved user (from Bearer token, claimed device, or guest lookup — see
+        IdentifyDevice middleware). Returns the raw model, not wrapped in a `user` key.
+      authenticated: false
+      deprecated: false
+    headers:
+      Content-Type: application/json
+      Accept: application/json
+      Accept-Language: en
+      X-API-TOKEN: '{YOUR_APP_X_API_TOKEN}'
+      X-Device-Id: 11111111-1111-4111-8111-111111111111
+      X-Platform: web
+    urlParameters: []
+    cleanUrlParameters: []
+    queryParameters: []
+    cleanQueryParameters: []
+    bodyParameters: []
+    cleanBodyParameters: []
+    fileParameters: []
+    responses:
+      -
+        custom: []
+        status: 200
+        content: '{"success": true, "message": "Operation successful", "data": {"id": 42, "name": "Jane Doe", "email": "jane@example.com", "is_guest": false}, "errors": null}'
+        headers: []
+        description: Success
+      -
+        custom: []
+        status: 401
+        content: '{"success": false, "message": "No user resolved", "errors": null, "data": null}'
+        headers: []
+        description: 'No user resolved'
+    responseFields: []
+    auth: []
+    controller: null
+    method: null
+    route: null

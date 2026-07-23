@@ -13,10 +13,12 @@ const props = defineProps({
     filters: Object,
     activeLocale: String,
     groups: Array,
+    subGroups: Array,
 });
 
 const search = ref(props.filters?.search || '');
 const group = ref(props.filters?.group || 'all');
+const subGroup = ref(props.filters?.sub_group || 'all');
 
 const getGroupLabel = (groupValue) => {
     const labels = {
@@ -28,6 +30,10 @@ const getGroupLabel = (groupValue) => {
     return labels[groupValue] || groupValue;
 };
 
+const getSubGroupLabel = (value) => {
+    return value === 'all' ? t('all_sub_groups') : value;
+};
+
 const searchFunc = () => {
     router.get(
         route('translations'),
@@ -35,6 +41,7 @@ const searchFunc = () => {
             locale: props.activeLocale,
             search: search.value || undefined,
             group: group.value !== 'all' ? group.value : undefined,
+            sub_group: subGroup.value !== 'all' ? subGroup.value : undefined,
         },
         {
             preserveScroll: true,
@@ -50,32 +57,45 @@ const onGroupChange = (value) => {
     searchFunc();
 };
 
+const onSubGroupChange = (value) => {
+    subGroup.value = value;
+    searchFunc();
+};
+
 const clearFilters = () => {
     search.value = '';
     group.value = 'all';
+    subGroup.value = 'all';
     searchFunc();
 };
 
 const clearFilter = (key) => {
     if (key === 'search') search.value = '';
     if (key === 'group') group.value = 'all';
+    if (key === 'sub_group') subGroup.value = 'all';
     searchFunc();
 };
 
 const getFilterLabel = (key, value) => {
     if (key === 'search') return value;
     if (key === 'group') return getGroupLabel(value);
+    if (key === 'sub_group') return value;
     return value;
 };
 
 const getFilterKeyLabel = (key) => {
     if (key === 'search') return t('search');
     if (key === 'group') return t('group');
+    if (key === 'sub_group') return t('sub_group');
     return t(key);
 };
 
 const hasActiveFilters = () => {
-    return props.filters?.search || (props.filters?.group && props.filters?.group !== 'all');
+    return (
+        props.filters?.search ||
+        (props.filters?.group && props.filters?.group !== 'all') ||
+        (props.filters?.sub_group && props.filters?.sub_group !== 'all')
+    );
 };
 </script>
 
@@ -99,6 +119,17 @@ const hasActiveFilters = () => {
                 <SelectContent>
                     <SelectItem v-for="g in groups" :key="g" :value="g">
                         {{ getGroupLabel(g) }}
+                    </SelectItem>
+                </SelectContent>
+            </Select>
+
+            <Select :model-value="subGroup" @update:model-value="onSubGroupChange">
+                <SelectTrigger class="w-[180px]">
+                    <SelectValue :placeholder="t('all_sub_groups')" />
+                </SelectTrigger>
+                <SelectContent>
+                    <SelectItem v-for="s in subGroups" :key="s" :value="s">
+                        {{ getSubGroupLabel(s) }}
                     </SelectItem>
                 </SelectContent>
             </Select>
@@ -132,6 +163,18 @@ const hasActiveFilters = () => {
             >
                 <span class="me-1 font-medium">{{ getFilterKeyLabel('group') }}:</span>
                 {{ getFilterLabel('group', filters.group) }}
+                <XIcon class="ms-1 h-3 w-3 transition-transform group-hover:scale-110" />
+            </Button>
+
+            <Button
+                v-if="filters.sub_group && filters.sub_group !== 'all'"
+                variant="secondary"
+                size="sm"
+                class="group h-8 rounded-full bg-primary/10 px-3 text-xs text-primary hover:bg-primary/20"
+                @click="clearFilter('sub_group')"
+            >
+                <span class="me-1 font-medium">{{ getFilterKeyLabel('sub_group') }}:</span>
+                {{ getFilterLabel('sub_group', filters.sub_group) }}
                 <XIcon class="ms-1 h-3 w-3 transition-transform group-hover:scale-110" />
             </Button>
 

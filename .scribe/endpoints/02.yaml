@@ -1,0 +1,300 @@
+name: 'Social Login'
+description: ''
+endpoints:
+  -
+    custom: []
+    httpMethods:
+      - POST
+    uri: api/firebase-login
+    metadata:
+      custom: []
+      groupName: 'Social Login'
+      groupDescription: ''
+      subgroup: ''
+      subgroupDescription: ''
+      title: 'Firebase Login'
+      description: |-
+        Login or register via a Firebase ID token (Google/Apple/Facebook/etc). Requires email configured
+        as an identifier (AUTH_IDENTIFIERS). New users auto-verify and get the `user` role; existing
+        password accounts block social login; social-only accounts link the provider automatically.
+      authenticated: false
+      deprecated: false
+    headers:
+      Content-Type: application/json
+      Accept: application/json
+      Accept-Language: en
+      X-API-TOKEN: '{YOUR_APP_X_API_TOKEN}'
+      X-Device-Id: 11111111-1111-4111-8111-111111111111
+      X-Platform: web
+    urlParameters: []
+    cleanUrlParameters: []
+    queryParameters: []
+    cleanQueryParameters: []
+    bodyParameters:
+      token:
+        custom: []
+        name: token
+        description: ''
+        required: true
+        example: architecto
+        type: string
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: false
+        deprecated: false
+    cleanBodyParameters:
+      token: architecto
+    fileParameters: []
+    responses:
+      -
+        custom: []
+        status: 200
+        content: '{"success": true, "message": "Login successful.", "token": "1|abcdef123456", "data": {"user": {"id": 42, "name": "Jane Doe", "email": "jane@example.com"}, "is_verified": true, "token_id": 7, "is_new_user": false, "provider": "google.com", "provider_already_linked": true, "linked_providers": ["google.com"], "token": "1|abcdef123456"}, "errors": null}'
+        headers: []
+        description: 'Success — existing or new social user'
+      -
+        custom: []
+        status: 400
+        content: '{"success": false, "message": "Social authentication is not available. Email must be configured as a login identifier.", "errors": null, "data": null}'
+        headers: []
+        description: 'Social auth unavailable (email not an identifier)'
+      -
+        custom: []
+        status: 403
+        content: '{"success": false, "message": "Your account is inactive.", "errors": null, "data": null}'
+        headers: []
+        description: 'Account inactive / wrong role'
+      -
+        custom: []
+        status: 422
+        content: '{"success": false, "message": "Invalid or expired Firebase token.", "errors": {"token": ["Invalid or expired Firebase token."]}, "data": null}'
+        headers: []
+        description: 'Invalid/expired Firebase token'
+      -
+        custom: []
+        status: 422
+        content: '{"success": false, "message": "Email is required for social login.", "errors": {"token": ["Email is required for social login."]}, "data": null}'
+        headers: []
+        description: 'Token has no email claim'
+      -
+        custom: []
+        status: 422
+        content: '{"success": false, "message": "This social provider is not allowed.", "errors": {"token": ["This social provider is not allowed."]}, "data": null}'
+        headers: []
+        description: 'Provider not in SOCIAL_AUTH_PROVIDERS'
+      -
+        custom: []
+        status: 422
+        content: '{"success": false, "message": "Account already exists. Please login with your password.", "errors": {"token": ["Account already exists. Please login with your password."]}, "data": null}'
+        headers: []
+        description: 'Email already registered with a password'
+      -
+        custom: []
+        status: 422
+        content: '{"success": false, "message": "Maximum number of social accounts reached.", "errors": {"token": ["Maximum number of social accounts reached."]}, "data": null}'
+        headers: []
+        description: 'SOCIAL_AUTH_MAX_ACCOUNTS reached'
+    responseFields: []
+    auth: []
+    controller: null
+    method: null
+    route: null
+  -
+    custom: []
+    httpMethods:
+      - GET
+    uri: api/social-accounts
+    metadata:
+      custom: []
+      groupName: 'Social Login'
+      groupDescription: ''
+      subgroup: ''
+      subgroupDescription: ''
+      title: 'List Social Accounts'
+      description: "List the authenticated user's linked social accounts plus the account/provider limits."
+      authenticated: false
+      deprecated: false
+    headers:
+      Content-Type: application/json
+      Accept: application/json
+      Accept-Language: en
+      X-API-TOKEN: '{YOUR_APP_X_API_TOKEN}'
+      X-Device-Id: 11111111-1111-4111-8111-111111111111
+      X-Platform: web
+    urlParameters: []
+    cleanUrlParameters: []
+    queryParameters: []
+    cleanQueryParameters: []
+    bodyParameters: []
+    cleanBodyParameters: []
+    fileParameters: []
+    responses:
+      -
+        custom: []
+        status: 200
+        content: '{"success": true, "message": "Social accounts retrieved successfully.", "data": {"social_accounts": [{"id": 1, "provider": "google.com", "email": "jane@example.com", "name": "Jane Doe"}], "allowed_providers": ["google.com", "apple.com"], "max_accounts": 0, "can_link_more": true}, "errors": null}'
+        headers: []
+        description: Success
+    responseFields: []
+    auth: []
+    controller: null
+    method: null
+    route: null
+  -
+    custom: []
+    httpMethods:
+      - POST
+    uri: api/link-social-account
+    metadata:
+      custom: []
+      groupName: 'Social Login'
+      groupDescription: ''
+      subgroup: ''
+      subgroupDescription: ''
+      title: 'Link Social Account'
+      description: |-
+        Link a Firebase social account to the authenticated (already logged in) user. Requires the
+        verified token's email to match the user's account email.
+      authenticated: false
+      deprecated: false
+    headers:
+      Content-Type: application/json
+      Accept: application/json
+      Accept-Language: en
+      X-API-TOKEN: '{YOUR_APP_X_API_TOKEN}'
+      X-Device-Id: 11111111-1111-4111-8111-111111111111
+      X-Platform: web
+    urlParameters: []
+    cleanUrlParameters: []
+    queryParameters: []
+    cleanQueryParameters: []
+    bodyParameters:
+      token:
+        custom: []
+        name: token
+        description: ''
+        required: true
+        example: architecto
+        type: string
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: false
+        deprecated: false
+    cleanBodyParameters:
+      token: architecto
+    fileParameters: []
+    responses:
+      -
+        custom: []
+        status: 200
+        content: '{"success": true, "message": "Social account linked successfully.", "data": {"user": {"id": 42, "email": "jane@example.com"}}, "errors": null}'
+        headers: []
+        description: Success
+      -
+        custom: []
+        status: 400
+        content: '{"success": false, "message": "Social authentication is not available. Email must be configured as a login identifier.", "errors": null, "data": null}'
+        headers: []
+        description: 'Social auth unavailable (email not an identifier)'
+      -
+        custom: []
+        status: 422
+        content: '{"success": false, "message": "Invalid or expired Firebase token.", "errors": {"token": ["Invalid or expired Firebase token."]}, "data": null}'
+        headers: []
+        description: 'Invalid/expired Firebase token'
+      -
+        custom: []
+        status: 422
+        content: '{"success": false, "message": "This social account is already linked to another user.", "errors": {"token": ["This social account is already linked to another user."]}, "data": null}'
+        headers: []
+        description: 'Provider already linked to another user'
+      -
+        custom: []
+        status: 422
+        content: '{"success": false, "message": "This provider is already linked to your account. Logged in.", "errors": {"token": ["This provider is already linked to your account. Logged in."]}, "data": null}'
+        headers: []
+        description: 'Provider already linked to you'
+      -
+        custom: []
+        status: 422
+        content: '{"success": false, "message": "Social account email does not match your account email.", "errors": {"token": ["Social account email does not match your account email."]}, "data": null}'
+        headers: []
+        description: 'Token email does not match account email'
+      -
+        custom: []
+        status: 422
+        content: '{"success": false, "message": "Maximum number of social accounts reached.", "errors": {"token": ["Maximum number of social accounts reached."]}, "data": null}'
+        headers: []
+        description: 'SOCIAL_AUTH_MAX_ACCOUNTS reached'
+    responseFields: []
+    auth: []
+    controller: null
+    method: null
+    route: null
+  -
+    custom: []
+    httpMethods:
+      - DELETE
+    uri: api/unlink-social-account
+    metadata:
+      custom: []
+      groupName: 'Social Login'
+      groupDescription: ''
+      subgroup: ''
+      subgroupDescription: ''
+      title: 'Unlink Social Account'
+      description: |-
+        Unlink a social provider by name. Blocked if it's the user's last auth method (no password AND
+        no other linked provider) — set a password first.
+      authenticated: false
+      deprecated: false
+    headers:
+      Content-Type: application/json
+      Accept: application/json
+      Accept-Language: en
+      X-API-TOKEN: '{YOUR_APP_X_API_TOKEN}'
+      X-Device-Id: 11111111-1111-4111-8111-111111111111
+      X-Platform: web
+    urlParameters: []
+    cleanUrlParameters: []
+    queryParameters: []
+    cleanQueryParameters: []
+    bodyParameters:
+      provider:
+        custom: []
+        name: provider
+        description: ''
+        required: true
+        example: architecto
+        type: string
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: false
+        deprecated: false
+    cleanBodyParameters:
+      provider: architecto
+    fileParameters: []
+    responses:
+      -
+        custom: []
+        status: 200
+        content: '{"success": true, "message": "Social account unlinked successfully.", "data": {"user": {"id": 42, "email": "jane@example.com"}}, "errors": null}'
+        headers: []
+        description: Success
+      -
+        custom: []
+        status: 422
+        content: '{"success": false, "message": "This social provider is not linked to your account.", "errors": {"provider": ["This social provider is not linked to your account."]}, "data": null}'
+        headers: []
+        description: 'Provider not linked to this user'
+      -
+        custom: []
+        status: 422
+        content: '{"success": false, "message": "Cannot unlink social account. Please set a password first.", "errors": {"provider": ["Cannot unlink social account. Please set a password first."]}, "data": null}'
+        headers: []
+        description: "Would remove the user's last auth method"
+    responseFields: []
+    auth: []
+    controller: null
+    method: null
+    route: null

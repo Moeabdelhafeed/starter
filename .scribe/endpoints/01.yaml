@@ -1,0 +1,161 @@
+name: 'Devices & Guests'
+description: ''
+endpoints:
+  -
+    custom: []
+    httpMethods:
+      - POST
+    uri: api/guest
+    metadata:
+      custom: []
+      groupName: 'Devices & Guests'
+      groupDescription: ''
+      subgroup: ''
+      subgroupDescription: ''
+      title: 'Create Guest Session'
+      description: 'Explicit guest creation. Idempotent — returns the existing guest if X-Device-Id already matches one.'
+      authenticated: false
+      deprecated: false
+    headers:
+      Content-Type: application/json
+      Accept: application/json
+      Accept-Language: en
+      X-API-TOKEN: '{YOUR_APP_X_API_TOKEN}'
+      X-Device-Id: 11111111-1111-4111-8111-111111111111
+      X-Platform: web
+    urlParameters: []
+    cleanUrlParameters: []
+    queryParameters: []
+    cleanQueryParameters: []
+    bodyParameters: []
+    cleanBodyParameters: []
+    fileParameters: []
+    responses:
+      -
+        custom: []
+        status: 200
+        content: '{"success": true, "message": "Guest created.", "data": {"user": {"id": 99, "name": "Guest", "is_guest": true, "guest_id": "11111111-1111-4111-8111-111111111111", "platform": "web", "is_active": true}}, "errors": null}'
+        headers: []
+        description: Success
+      -
+        custom: []
+        status: 403
+        content: '{"success": false, "message": "Guest mode is disabled.", "errors": null, "data": null}'
+        headers: []
+        description: 'Guests disabled (APP_GUESTS=false)'
+      -
+        custom: []
+        status: 403
+        content: '{"success": false, "message": "This endpoint is only available for guests.", "errors": {"auth": ["This endpoint is only available for guests."]}, "data": null}'
+        headers: []
+        description: 'Device already claimed by a registered user'
+    responseFields: []
+    auth: []
+    controller: null
+    method: null
+    route: null
+  -
+    custom: []
+    httpMethods:
+      - GET
+    uri: api/devices
+    metadata:
+      custom: []
+      groupName: 'Devices & Guests'
+      groupDescription: ''
+      subgroup: ''
+      subgroupDescription: ''
+      title: 'List Devices'
+      description: |-
+        List the authenticated user's active devices/sessions (only meaningful when MULTI_SESSION_ENABLED=true —
+        otherwise there is always exactly one).
+      authenticated: false
+      deprecated: false
+    headers:
+      Content-Type: application/json
+      Accept: application/json
+      Accept-Language: en
+      X-API-TOKEN: '{YOUR_APP_X_API_TOKEN}'
+      X-Device-Id: 11111111-1111-4111-8111-111111111111
+      X-Platform: web
+    urlParameters: []
+    cleanUrlParameters: []
+    queryParameters: []
+    cleanQueryParameters: []
+    bodyParameters: []
+    cleanBodyParameters: []
+    fileParameters: []
+    responses:
+      -
+        custom: []
+        status: 200
+        content: '{"success": true, "message": "Operation successful", "data": {"devices": [{"id": 3, "device_name": null, "platform": "ios", "ip": "10.0.0.1", "user_agent": "MyApp/1.0", "last_seen_at": "2026-07-19T09:00:00.000000Z", "created_at": "2026-07-10T08:00:00.000000Z", "is_current": true}, {"id": 2, "device_name": null, "platform": "android", "ip": "10.0.0.2", "user_agent": "MyApp/1.0", "last_seen_at": "2026-07-15T09:00:00.000000Z", "created_at": "2026-07-01T08:00:00.000000Z", "is_current": false}]}, "errors": null}'
+        headers: []
+        description: Success
+    responseFields: []
+    auth: []
+    controller: null
+    method: null
+    route: null
+  -
+    custom: []
+    httpMethods:
+      - DELETE
+    uri: 'api/devices/{deviceId}'
+    metadata:
+      custom: []
+      groupName: 'Devices & Guests'
+      groupDescription: ''
+      subgroup: ''
+      subgroupDescription: ''
+      title: 'Revoke Device'
+      description: |-
+        Revoke a specific device by id (from GET /api/devices). Deletes its Sanctum token (FK cascade drops
+        the device row) and broadcasts `device.revoked` on private-user.{userId} so that client clears its
+        local credentials.
+      authenticated: false
+      deprecated: false
+    headers:
+      Content-Type: application/json
+      Accept: application/json
+      Accept-Language: en
+      X-API-TOKEN: '{YOUR_APP_X_API_TOKEN}'
+      X-Device-Id: 11111111-1111-4111-8111-111111111111
+      X-Platform: web
+    urlParameters:
+      deviceId:
+        custom: []
+        name: deviceId
+        description: ''
+        required: true
+        example: architecto
+        type: string
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: false
+        deprecated: false
+    cleanUrlParameters:
+      deviceId: architecto
+    queryParameters: []
+    cleanQueryParameters: []
+    bodyParameters: []
+    cleanBodyParameters: []
+    fileParameters: []
+    responses:
+      -
+        custom: []
+        status: 200
+        content: '{"success": true, "message": "Device signed out.", "data": null, "errors": null}'
+        headers: []
+        description: Success
+      -
+        custom: []
+        status: 404
+        content: '{"message": "No query results for model [App\\Models\\UserDevice] 999"}'
+        headers: []
+        description: 'Device id not found for this user (findOrFail — Laravel default shape, NOT the ApiResponse envelope)'
+    responseFields: []
+    auth: []
+    controller: null
+    method: null
+    route: null

@@ -98,7 +98,14 @@ const toggleStatus = (page) => {
                             </div>
                         </TableCell>
                         <TableCell class="py-4 font-medium">
-                            {{ page.name_api }}
+                            <div class="flex flex-col gap-1">
+                                <span>{{ page.name_api }}</span>
+                                <span v-if="page.missing_translations?.length"
+                                    :title="t('missing_translations_hint')"
+                                    class="inline-flex w-fit items-center gap-1 rounded-full bg-amber-500/15 px-2 py-0.5 text-xs font-medium text-amber-600">
+                                    {{ t('missing_translations') }}: {{ page.missing_translations.join(', ') }}
+                                </span>
+                            </div>
                         </TableCell>
                         <TableCell class="py-4 text-muted-foreground">
                             /{{ page.slug }}
@@ -176,6 +183,11 @@ const toggleStatus = (page) => {
             <div class="flex flex-col gap-1">
                 <h3 class="truncate font-bold text-foreground">{{ page.name_api }}</h3>
                 <p class="truncate text-sm text-muted-foreground">/{{ page.slug }}</p>
+                <span v-if="page.missing_translations?.length"
+                    :title="t('missing_translations_hint')"
+                    class="inline-flex w-fit items-center gap-1 rounded-full bg-amber-500/15 px-2 py-0.5 text-xs font-medium text-amber-600">
+                    {{ t('missing_translations') }}: {{ page.missing_translations.join(', ') }}
+                </span>
             </div>
 
             <!-- Status + actions -->

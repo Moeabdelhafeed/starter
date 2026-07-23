@@ -45,6 +45,7 @@ const getGroupLabel = (group) => {
                 <TableRow class="w-full">
                     <TableHead class="py-4 font-bold">{{ t('key') }}</TableHead>
                     <TableHead class="py-4 font-bold">{{ t('group') }}</TableHead>
+                    <TableHead class="py-4 font-bold">{{ t('sub_group') }}</TableHead>
                     <TableHead class="py-4 font-bold">{{ t('value') }}</TableHead>
                     <TableHead class="py-4 font-bold text-end sticky-actions">{{ t('actions') }}</TableHead>
                 </TableRow>
@@ -60,6 +61,15 @@ const getGroupLabel = (group) => {
                             >
                                 {{ getGroupLabel(trans.group) }}
                             </span>
+                        </TableCell>
+                        <TableCell>
+                            <span
+                                v-if="trans.sub_group"
+                                class="inline-flex items-center rounded-full bg-muted px-2.5 py-0.5 text-xs font-medium text-muted-foreground"
+                            >
+                                {{ trans.sub_group }}
+                            </span>
+                            <span v-else class="text-muted-foreground">—</span>
                         </TableCell>
                         <TableCell>{{ trans[activeLocale] }}</TableCell>
                         <TableCell class="text-end sticky-actions">
@@ -93,12 +103,20 @@ const getGroupLabel = (group) => {
             <!-- Key + group -->
             <div class="flex items-start justify-between gap-3">
                 <h3 class="break-all font-bold text-foreground">{{ trans.key }}</h3>
-                <span
-                    class="inline-flex shrink-0 items-center rounded-full px-2.5 py-0.5 text-xs font-medium"
-                    :class="getGroupBadgeClass(trans.group)"
-                >
-                    {{ getGroupLabel(trans.group) }}
-                </span>
+                <div class="flex shrink-0 flex-wrap items-center justify-end gap-1.5">
+                    <span
+                        class="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium"
+                        :class="getGroupBadgeClass(trans.group)"
+                    >
+                        {{ getGroupLabel(trans.group) }}
+                    </span>
+                    <span
+                        v-if="trans.sub_group"
+                        class="inline-flex items-center rounded-full bg-muted px-2.5 py-0.5 text-xs font-medium text-muted-foreground"
+                    >
+                        {{ trans.sub_group }}
+                    </span>
+                </div>
             </div>
 
             <!-- Value -->

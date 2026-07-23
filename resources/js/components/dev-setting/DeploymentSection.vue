@@ -269,6 +269,7 @@ const deployOptions = ref({
     migration_option: 'migrate', // Default to safe option
     run_seeders: false,
     safe_storage_deploy: true, // Default on — preserve uploaded files.
+    generate_docs: true, // Default on — turn off per-deploy (e.g. production) to keep /docs unreachable.
 });
 
 const flavorDomain = (flavor) => deployTargetsForm.flavors[flavor]?.domain || '';
@@ -932,7 +933,8 @@ const runDeploy = () => {
                 <div v-if="showDeployModal" class="fixed inset-0 z-50 overflow-y-auto" @click.self="closeDeployModal">
                     <div class="absolute inset-0 bg-black/50 backdrop-blur-sm"></div>
                     <div class="relative flex min-h-full items-center justify-center p-4">
-                        <div class="relative w-full max-w-lg transform overflow-hidden rounded-2xl bg-card p-6 shadow-xl transition-all text-start">
+                        <div class="relative flex max-h-[90vh] w-full max-w-lg transform flex-col rounded-2xl bg-card shadow-xl transition-all text-start">
+                            <div class="min-h-0 flex-1 overflow-y-auto p-6">
                             <!-- Header -->
                             <div class="mb-6 flex items-center gap-3">
                                 <div class="flex h-10 w-10 items-center justify-center rounded-full bg-emerald-500/10">
@@ -1044,6 +1046,15 @@ const runDeploy = () => {
                                         <p class="text-sm text-muted-foreground">{{ t('safe_storage_deploy_desc') }}</p>
                                     </div>
                                 </div>
+
+                                <!-- Generate API Docs -->
+                                <div class="flex items-start gap-3 rounded-xl border border-border p-4">
+                                    <Checkbox v-model="deployOptions.generate_docs" class="mt-1 shrink-0" />
+                                    <div class="flex-1 min-w-0">
+                                        <span class="font-medium text-foreground">{{ t('generate_api_docs') }}</span>
+                                        <p class="text-sm text-muted-foreground">{{ t('generate_api_docs_desc') }}</p>
+                                    </div>
+                                </div>
                             </div>
 
                             <!-- Warning for fresh -->
@@ -1057,9 +1068,10 @@ const runDeploy = () => {
                                 </div>
                                 <p class="mt-2 text-sm text-red-600/80">{{ t('fresh_warning_message') }}</p>
                             </div>
+                            </div>
 
                             <!-- Footer -->
-                            <div class="mt-6 flex gap-3">
+                            <div class="flex shrink-0 gap-3 border-t border-border p-6 pt-4">
                                 <Button type="button" variant="outline" @click="closeDeployModal" class="flex-1">
                                     {{ t('cancel') }}
                                 </Button>

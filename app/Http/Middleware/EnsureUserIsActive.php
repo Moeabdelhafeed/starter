@@ -20,16 +20,22 @@ class EnsureUserIsActive
         $user = $request->user();
 
         if ($user) {
+            // An API caller is anything under api/* or resolved via a Sanctum
+            // token. Don't rely on Accept/expectsJson() — clients may omit it,
+            // which previously mis-routed API users into the web logout branch
+            // (Sanctum's RequestGuard has no logout()).
+            $isApi = $request->is('api/*') || (bool) $user->currentAccessToken();
+
             $isInactive = ! $user->is_active;
 
-            // For web requests (admin panel), we also check if they have an active web role
-            $isWebRequest = ! $request->expectsJson();
-            $missingWebRole = $isWebRequest && ! $user->roles()->where('guard_name', 'web')->where('is_active', true)->exists();
+            // Web (admin panel) users must additionally have an active web role.
+            $missingWebRole = ! $isApi
+                && ! $user->roles()->where('guard_name', 'web')->where('is_active', true)->exists();
 
             if ($isInactive || $missingWebRole) {
 
-                // Handle API requests
-                if ($request->expectsJson()) {
+                // API requests: revoke the token + 403.
+                if ($isApi) {
                     if ($user->currentAccessToken()) {
                         $user->currentAccessToken()->delete();
                     }
@@ -37,7 +43,7 @@ class EnsureUserIsActive
                     return ApiResponse::error(__('admin.account_is_inactive'), null, 403);
                 }
 
-                // Handle Web requests (Admin Panel)
+                // Web requests (Admin Panel): session logout + redirect.
                 Auth::logout();
                 $request->session()->invalidate();
                 $request->session()->regenerateToken();

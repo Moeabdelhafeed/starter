@@ -10,7 +10,15 @@ use App\Models\Page;
 class PageController extends Controller
 {
     /**
+     * List Pages
+     *
      * Get all active pages.
+     *
+     * @group Pages
+     *
+     * @groupDescription Public CMS pages.
+     *
+     * @response 200 scenario="Success" {"success": true, "message": "Pages retrieved successfully.", "errors": null, "data": [{"id": 1, "slug": "about-us", "name": "About Us", "content": "<p>We are a company that...</p>", "image": "https://example.com/storage/pages/about-us.webp"}, {"id": 2, "slug": "privacy-policy", "name": "Privacy Policy", "content": "<p>Your privacy is important to us...</p>", "image": null}]}
      */
     public function index()
     {
@@ -31,7 +39,14 @@ class PageController extends Controller
     }
 
     /**
+     * Get Page
+     *
      * Get a single page by slug.
+     *
+     * @group Pages
+     *
+     * @response 200 scenario="Success" {"success": true, "message": "Page retrieved successfully.", "errors": null, "data": {"id": 1, "slug": "about-us", "name": "About Us", "content": "<p>We are a company that...</p>", "image": "https://example.com/storage/pages/about-us.webp"}}
+     * @response 404 scenario="Page not found" {"success": false, "message": "Page not found.", "errors": null, "data": null}
      */
     public function show(string $slug)
     {

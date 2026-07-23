@@ -28,9 +28,17 @@ const submitAppName = () => {
 
 // Branding
 const logoForm = useForm({ logo: null });
+const darkLogoForm = useForm({ logo: null });
 const faviconForm = useForm({ favicon: null });
 const logoCopied = ref(false);
 
+const uploadDarkLogo = () => {
+    darkLogoForm.post(route('dev_settings.dark_logo'), {
+        preserveScroll: true,
+        forceFormData: true,
+        onSuccess: () => { darkLogoForm.reset(); },
+    });
+};
 const uploadLogo = () => {
     logoForm.post(route('dev_settings.logo'), {
         preserveScroll: true,
@@ -104,6 +112,26 @@ const triggerBuild = () => {
                         <Button type="submit" :disabled="logoForm.processing || !logoForm.logo" class="w-full sm:w-auto">
                             <Loader2 v-if="logoForm.processing" class="me-2 h-4 w-4 animate-spin" />
                             {{ logoForm.processing ? t('uploading') : t('upload_logo') }}
+                        </Button>
+                    </form>
+                </div>
+
+                <!-- Dark Logo -->
+                <div class="space-y-4">
+                    <h3 class="text-sm font-medium text-foreground">{{ t('dark_logo') }}</h3>
+                    <div class="flex items-center gap-4">
+                        <div class="flex h-16 w-40 items-center justify-center overflow-hidden rounded-lg border border-neutral-700 bg-neutral-900 p-2">
+                            <img :src="'/images/logo-dark.png?' + Date.now()" alt="Dark logo"
+                                class="max-h-full max-w-full object-contain"
+                                @error="$event.target.style.visibility = 'hidden'" />
+                        </div>
+                    </div>
+                    <p class="text-xs text-muted-foreground">{{ t('dark_logo_hint') }}</p>
+                    <form @submit.prevent="uploadDarkLogo" class="space-y-3">
+                        <ImageUpload v-model="darkLogoForm.logo" :removable="false" :error="darkLogoForm.errors.logo" />
+                        <Button type="submit" :disabled="darkLogoForm.processing || !darkLogoForm.logo" class="w-full sm:w-auto">
+                            <Loader2 v-if="darkLogoForm.processing" class="me-2 h-4 w-4 animate-spin" />
+                            {{ darkLogoForm.processing ? t('uploading') : t('upload_dark_logo') }}
                         </Button>
                     </form>
                 </div>

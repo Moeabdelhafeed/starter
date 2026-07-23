@@ -168,6 +168,18 @@ const submit = () => {
                                 </div>
                             </div>
 
+                            <!-- Sub-group (Read-only) -->
+                            <div v-if="translation?.sub_group" class="space-y-2">
+                                <label class="block text-sm font-medium text-foreground">
+                                    {{ t('sub_group') }}
+                                </label>
+                                <div class="flex h-10 items-center rounded-lg border bg-muted/50 px-3">
+                                    <span class="inline-flex items-center rounded-full bg-muted px-2.5 py-0.5 text-xs font-medium text-muted-foreground">
+                                        {{ translation.sub_group }}
+                                    </span>
+                                </div>
+                            </div>
+
                             <!-- Required Placeholders Notice -->
                             <div v-if="requiredPlaceholders.length" class="rounded-lg border border-amber-200 bg-amber-50 p-3 dark:border-amber-900/40 dark:bg-amber-900/20">
                                 <p class="text-xs font-semibold text-amber-700 dark:text-amber-400">{{ t('required_placeholders') }}</p>

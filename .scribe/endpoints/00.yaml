@@ -1,0 +1,497 @@
+name: Authentication
+description: ''
+endpoints:
+  -
+    custom: []
+    httpMethods:
+      - GET
+    uri: api/config
+    metadata:
+      custom: []
+      groupName: Authentication
+      groupDescription: ''
+      subgroup: ''
+      subgroupDescription: ''
+      title: 'Get App Config'
+      description: |-
+        Live app configuration for mobile/web clients to adapt their UI on boot. Always available (not
+        gated on APP_USERS). Public, no auth required beyond the standard device/API-token headers.
+      authenticated: false
+      deprecated: false
+    headers:
+      Content-Type: application/json
+      Accept: application/json
+      Accept-Language: en
+      X-API-TOKEN: '{YOUR_APP_X_API_TOKEN}'
+      X-Device-Id: 11111111-1111-4111-8111-111111111111
+      X-Platform: web
+    urlParameters: []
+    cleanUrlParameters: []
+    queryParameters: []
+    cleanQueryParameters: []
+    bodyParameters: []
+    cleanBodyParameters: []
+    fileParameters: []
+    responses:
+      -
+        custom: []
+        status: 200
+        content: '{"success": true, "message": "Operation successful", "data": {"identifiers": ["email"], "has_username_field": false, "has_email_field": false, "has_phone_field": false, "social_providers": ["google.com", "apple.com"], "max_social_accounts": 0, "social_auth_available": true, "is_otp_whatsapp": false, "multi_session": true, "app_users": true, "app_guests": true, "auth_mode": "otp", "allowed_email_domains": "all", "allowed_phone_countries": "all"}, "errors": null}'
+        headers: []
+        description: Success
+    responseFields: []
+    auth: []
+    controller: null
+    method: null
+    route: null
+  -
+    custom: []
+    httpMethods:
+      - POST
+    uri: api/login
+    metadata:
+      custom: []
+      groupName: Authentication
+      groupDescription: ''
+      subgroup: ''
+      subgroupDescription: ''
+      title: Login
+      description: |-
+        Behavior branches on AUTH_MODE (see GET /api/config → auth_mode):
+        - `password` (default): body is `identifier` + `password` (+ optional `remember_me`). Issues a Sanctum
+          token immediately. An unverified account still gets a token (usable with verify-otp) plus a fresh
+          verify OTP.
+        - `otp`: body is `identifier` only (+ optional `name` for first-time users). Auto-creates the user if
+          missing (promoting any existing guest tied to the same X-Device-Id), sends a `login` OTP, and does
+          NOT issue a token — client follows with POST /api/verify-login.
+      authenticated: false
+      deprecated: false
+    headers:
+      Content-Type: application/json
+      Accept: application/json
+      Accept-Language: en
+      X-API-TOKEN: '{YOUR_APP_X_API_TOKEN}'
+      X-Device-Id: 11111111-1111-4111-8111-111111111111
+      X-Platform: web
+    urlParameters: []
+    cleanUrlParameters: []
+    queryParameters: []
+    cleanQueryParameters: []
+    bodyParameters:
+      identifier:
+        custom: []
+        name: identifier
+        description: 'Must not be greater than 255 characters.'
+        required: true
+        example: b
+        type: string
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: false
+        deprecated: false
+      password:
+        custom: []
+        name: password
+        description: 'Must not be greater than 255 characters.'
+        required: true
+        example: ']|{+-0pBNvYg'
+        type: string
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: false
+        deprecated: false
+      remember_me:
+        custom: []
+        name: remember_me
+        description: ''
+        required: false
+        example: false
+        type: boolean
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: false
+        deprecated: false
+    cleanBodyParameters:
+      identifier: b
+      password: ']|{+-0pBNvYg'
+      remember_me: false
+    fileParameters: []
+    responses:
+      -
+        custom: []
+        status: 200
+        content: '{"success": true, "message": "Login successful.", "token": "1|abcdef123456", "data": {"user": {"id": 42, "name": "Jane Doe", "email": "jane@example.com", "verified_at": "2026-07-18T09:00:00.000000Z"}, "is_verified": true, "account_restored": false, "token_id": 7, "token": "1|abcdef123456"}, "errors": null}'
+        headers: []
+        description: 'password mode — verified'
+      -
+        custom: []
+        status: 200
+        content: '{"success": true, "message": "Account not verified. Please check your email.", "token": "1|abcdef123456", "data": {"user": {"id": 42, "name": "Jane Doe", "verified_at": null}, "is_verified": false, "token_id": 7, "otp_expires_in_minutes": 5, "token": "1|abcdef123456"}, "errors": null}'
+        headers: []
+        description: 'password mode — unverified (fresh OTP sent)'
+      -
+        custom: []
+        status: 200
+        content: '{"success": true, "message": "Login code sent. Enter the code to complete sign in.", "data": {"identifier": "jane@example.com", "channel": "email", "otp_expires_in_minutes": 5}, "errors": null}'
+        headers: []
+        description: 'otp mode — OTP sent, no token yet'
+      -
+        custom: []
+        status: 403
+        content: '{"success": false, "message": "Your account is suspended. Please contact support.", "errors": null, "data": null}'
+        headers: []
+        description: 'account suspended (admin-trashed)'
+      -
+        custom: []
+        status: 403
+        content: '{"success": false, "message": "Your account is inactive.", "errors": null, "data": null}'
+        headers: []
+        description: 'account inactive'
+      -
+        custom: []
+        status: 403
+        content: '{"success": false, "message": "Unauthorized access.", "errors": null, "data": null}'
+        headers: []
+        description: 'user role missing/wrong guard'
+      -
+        custom: []
+        status: 422
+        content: '{"success": false, "message": "The identifier field is required. (and 1 more error)", "errors": {"identifier": ["The identifier field is required."], "password": ["The password field is required."]}, "data": null}'
+        headers: []
+        description: 'missing required fields'
+      -
+        custom: []
+        status: 422
+        content: '{"success": false, "message": "User not found.", "errors": {"identifier": ["User not found."]}, "data": null}'
+        headers: []
+        description: 'password mode — user not found'
+      -
+        custom: []
+        status: 422
+        content: '{"success": false, "message": "Invalid credentials.", "errors": {"password": ["Invalid credentials."]}, "data": null}'
+        headers: []
+        description: 'password mode — invalid password'
+      -
+        custom: []
+        status: 422
+        content: '{"success": false, "message": "The identifier must be a valid email or phone.", "errors": {"identifier": ["The identifier must be a valid email or phone."]}, "data": null}'
+        headers: []
+        description: 'otp mode — identifier is not a valid email/phone'
+    responseFields: []
+    auth: []
+    controller: null
+    method: null
+    route: null
+  -
+    custom: []
+    httpMethods:
+      - POST
+    uri: api/verify-login
+    metadata:
+      custom: []
+      groupName: Authentication
+      groupDescription: ''
+      subgroup: ''
+      subgroupDescription: ''
+      title: 'Verify Login OTP'
+      description: |-
+        OTP-mode only: consume the `login` OTP sent by POST /api/login and issue a Sanctum token.
+        Reviewer accounts auto-pass any OTP value.
+      authenticated: false
+      deprecated: false
+    headers:
+      Content-Type: application/json
+      Accept: application/json
+      Accept-Language: en
+      X-API-TOKEN: '{YOUR_APP_X_API_TOKEN}'
+      X-Device-Id: 11111111-1111-4111-8111-111111111111
+      X-Platform: web
+    urlParameters: []
+    cleanUrlParameters: []
+    queryParameters: []
+    cleanQueryParameters: []
+    bodyParameters:
+      identifier:
+        custom: []
+        name: identifier
+        description: 'Must not be greater than 255 characters.'
+        required: true
+        example: b
+        type: string
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: false
+        deprecated: false
+      otp:
+        custom: []
+        name: otp
+        description: 'Must not be greater than 10 characters.'
+        required: true
+        example: ngzmiy
+        type: string
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: false
+        deprecated: false
+    cleanBodyParameters:
+      identifier: b
+      otp: ngzmiy
+    fileParameters: []
+    responses:
+      -
+        custom: []
+        status: 200
+        content: '{"success": true, "message": "Login successful.", "token": "1|abcdef123456", "data": {"user": {"id": 42, "name": "Jane Doe", "verified_at": "2026-07-19T10:00:00.000000Z"}, "is_verified": true, "account_restored": false, "token_id": 7, "token": "1|abcdef123456"}, "errors": null}'
+        headers: []
+        description: Success
+      -
+        custom: []
+        status: 403
+        content: '{"success": false, "message": "Your account is suspended. Please contact support.", "errors": null, "data": null}'
+        headers: []
+        description: 'Account suspended/inactive/wrong role'
+      -
+        custom: []
+        status: 404
+        content: '{"success": false, "message": "Endpoint not available in the current auth mode.", "errors": null, "data": null}'
+        headers: []
+        description: 'Wrong auth mode (route logically disabled)'
+      -
+        custom: []
+        status: 422
+        content: '{"success": false, "message": "User not found.", "errors": {"identifier": ["User not found."]}, "data": null}'
+        headers: []
+        description: 'User not found'
+      -
+        custom: []
+        status: 422
+        content: '{"success": false, "message": "Invalid or expired verification code.", "errors": {"otp": ["Invalid or expired verification code."]}, "data": null}'
+        headers: []
+        description: 'Invalid or expired OTP'
+    responseFields: []
+    auth: []
+    controller: null
+    method: null
+    route: null
+  -
+    custom: []
+    httpMethods:
+      - POST
+    uri: api/check-identifier
+    metadata:
+      custom: []
+      groupName: Authentication
+      groupDescription: ''
+      subgroup: ''
+      subgroupDescription: ''
+      title: 'Check Identifier'
+      description: |-
+        Pre-submit uniqueness/state check for an email/phone/username value — used before register,
+        update-profile (username), request-identifier-change, and to pick a forgot-password `type`.
+      authenticated: false
+      deprecated: false
+    headers:
+      Content-Type: application/json
+      Accept: application/json
+      Accept-Language: en
+      X-API-TOKEN: '{YOUR_APP_X_API_TOKEN}'
+      X-Device-Id: 11111111-1111-4111-8111-111111111111
+      X-Platform: web
+    urlParameters: []
+    cleanUrlParameters: []
+    queryParameters: []
+    cleanQueryParameters: []
+    bodyParameters:
+      identifier:
+        custom: []
+        name: identifier
+        description: 'Must not be greater than 255 characters.'
+        required: true
+        example: b
+        type: string
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: false
+        deprecated: false
+    cleanBodyParameters:
+      identifier: b
+    fileParameters: []
+    responses:
+      -
+        custom: []
+        status: 200
+        content: '{"success": true, "message": "Operation successful", "data": {"exists": true, "pending_deletion": false, "suspended": false, "available_channels": ["email"], "has_password": true, "social_providers": ["google.com"], "verified": true, "is_guest": false}, "errors": null}'
+        headers: []
+        description: 'Match found'
+      -
+        custom: []
+        status: 200
+        content: '{"success": true, "message": "Operation successful", "data": {"exists": false, "pending_deletion": false, "suspended": false, "available_channels": [], "has_password": false, "social_providers": [], "verified": false, "is_guest": false}, "errors": null}'
+        headers: []
+        description: 'No match'
+      -
+        custom: []
+        status: 422
+        content: '{"success": false, "message": "The identifier field is required.", "errors": {"identifier": ["The identifier field is required."]}, "data": null}'
+        headers: []
+        description: 'Missing identifier'
+    responseFields: []
+    auth: []
+    controller: null
+    method: null
+    route: null
+  -
+    custom: []
+    httpMethods:
+      - POST
+    uri: api/logout
+    metadata:
+      custom: []
+      groupName: Authentication
+      groupDescription: ''
+      subgroup: ''
+      subgroupDescription: ''
+      title: Logout
+      description: 'Revoke the current Sanctum token. Requires auth:sanctum.'
+      authenticated: false
+      deprecated: false
+    headers:
+      Content-Type: application/json
+      Accept: application/json
+      Accept-Language: en
+      X-API-TOKEN: '{YOUR_APP_X_API_TOKEN}'
+      X-Device-Id: 11111111-1111-4111-8111-111111111111
+      X-Platform: web
+    urlParameters: []
+    cleanUrlParameters: []
+    queryParameters: []
+    cleanQueryParameters: []
+    bodyParameters: []
+    cleanBodyParameters: []
+    fileParameters: []
+    responses:
+      -
+        custom: []
+        status: 200
+        content: '{"success": true, "message": "Logout successful.", "data": null, "errors": null}'
+        headers: []
+        description: Success
+    responseFields: []
+    auth: []
+    controller: null
+    method: null
+    route: null
+  -
+    custom: []
+    httpMethods:
+      - POST
+    uri: api/send-otp
+    metadata:
+      custom: []
+      groupName: Authentication
+      groupDescription: ''
+      subgroup: ''
+      subgroupDescription: ''
+      title: 'Resend Verification OTP'
+      description: "Resend the `verify` OTP to the authenticated (but unverified) user's delivery channel."
+      authenticated: false
+      deprecated: false
+    headers:
+      Content-Type: application/json
+      Accept: application/json
+      Accept-Language: en
+      X-API-TOKEN: '{YOUR_APP_X_API_TOKEN}'
+      X-Device-Id: 11111111-1111-4111-8111-111111111111
+      X-Platform: web
+    urlParameters: []
+    cleanUrlParameters: []
+    queryParameters: []
+    cleanQueryParameters: []
+    bodyParameters: []
+    cleanBodyParameters: []
+    fileParameters: []
+    responses:
+      -
+        custom: []
+        status: 200
+        content: '{"success": true, "message": "Verification code sent successfully.", "data": {"user": {"id": 42, "name": "Jane Doe", "email": "jane@example.com", "verified_at": null}, "otp_expires_in_minutes": 5}, "errors": null}'
+        headers: []
+        description: Success
+      -
+        custom: []
+        status: 400
+        content: '{"success": false, "message": "OTP not available for this identifier type.", "errors": null, "data": null}'
+        headers: []
+        description: 'No deliverable channel (username-only account)'
+      -
+        custom: []
+        status: 404
+        content: '{"success": false, "message": "User not found.", "errors": null, "data": null}'
+        headers: []
+        description: 'No user resolved (missing/invalid Bearer)'
+    responseFields: []
+    auth: []
+    controller: null
+    method: null
+    route: null
+  -
+    custom: []
+    httpMethods:
+      - POST
+    uri: api/verify-otp
+    metadata:
+      custom: []
+      groupName: Authentication
+      groupDescription: ''
+      subgroup: ''
+      subgroupDescription: ''
+      title: 'Verify OTP'
+      description: |-
+        Consume a `verify` OTP (sent by register or send-otp) and stamp the account verified.
+        Reviewer accounts bypass the OTP check entirely.
+      authenticated: false
+      deprecated: false
+    headers:
+      Content-Type: application/json
+      Accept: application/json
+      Accept-Language: en
+      X-API-TOKEN: '{YOUR_APP_X_API_TOKEN}'
+      X-Device-Id: 11111111-1111-4111-8111-111111111111
+      X-Platform: web
+    urlParameters: []
+    cleanUrlParameters: []
+    queryParameters: []
+    cleanQueryParameters: []
+    bodyParameters:
+      otp:
+        custom: []
+        name: otp
+        description: 'Must not be greater than 10 characters.'
+        required: true
+        example: bngzmi
+        type: string
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: false
+        deprecated: false
+    cleanBodyParameters:
+      otp: bngzmi
+    fileParameters: []
+    responses:
+      -
+        custom: []
+        status: 200
+        content: '{"success": true, "message": "Code verified successfully.", "data": {"user": {"id": 42, "name": "Jane Doe", "verified_at": "2026-07-19T10:00:00.000000Z"}}, "errors": null}'
+        headers: []
+        description: Success
+      -
+        custom: []
+        status: 422
+        content: '{"success": false, "message": "Invalid or expired verification code.", "errors": {"otp": ["Invalid or expired verification code."]}, "data": null}'
+        headers: []
+        description: 'Invalid or expired OTP'
+    responseFields: []
+    auth: []
+    controller: null
+    method: null
+    route: null
