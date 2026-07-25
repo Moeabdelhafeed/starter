@@ -2,7 +2,7 @@
 import { ref, computed } from 'vue';
 import { useForm } from '@inertiajs/vue3';
 import { useI18n } from 'vue-i18n';
-import { Database, Shield, Search, Plus, X, Loader2 } from 'lucide-vue-next';
+import { Shield, Search, Plus, X, Loader2 } from 'lucide-vue-next';
 import SettingsCard from '@/components/dev-setting/SettingsCard.vue';
 import Button from '@/components/ui/button/Button.vue';
 import Input from '@/components/ui/input/Input.vue';
@@ -10,28 +10,10 @@ import Input from '@/components/ui/input/Input.vue';
 const { t } = useI18n();
 
 const props = defineProps({
-    baseDb: { type: Object, default: () => ({}) },
     validationConfig: { type: Object, default: () => ({}) },
     rateLimitConfig: { type: Object, default: () => ({}) },
     accountDeletionConfig: { type: Object, default: () => ({}) },
 });
-
-// Base DB (writes .env.production — inherited by deploy targets)
-const prodDbForm = useForm({
-    DB_HOST: props.baseDb?.DB_HOST || '',
-    DB_PORT: props.baseDb?.DB_PORT || '3306',
-    DB_DATABASE: props.baseDb?.DB_DATABASE || '',
-    DB_USERNAME: props.baseDb?.DB_USERNAME || '',
-    DB_PASSWORD: props.baseDb?.DB_PASSWORD || '',
-});
-
-const submitProdDb = () => {
-    prodDbForm.put(route('dev_settings.production_db'), {
-        preserveScroll: true,
-        preserveState: true,
-        reset: ['baseDb', 'success', 'error'],
-    });
-};
 
 // Validation Config
 const validationForm = useForm({
@@ -383,54 +365,6 @@ const submitAccountDeletion = () => {
 
 <template>
     <div class="space-y-5">
-        <!-- Base Database -->
-        <SettingsCard :title="t('base_db')" :description="t('base_db_desc')">
-            <template #icon><Database class="size-5 text-amber-500" /></template>
-
-            <div class="mb-4 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                <span>{{ t('base_db_note') }}</span>
-                <code class="rounded bg-muted px-1.5 py-0.5 font-mono text-foreground">.env.production</code>
-            </div>
-
-            <form @submit.prevent="submitProdDb" class="space-y-4">
-                <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                    <div class="space-y-2">
-                        <label class="block text-sm font-medium text-foreground">{{ t('db_host') }}</label>
-                        <div class="flex items-center gap-2">
-                            <Input v-model="prodDbForm.DB_HOST" type="text" placeholder="127.0.0.1"
-                                class="flex-1" />
-                            <Button type="button" variant="outline" size="sm"
-                                @click="prodDbForm.DB_HOST = '127.0.0.1'"
-                                class="shrink-0 text-xs">localhost</Button>
-                        </div>
-                    </div>
-                    <div class="space-y-2">
-                        <label class="block text-sm font-medium text-foreground">{{ t('db_port') }}</label>
-                        <Input v-model="prodDbForm.DB_PORT" type="text" placeholder="3306" />
-                    </div>
-                    <div class="space-y-2">
-                        <label class="block text-sm font-medium text-foreground">{{ t('db_database') }}</label>
-                        <Input v-model="prodDbForm.DB_DATABASE" type="text" placeholder="production_db" />
-                    </div>
-                    <div class="space-y-2">
-                        <label class="block text-sm font-medium text-foreground">{{ t('db_username') }}</label>
-                        <Input v-model="prodDbForm.DB_USERNAME" type="text" placeholder="root" />
-                    </div>
-                    <div class="space-y-2 sm:col-span-2">
-                        <label class="block text-sm font-medium text-foreground">{{ t('db_password') }}</label>
-                        <Input v-model="prodDbForm.DB_PASSWORD" type="password" placeholder="••••••••" />
-                    </div>
-                </div>
-
-                <div class="pt-2">
-                    <Button type="submit" :disabled="prodDbForm.processing">
-                        <Loader2 v-if="prodDbForm.processing" class="me-2 h-4 w-4 animate-spin" />
-                        {{ prodDbForm.processing ? t('saving') : t('save_base_db') }}
-                    </Button>
-                </div>
-            </form>
-        </SettingsCard>
-
         <!-- Validation Settings -->
         <SettingsCard :title="t('validation_settings')" :description="t('validation_settings_desc')">
             <template #icon><Shield class="size-5 text-teal-500" /></template>

@@ -37,7 +37,6 @@ const props = defineProps({
     topicsConfig: Object,
     reviewerAccounts: Object,
     git: Object,
-    baseDb: Object,
     baseMail: Object,
     localMail: Object,
     baseTesting: { type: Boolean, default: null },
@@ -161,7 +160,7 @@ if (typeof window !== 'undefined') {
                     :base-firebase-exists="baseFirebaseExists" :topics-config="topicsConfig" />
 
                 <DataLimitsSection v-else-if="activeSection === 'data'"
-                    :base-db="baseDb" :validation-config="validationConfig"
+                    :validation-config="validationConfig"
                     :rate-limit-config="rateLimitConfig" :account-deletion-config="accountDeletionConfig" />
 
                 <DeploymentSection v-else-if="activeSection === 'deployment'"

@@ -202,7 +202,6 @@ Route::middleware('auth')->group(function () {
             Route::post('/branch/switch', [DevSettingController::class, 'switchBranch'])->name('dev_settings.branch_switch');
             Route::post('/branch/create', [DevSettingController::class, 'createBranch'])->name('dev_settings.branch_create');
             Route::get('/diff', [DevSettingController::class, 'getFileDiff'])->name('dev_settings.diff');
-            Route::put('/production-db', [DevSettingController::class, 'updateProductionDb'])->name('dev_settings.production_db');
             Route::put('/app-name', [DevSettingController::class, 'updateAppName'])->name('dev_settings.app_name');
             Route::post('/api-token', [DevSettingController::class, 'generateApiToken'])->name('dev_settings.api_token');
             Route::put('/admin-credentials', [DevSettingController::class, 'updateAdminCredentials'])->name('dev_settings.admin_credentials');

@@ -90,7 +90,6 @@ class DevSettingController extends Controller
             'git' => $this->getGitStatus(),
             // ".env.production" is the BASE config inherited by all deploy targets.
             // Exposed to the UI as "base*" so it reads as a foundation, not the prod site.
-            'baseDb' => $this->getProductionDb(),
             'baseMail' => $this->getProductionMail(),
             'localMail' => $this->getLocalMail(),
             'baseTesting' => $this->getProductionEnvValue('IS_TESTING'),
@@ -679,21 +678,6 @@ class DevSettingController extends Controller
         }
 
         return response()->download($path);
-    }
-
-    public function updateProductionDb(Request $request)
-    {
-        $validated = $request->validate([
-            'DB_HOST' => ['required', 'string', 'max:255'],
-            'DB_PORT' => ['required', 'string', 'max:10'],
-            'DB_DATABASE' => ['required', 'string', 'max:255'],
-            'DB_USERNAME' => ['required', 'string', 'max:255'],
-            'DB_PASSWORD' => ['nullable', 'string', 'max:255'],
-        ]);
-
-        $this->rebuildProductionEnv($validated);
-
-        return redirect()->back()->with('success', 'Production database config saved.');
     }
 
     public function updateAppName(Request $request)
@@ -1394,32 +1378,6 @@ class DevSettingController extends Controller
         ];
     }
 
-    private function getProductionDb(): array
-    {
-        $prodPath = base_path('.env.production');
-        $dbKeys = ['DB_HOST', 'DB_PORT', 'DB_DATABASE', 'DB_USERNAME', 'DB_PASSWORD'];
-        $defaults = [
-            'DB_HOST' => '',
-            'DB_PORT' => '3306',
-            'DB_DATABASE' => '',
-            'DB_USERNAME' => '',
-            'DB_PASSWORD' => '',
-        ];
-
-        if (! file_exists($prodPath)) {
-            return $defaults;
-        }
-
-        $content = file_get_contents($prodPath);
-        foreach ($dbKeys as $key) {
-            if (preg_match('/^'.preg_quote($key, '/').'\s*=\s*(.*)$/m', $content, $match)) {
-                $defaults[$key] = trim($match[1]);
-            }
-        }
-
-        return $defaults;
-    }
-
     public function updateProductionEnv(Request $request)
     {
         $request->validate([
@@ -1447,13 +1405,17 @@ class DevSettingController extends Controller
 
     public function updateUrls(Request $request)
     {
+        $target = $request->input('target');
+
+        // Production APP_URL is intentionally NOT accepted here: it's derived from the
+        // production flavor's domain (Deploy Targets → saveDeployConfig) and force-overwritten
+        // again on every deploy (buildFlavorEnv), so letting admins hand-set it here would just
+        // be silently clobbered — only FRONTEND_URL is a real, standalone production setting.
         $validated = $request->validate([
             'target' => ['required', 'in:local,production'],
-            'APP_URL' => ['required', 'string', 'max:255'],
+            'APP_URL' => $target === 'local' ? ['required', 'string', 'max:255'] : ['prohibited'],
             'FRONTEND_URL' => ['nullable', 'string', 'max:255'],
         ]);
-
-        $target = $validated['target'];
 
         if ($target === 'local') {
             $this->writeEnvKey(base_path('.env'), 'APP_URL', $validated['APP_URL']);
@@ -1461,7 +1423,6 @@ class DevSettingController extends Controller
             Artisan::call('config:clear');
         } else {
             $this->rebuildProductionEnv([
-                'APP_URL' => $validated['APP_URL'],
                 'FRONTEND_URL' => $validated['FRONTEND_URL'],
             ]);
         }
@@ -1606,7 +1567,7 @@ class DevSettingController extends Controller
                 'password' => $raw['ssh_password'] ?? '',
             ]);
             $config['flavors']['production']['domain'] = $raw['domain'] ?? '';
-            $config['flavors']['production']['db'] = array_merge($this->blankDb(), $this->getProductionDb());
+            $config['flavors']['production']['db'] = $this->blankDb();
             $config['has_config'] = ! empty($raw['domain']);
 
             return $config;
@@ -1802,16 +1763,27 @@ class DevSettingController extends Controller
         }
 
         // Step 5: Setup env — build from the .env.production base, overriding DB +
-        // APP_URL for this flavor, and upload it as the deployed .env. Falls back
-        // to copying .env.production verbatim if the upload fails.
+        // mail + pusher + APP_URL for this flavor, and upload it as the deployed
+        // .env. If the SFTP string-put fails (flaky on some shared hosts), retry
+        // by piping the SAME flavor-built content through the SSH shell instead
+        // of falling back to a bare .env.production copy — that copy has none of
+        // the flavor's overrides (DB included), so a fallback that used it would
+        // silently deploy the wrong database.
         $flavor = $options['flavor'] ?? 'production';
         $flavorEnv = $this->buildFlavorEnv($options['flavor_config'] ?? [], 'https://'.$domain, $flavor);
         $envUploaded = $sftp->put("{$backendPath}/.env", $flavorEnv, SFTP::SOURCE_STRING);
         if ($envUploaded) {
             $output .= "[env] Uploaded .env for '{$flavor}' target ({$domain}).\n";
         } else {
-            $output .= "[env] WARNING: .env upload failed, copying .env.production as-is.\n";
-            $output .= $ssh->exec("cd {$backendPath} && cp .env.production .env 2>&1")."\n";
+            $output .= "[env] WARNING: SFTP .env upload failed, retrying via SSH shell.\n";
+            $encoded = base64_encode($flavorEnv);
+            $ssh->exec("echo '{$encoded}' | base64 -d > {$backendPath}/.env");
+            $verify = trim($ssh->exec("[ -s {$backendPath}/.env ] && echo ok || echo fail"));
+            if ($verify === 'ok') {
+                $output .= "[env] .env written via SSH fallback for '{$flavor}' target.\n";
+            } else {
+                $output .= "[env] ERROR: could not write .env on the server — deploy config (DB included) was NOT applied. Check manually.\n";
+            }
         }
 
         // Firebase credentials precedence: per-flavor file > base file > leave the

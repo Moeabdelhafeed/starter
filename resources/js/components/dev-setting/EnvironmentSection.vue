@@ -89,7 +89,6 @@ const localUrlsForm = useForm({
 });
 const baseUrlsForm = useForm({
     target: 'production',
-    APP_URL: props.urls?.base?.APP_URL || '',
     FRONTEND_URL: props.urls?.base?.FRONTEND_URL || '',
 });
 
@@ -182,7 +181,8 @@ const submitBaseUrls = () => {
                     <form @submit.prevent="submitBaseUrls" class="space-y-4">
                         <div class="space-y-2">
                             <label class="block text-sm font-medium text-muted-foreground">{{ t('app_url') }}</label>
-                            <Input v-model="baseUrlsForm.APP_URL" type="url" placeholder="https://yourdomain.com" />
+                            <Input :model-value="urls?.base?.APP_URL || ''" type="url" disabled class="opacity-70" />
+                            <p class="text-xs text-muted-foreground">{{ t('production_app_url_derived') }}</p>
                         </div>
                         <div class="space-y-2">
                             <label class="block text-sm font-medium text-muted-foreground">{{ t('frontend_url') }}</label>
