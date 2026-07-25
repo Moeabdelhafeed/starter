@@ -45,6 +45,8 @@ class PageController extends Controller
      *
      * @group Pages
      *
+     * @urlParam slug string required The page's slug. Example: about-us
+     *
      * @response 200 scenario="Success" {"success": true, "message": "Page retrieved successfully.", "errors": null, "data": {"id": 1, "slug": "about-us", "name": "About Us", "content": "<p>We are a company that...</p>", "image": "https://example.com/storage/pages/about-us.webp"}}
      * @response 404 scenario="Page not found" {"success": false, "message": "Page not found.", "errors": null, "data": null}
      */

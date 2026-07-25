@@ -28,6 +28,8 @@ class MediaController extends Controller
      *
      * @groupDescription Keyed media storage (images/videos/files) addressed by group + sub_group + key.
      *
+     * @queryParam group string App or web, defaults to app. Example: web
+     *
      * @response 200 scenario="Web group with assets" {"success": true, "message": "Media retrieved successfully.", "errors": null, "data": {"group": "web", "media": {"auth": {"login_image": {"type": "image", "url": "http://localhost:8000/storage/dynamic-media/web/auth/login_image.webp", "blurhash": "LKO2?U%2Tw=w]~RBVZRi};RPxuwH"}}, "general": {"terms_pdf": {"type": "file", "url": "http://localhost:8000/storage/dynamic-media/web/general/terms_pdf.pdf", "name": "terms.pdf", "size": 20480}}}}}
      * @response 200 scenario="Group with no assets yet" {"success": true, "message": "Media retrieved successfully.", "errors": null, "data": {"group": "app", "media": []}}
      * @response 422 scenario="Invalid group" {"success": false, "message": "The selected group is invalid.", "errors": {"group": ["The selected group is invalid."]}, "data": null}
@@ -71,6 +73,11 @@ class MediaController extends Controller
      * the type is detected from the file's mime, with errors keyed under `file`.
      *
      * @group Dynamic Storage
+     *
+     * @bodyParam group string App or web, defaults to app. Example: web
+     * @bodyParam sub_group string required Slug identifying the sub-group. Example: auth
+     * @bodyParam key string required Slug identifying the media item. Example: login_image
+     * @bodyParam file file required The image, video, or file to upload — type is auto-detected from mime; size capped per type via config/dynamic-storage.php.
      *
      * @response 200 scenario="Image saved" {"success": true, "message": "Media saved successfully.", "errors": null, "data": {"group": "web", "sub_group": "auth", "key": "login_image", "type": "image", "url": "http://localhost:8000/storage/dynamic-media/web/auth/login_image.webp", "blurhash": "LKO2?U%2Tw=w]~RBVZRi};RPxuwH"}}
      * @response 200 scenario="File saved" {"success": true, "message": "Media saved successfully.", "errors": null, "data": {"group": "web", "sub_group": "legal", "key": "terms_pdf", "type": "file", "url": "http://localhost:8000/storage/dynamic-media/web/legal/terms_pdf.pdf", "name": "terms.pdf", "size": 20480}}
@@ -121,6 +128,10 @@ class MediaController extends Controller
      * (unlike the admin CMS's "remove", which only detaches the file and keeps the row).
      *
      * @group Dynamic Storage
+     *
+     * @bodyParam group string App or web, defaults to app. Example: web
+     * @bodyParam sub_group string required Slug identifying the sub-group. Example: auth
+     * @bodyParam key string required Slug identifying the media item. Example: login_image
      *
      * @response 200 scenario="Success" {"success": true, "message": "Media deleted successfully.", "errors": null, "data": null}
      * @response 404 scenario="No media item at that (key, group, sub_group)" {"success": false, "message": "Media not found.", "errors": null, "data": null}

@@ -25,6 +25,8 @@ class TranslationController extends Controller
      *
      * @groupDescription CRUD for app/web-facing translation strings, organized by group + sub_group.
      *
+     * @queryParam group string App or web, defaults to app. Example: web
+     *
      * @response 200 scenario="Success (group=web)" {"success": true, "message": "Translations", "errors": null, "data": {"group": "web", "locale": "en", "translations": {"general": {"welcome": "Welcome"}, "auth": {"login_title": "Login", "login_description": "Enter your :field below to sign in."}}}}
      * @response 422 scenario="Invalid group" {"success": false, "message": "The selected group is invalid.", "errors": {"group": ["The selected group is invalid."]}, "data": null}
      */
@@ -83,6 +85,10 @@ class TranslationController extends Controller
      * - `api`-group keys are server-controlled and cannot be created or modified here.
      *
      * @group Translations
+     *
+     * @bodyParam group string App or web, defaults to app. Example: web
+     * @bodyParam sub_group string required Slug identifying the sub-group. Example: auth
+     * @bodyParam translations object required Flat object of key => translated string, for the locale in Accept-Language. Example: {"welcome_title": "Welcome", "login_button": "Log In"}
      *
      * @response 200 scenario="Created new key" {"success": true, "message": "Translations added successfully.", "errors": null, "data": {"group": "web", "sub_group": "auth", "locale": "en", "created": 1, "updated": 0}}
      * @response 200 scenario="Updated existing key" {"success": true, "message": "Translations added successfully.", "errors": null, "data": {"group": "web", "sub_group": "auth", "locale": "en", "created": 0, "updated": 1}}
@@ -188,6 +194,10 @@ class TranslationController extends Controller
      * (same restriction as store — only `app`/`web` are accepted).
      *
      * @group Translations
+     *
+     * @bodyParam group string App or web, defaults to app. Example: web
+     * @bodyParam sub_group string required Slug identifying the sub-group. Example: auth
+     * @bodyParam key string required Slug identifying the translation key. Example: welcome_title
      *
      * @response 200 scenario="Success" {"success": true, "message": "Translation key deleted successfully.", "errors": null, "data": null}
      * @response 404 scenario="No key at that (key, group, sub_group)" {"success": false, "message": "Translation key not found.", "errors": null, "data": null}

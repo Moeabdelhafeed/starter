@@ -41,6 +41,15 @@ class AppUserController extends Controller
      *
      * @groupDescription Register, log in, and manage OTP-based verification and password resets for mobile-app users.
      *
+     * @bodyParam policy_agreed boolean required Must be accepted. Example: true
+     * @bodyParam name string required The user's display name. Example: Jane Doe
+     * @bodyParam identifier string required Email or phone, depending on AUTH_IDENTIFIERS config. Example: jane@example.com
+     * @bodyParam password string required Minimum 8 characters. Example: SecurePass123!
+     * @bodyParam password_confirmation string required Must match `password`. Example: SecurePass123!
+     * @bodyParam username string Only present when HAS_USERNAME_FIELD=true. Must start with a letter; letters/digits/underscores/dashes only. Example: janedoe
+     * @bodyParam email string Only present when HAS_EMAIL_FIELD=true and email is not configured as the identifier. Example: jane@example.com
+     * @bodyParam phone string Only present when HAS_PHONE_FIELD=true and phone is not configured as the identifier. Example: +15551234567
+     *
      * @response 200 scenario="Registered — OTP sent (email/phone identifier)" {"success": true, "message": "User registered successfully.", "data": {"user": {"id": 42, "name": "Jane Doe", "email": "jane@example.com", "phone": null, "username": null, "is_active": true, "verified_at": null, "created_at": "2026-07-19T10:00:00.000000Z"}, "otp_expires_in_minutes": 5}, "errors": null}
      * @response 422 scenario="Validation failed" {"success": false, "message": "The given data was invalid.", "errors": {"identifier": ["The identifier field is required."], "password": ["The password field is required."]}, "data": null}
      * @response 422 scenario="Identifier does not match any configured kind" {"success": false, "message": "The given data was invalid.", "errors": {"identifier": ["The identifier must be a valid email or phone."]}, "data": null}
@@ -202,7 +211,14 @@ class AppUserController extends Controller
      *   missing (promoting any existing guest tied to the same X-Device-Id), sends a `login` OTP, and does
      *   NOT issue a token — client follows with POST /api/verify-login.
      *
+     * Under AUTH_MODE=otp, only `identifier` (+ optional `name` string for first-time users) apply —
+     * `password`/`remember_me` are ignored.
+     *
      * @group Authentication
+     *
+     * @bodyParam identifier string required Email or phone. Example: jane@example.com
+     * @bodyParam password string required Example: SecurePass123!
+     * @bodyParam remember_me boolean Extends the issued token's lifetime to 30 days. Example: false
      *
      * @response 200 scenario="password mode — verified" {"success": true, "message": "Login successful.", "token": "1|abcdef123456", "data": {"user": {"id": 42, "name": "Jane Doe", "email": "jane@example.com", "verified_at": "2026-07-18T09:00:00.000000Z"}, "is_verified": true, "account_restored": false, "token_id": 7, "token": "1|abcdef123456"}, "errors": null}
      * @response 200 scenario="password mode — unverified (fresh OTP sent)" {"success": true, "message": "Account not verified. Please check your email.", "token": "1|abcdef123456", "data": {"user": {"id": 42, "name": "Jane Doe", "verified_at": null}, "is_verified": false, "token_id": 7, "otp_expires_in_minutes": 5, "token": "1|abcdef123456"}, "errors": null}
@@ -444,6 +460,9 @@ class AppUserController extends Controller
      *
      * @group Authentication
      *
+     * @bodyParam identifier string required Example: jane@example.com
+     * @bodyParam otp string required Example: 482913
+     *
      * @response 200 scenario="Success" {"success": true, "message": "Login successful.", "token": "1|abcdef123456", "data": {"user": {"id": 42, "name": "Jane Doe", "verified_at": "2026-07-19T10:00:00.000000Z"}, "is_verified": true, "account_restored": false, "token_id": 7, "token": "1|abcdef123456"}, "errors": null}
      * @response 404 scenario="Wrong auth mode (route logically disabled)" {"success": false, "message": "Endpoint not available in the current auth mode.", "errors": null, "data": null}
      * @response 422 scenario="User not found" {"success": false, "message": "User not found.", "errors": {"identifier": ["User not found."]}, "data": null}
@@ -565,6 +584,8 @@ class AppUserController extends Controller
      * update-profile (username), request-identifier-change, and to pick a forgot-password `type`.
      *
      * @group Authentication
+     *
+     * @bodyParam identifier string required Email, phone, or username value to look up. Example: jane@example.com
      *
      * @response 200 scenario="Match found" {"success": true, "message": "Operation successful", "data": {"exists": true, "pending_deletion": false, "suspended": false, "available_channels": ["email"], "has_password": true, "social_providers": ["google.com"], "verified": true, "is_guest": false}, "errors": null}
      * @response 200 scenario="No match" {"success": true, "message": "Operation successful", "data": {"exists": false, "pending_deletion": false, "suspended": false, "available_channels": [], "has_password": false, "social_providers": [], "verified": false, "is_guest": false}, "errors": null}
@@ -706,6 +727,8 @@ class AppUserController extends Controller
      *
      * @group Devices & Guests
      *
+     * @urlParam deviceId integer required The device row id (from GET /api/devices). Example: 3
+     *
      * @response 200 scenario="Success" {"success": true, "message": "Device signed out.", "data": null, "errors": null}
      * @response 404 scenario="Device id not found for this user (findOrFail — Laravel default shape, NOT the ApiResponse envelope)" {"message": "No query results for model [App\\Models\\UserDevice] 999"}
      */
@@ -728,6 +751,8 @@ class AppUserController extends Controller
      * Reviewer accounts bypass the OTP check entirely.
      *
      * @group Authentication
+     *
+     * @bodyParam otp string required Example: 482913
      *
      * @response 200 scenario="Success" {"success": true, "message": "Code verified successfully.", "data": {"user": {"id": 42, "name": "Jane Doe", "verified_at": "2026-07-19T10:00:00.000000Z"}}, "errors": null}
      * @response 422 scenario="Invalid or expired OTP" {"success": false, "message": "Invalid or expired verification code.", "errors": {"otp": ["Invalid or expired verification code."]}, "data": null}
@@ -779,6 +804,9 @@ class AppUserController extends Controller
      * AUTH_MODE=otp). Channel is auto-picked (`email` > `phone` priority) unless `type` is explicitly passed.
      *
      * @group Authentication
+     *
+     * @bodyParam identifier string required Example: jane@example.com
+     * @bodyParam type string Email or phone; must be one of the user's populated channels. Auto-picked (email > phone) if omitted. Example: email
      *
      * @response 200 scenario="Success" {"success": true, "message": "Password reset code sent.", "data": {"identifier": "jane@example.com", "channel": "email", "otp_expires_in_minutes": 5}, "errors": null}
      * @response 422 scenario="User not found" {"success": false, "message": "User not found.", "errors": {"identifier": ["User not found."]}, "data": null}
@@ -866,6 +894,9 @@ class AppUserController extends Controller
      *
      * @group Authentication
      *
+     * @bodyParam identifier string required Example: jane@example.com
+     * @bodyParam otp string required Example: 482913
+     *
      * @response 200 scenario="Success" {"success": true, "message": "Code verified successfully.", "data": {"identifier": "jane@example.com", "otp": "482913"}, "errors": null}
      * @response 422 scenario="User not found" {"success": false, "message": "User not found.", "errors": {"identifier": ["User not found."]}, "data": null}
      * @response 422 scenario="Invalid or expired OTP" {"success": false, "message": "Invalid or expired verification code.", "errors": {"otp": ["Invalid or expired verification code."]}, "data": null}
@@ -919,6 +950,11 @@ class AppUserController extends Controller
      * Revokes all of the user's existing tokens.
      *
      * @group Authentication
+     *
+     * @bodyParam identifier string required Example: jane@example.com
+     * @bodyParam otp string required Example: 482913
+     * @bodyParam password string required Minimum 8 characters. Example: NewSecurePass456!
+     * @bodyParam password_confirmation string required Must match `password`. Example: NewSecurePass456!
      *
      * @response 200 scenario="Success" {"success": true, "message": "Password changed successfully.", "data": null, "errors": null}
      * @response 422 scenario="User not found" {"success": false, "message": "User not found.", "errors": {"identifier": ["User not found."]}, "data": null}
@@ -978,6 +1014,10 @@ class AppUserController extends Controller
      * the current session alive).
      *
      * @group Authentication
+     *
+     * @bodyParam old_password string Required unless the account has no password yet (social-only account setting its first password). Example: OldPass123!
+     * @bodyParam password string required Minimum 8 characters. Example: NewSecurePass456!
+     * @bodyParam password_confirmation string required Must match `password`. Example: NewSecurePass456!
      *
      * @response 200 scenario="Success — had a password" {"success": true, "message": "Password changed successfully.", "data": null, "errors": null}
      * @response 200 scenario="Success — first password (social-only account)" {"success": true, "message": "Password set successfully.", "data": null, "errors": null}
@@ -1067,6 +1107,8 @@ class AppUserController extends Controller
      * password is set first (email change wipes social links).
      *
      * @group Profile & Account
+     *
+     * @bodyParam new_identifier string required Email or phone, depending on AUTH_IDENTIFIERS config. Example: newemail@example.com
      *
      * @response 200 scenario="Success" {"success": true, "message": "Verification code sent to your new identifier.", "data": {"new_identifier": "new@example.com", "otp_expires_in_minutes": 5}, "errors": null}
      * @response 422 scenario="new_identifier is not a valid/configured kind" {"success": false, "message": "The identifier must be a valid email or phone.", "errors": {"new_identifier": ["The identifier must be a valid email or phone."]}, "data": null}
@@ -1182,6 +1224,9 @@ class AppUserController extends Controller
      *
      * @group Profile & Account
      *
+     * @bodyParam new_identifier string required Email or phone, depending on AUTH_IDENTIFIERS config. Example: newemail@example.com
+     * @bodyParam otp string required Example: 482913
+     *
      * @response 200 scenario="Success — phone change" {"success": true, "message": "Identifier changed successfully.", "data": {"user": {"id": 42, "phone": "+15551234567"}, "unlinked_providers": []}, "errors": null}
      * @response 200 scenario="Success — email change (social accounts unlinked)" {"success": true, "message": "Identifier changed successfully.", "data": {"user": {"id": 42, "email": "new@example.com"}, "unlinked_providers": ["google.com"]}, "errors": null}
      * @response 422 scenario="Invalid or expired OTP" {"success": false, "message": "Invalid or expired verification code.", "errors": {"otp": ["Invalid or expired verification code."]}, "data": null}
@@ -1288,6 +1333,11 @@ class AppUserController extends Controller
      * request-identifier-change instead.
      *
      * @group Profile & Account
+     *
+     * @bodyParam name string The user's display name. Example: Jane A. Doe
+     * @bodyParam username string Only when HAS_USERNAME_FIELD=true. Example: janedoe
+     * @bodyParam email string Only when HAS_EMAIL_FIELD=true and email is not configured as the identifier. Example: jane@example.com
+     * @bodyParam phone string Only when HAS_PHONE_FIELD=true and phone is not configured as the identifier. Example: +15551234567
      *
      * @response 200 scenario="Success" {"success": true, "message": "Profile updated successfully.", "data": {"user": {"id": 42, "name": "Jane A. Doe", "username": "janedoe"}}, "errors": null}
      * @response 422 scenario="Validation failed" {"success": false, "message": "The username has already been taken.", "errors": {"username": ["The username has already been taken."]}, "data": null}
@@ -1673,6 +1723,8 @@ class AppUserController extends Controller
      *
      * @groupDescription Login and account linking via Firebase-verified social providers (Google, Apple, etc.).
      *
+     * @bodyParam token string required Firebase ID token from the client SDK. Example: eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9...
+     *
      * @response 200 scenario="Success — existing or new social user" {"success": true, "message": "Login successful.", "token": "1|abcdef123456", "data": {"user": {"id": 42, "name": "Jane Doe", "email": "jane@example.com"}, "is_verified": true, "token_id": 7, "is_new_user": false, "provider": "google.com", "provider_already_linked": true, "linked_providers": ["google.com"], "token": "1|abcdef123456"}, "errors": null}
      * @response 422 scenario="Invalid/expired Firebase token" {"success": false, "message": "Invalid or expired Firebase token.", "errors": {"token": ["Invalid or expired Firebase token."]}, "data": null}
      * @response 422 scenario="Token has no email claim" {"success": false, "message": "Email is required for social login.", "errors": {"token": ["Email is required for social login."]}, "data": null}
@@ -1860,6 +1912,8 @@ class AppUserController extends Controller
      *
      * @group Social Login
      *
+     * @bodyParam token string required Firebase ID token from the client SDK. Example: eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9...
+     *
      * @response 200 scenario="Success" {"success": true, "message": "Social account linked successfully.", "data": {"user": {"id": 42, "email": "jane@example.com"}}, "errors": null}
      * @response 422 scenario="Invalid/expired Firebase token" {"success": false, "message": "Invalid or expired Firebase token.", "errors": {"token": ["Invalid or expired Firebase token."]}, "data": null}
      * @response 422 scenario="Provider already linked to another user" {"success": false, "message": "This social account is already linked to another user.", "errors": {"token": ["This social account is already linked to another user."]}, "data": null}
@@ -1983,6 +2037,8 @@ class AppUserController extends Controller
      * no other linked provider) — set a password first.
      *
      * @group Social Login
+     *
+     * @bodyParam provider string required Example: google.com
      *
      * @response 200 scenario="Success" {"success": true, "message": "Social account unlinked successfully.", "data": {"user": {"id": 42, "email": "jane@example.com"}}, "errors": null}
      * @response 422 scenario="Provider not linked to this user" {"success": false, "message": "This social provider is not linked to your account.", "errors": {"provider": ["This social provider is not linked to your account."]}, "data": null}
