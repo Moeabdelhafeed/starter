@@ -99,11 +99,17 @@ const toggleTheme = (event) => {
         return;
     }
 
-    const x = event?.clientX ?? window.innerWidth / 2;
-    const y = event?.clientY ?? window.innerHeight / 2;
+    // clientWidth/clientHeight (not window.innerWidth/innerHeight) — on mobile the
+    // browser's address bar collapses/expands mid-tap, so innerHeight can change
+    // between when this radius is computed and when the transition actually paints,
+    // making the reveal circle undershoot and then snap once layout settles.
+    const viewportWidth = document.documentElement.clientWidth;
+    const viewportHeight = document.documentElement.clientHeight;
+    const x = event?.clientX ?? viewportWidth / 2;
+    const y = event?.clientY ?? viewportHeight / 2;
     const radius = Math.hypot(
-        Math.max(x, window.innerWidth - x),
-        Math.max(y, window.innerHeight - y),
+        Math.max(x, viewportWidth - x),
+        Math.max(y, viewportHeight - y),
     );
 
     document.documentElement.style.setProperty('--theme-x', `${x}px`);
@@ -167,7 +173,7 @@ const isRouteActive = (name) => {
             @mouseenter="isMouseOver = true"
             @mouseleave="isMouseOver = false"
             :class="[isSidebarOpen ? 'translate-x-0' : 'ltr:-translate-x-full rtl:translate-x-full']"
-            class="fixed z-50 flex h-screen w-[280px] flex-col bg-card shadow-2xl transition-all duration-300"
+            class="fixed z-50 flex h-dvh w-[280px] flex-col bg-card shadow-2xl transition-all duration-300"
         >
             <!-- Header -->
             <div class="border-b border-border p-4 py-6">
