@@ -34,16 +34,16 @@ endpoints:
       token:
         custom: []
         name: token
-        description: ''
+        description: 'Firebase ID token from the client SDK.'
         required: true
-        example: architecto
+        example: eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9...
         type: string
         enumValues: []
-        exampleWasSpecified: false
+        exampleWasSpecified: true
         nullable: false
         deprecated: false
     cleanBodyParameters:
-      token: architecto
+      token: eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9...
     fileParameters: []
     responses:
       -
@@ -172,16 +172,16 @@ endpoints:
       token:
         custom: []
         name: token
-        description: ''
+        description: 'Firebase ID token from the client SDK.'
         required: true
-        example: architecto
+        example: eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9...
         type: string
         enumValues: []
-        exampleWasSpecified: false
+        exampleWasSpecified: true
         nullable: false
         deprecated: false
     cleanBodyParameters:
-      token: architecto
+      token: eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9...
     fileParameters: []
     responses:
       -
@@ -265,14 +265,14 @@ endpoints:
         name: provider
         description: ''
         required: true
-        example: architecto
+        example: google.com
         type: string
         enumValues: []
-        exampleWasSpecified: false
+        exampleWasSpecified: true
         nullable: false
         deprecated: false
     cleanBodyParameters:
-      provider: architecto
+      provider: google.com
     fileParameters: []
     responses:
       -

@@ -19,6 +19,10 @@ class RoleSeeder extends Seeder
         $fallback = Role::firstOrCreate(['name' => 'fallback', 'guard_name' => 'web']);
         Role::firstOrCreate(['name' => 'user', 'guard_name' => 'api']);
 
+        // Permission rows are always seeded regardless of any HAS_* env flag — toggling a
+        // feature off should hide it from the Roles UI, not delete role assignments. If you
+        // add a permission for a HAS_*-gated feature, also add it to
+        // RolesController::disabledFeaturePermissions(), or it stays selectable even when off.
         $translationsPermission = Permission::firstOrCreate(['name' => 'translations', 'guard_name' => 'web']);
         $usersPermission = Permission::firstOrCreate(['name' => 'users', 'guard_name' => 'web']);
         $rolesPermission = Permission::firstOrCreate(['name' => 'roles', 'guard_name' => 'web']);

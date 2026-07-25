@@ -196,6 +196,8 @@ class RolesController extends Controller
             'pages' => filter_var(env('HAS_PAGES', true), FILTER_VALIDATE_BOOLEAN),
             'activity_logs' => filter_var(env('HAS_ACTIVITY_LOGS', true), FILTER_VALIDATE_BOOLEAN),
             'notification_templates' => filter_var(env('HAS_NOTIFICATION_TEMPLATES', true), FILTER_VALIDATE_BOOLEAN),
+            'app_settings' => filter_var(env('HAS_APP_SETTINGS', true), FILTER_VALIDATE_BOOLEAN),
+            'dynamic_storage' => filter_var(env('HAS_DYNAMIC_STORAGE', true), FILTER_VALIDATE_BOOLEAN),
             'app_users' => filter_var(env('APP_USERS'), FILTER_VALIDATE_BOOLEAN)
                 || filter_var(env('APP_GUESTS', false), FILTER_VALIDATE_BOOLEAN),
         ];

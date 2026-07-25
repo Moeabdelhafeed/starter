@@ -181,8 +181,8 @@ const isRouteActive = (name) => {
                         <X class="size-5" />
                     </button>
                     <h2 class="flex flex-1 items-center justify-center text-lg font-semibold text-foreground">
-                        <img src="/images/logo.png" class="w-[60%] dark:hidden" />
-                        <img src="/images/logo-dark.png" class="hidden w-[60%] dark:block"
+                        <img src="/images/logo.png" class="h-15 w-auto dark:hidden" />
+                        <img src="/images/logo-dark.png" class="hidden h-15 w-auto dark:block"
                             @error="$event.target.src = '/images/logo.png'" />
                     </h2>
                     <NotificationBell :navbar-open="isSidebarOpen" @close="isMouseOver = false" />

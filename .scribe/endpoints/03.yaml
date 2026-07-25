@@ -35,16 +35,52 @@ endpoints:
       name:
         custom: []
         name: name
-        description: 'Must not be greater than 255 characters.'
+        description: "The user's display name."
         required: false
-        example: b
+        example: 'Jane A. Doe'
         type: string
         enumValues: []
-        exampleWasSpecified: false
+        exampleWasSpecified: true
         nullable: true
         deprecated: false
+      username:
+        custom: []
+        name: username
+        description: 'Only when HAS_USERNAME_FIELD=true.'
+        required: false
+        example: janedoe
+        type: string
+        enumValues: []
+        exampleWasSpecified: true
+        nullable: false
+        deprecated: false
+      email:
+        custom: []
+        name: email
+        description: 'Only when HAS_EMAIL_FIELD=true and email is not configured as the identifier.'
+        required: false
+        example: jane@example.com
+        type: string
+        enumValues: []
+        exampleWasSpecified: true
+        nullable: false
+        deprecated: false
+      phone:
+        custom: []
+        name: phone
+        description: 'Only when HAS_PHONE_FIELD=true and phone is not configured as the identifier.'
+        required: false
+        example: '+15551234567'
+        type: string
+        enumValues: []
+        exampleWasSpecified: true
+        nullable: false
+        deprecated: false
     cleanBodyParameters:
-      name: b
+      name: 'Jane A. Doe'
+      username: janedoe
+      email: jane@example.com
+      phone: '+15551234567'
     fileParameters: []
     responses:
       -
@@ -98,16 +134,16 @@ endpoints:
       new_identifier:
         custom: []
         name: new_identifier
-        description: 'Must not be greater than 255 characters.'
+        description: 'Email or phone, depending on AUTH_IDENTIFIERS config.'
         required: true
-        example: b
+        example: newemail@example.com
         type: string
         enumValues: []
-        exampleWasSpecified: false
+        exampleWasSpecified: true
         nullable: false
         deprecated: false
     cleanBodyParameters:
-      new_identifier: b
+      new_identifier: newemail@example.com
     fileParameters: []
     responses:
       -
@@ -178,28 +214,28 @@ endpoints:
       new_identifier:
         custom: []
         name: new_identifier
-        description: 'Must not be greater than 255 characters.'
+        description: 'Email or phone, depending on AUTH_IDENTIFIERS config.'
         required: true
-        example: b
+        example: newemail@example.com
         type: string
         enumValues: []
-        exampleWasSpecified: false
+        exampleWasSpecified: true
         nullable: false
         deprecated: false
       otp:
         custom: []
         name: otp
-        description: 'Must not be greater than 10 characters.'
+        description: ''
         required: true
-        example: ngzmiy
+        example: '482913'
         type: string
         enumValues: []
-        exampleWasSpecified: false
+        exampleWasSpecified: true
         nullable: false
         deprecated: false
     cleanBodyParameters:
-      new_identifier: b
-      otp: ngzmiy
+      new_identifier: newemail@example.com
+      otp: '482913'
     fileParameters: []
     responses:
       -

@@ -1904,7 +1904,7 @@ class DevSettingController extends Controller
         // any Scribe output already on the target from a previous deploy is left untouched.
         if ($options['generate_docs'] ?? true) {
             $output .= "[scribe] Regenerating API docs for the deployed environment...\n";
-            $output .= $ssh->exec("cd {$backendPath} && {$php} artisan scribe:generate --no-interaction 2>&1")."\n";
+            $output .= $ssh->exec("cd {$backendPath} && {$php} artisan scribe:generate --no-interaction && {$php} artisan scribe:polish 2>&1")."\n";
         } else {
             $output .= "[scribe] Skipped (Generate API Docs was off for this deploy).\n";
         }

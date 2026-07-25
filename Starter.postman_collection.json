@@ -1,0 +1,1853 @@
+{
+    "variable": [
+        {
+            "id": "baseUrl",
+            "key": "baseUrl",
+            "type": "string",
+            "name": "string",
+            "value": "http:\/\/localhost"
+        }
+    ],
+    "info": {
+        "name": "starter kit API Documentation",
+        "_postman_id": "1ee5bf1a-7423-4c2d-a198-dcd9c22ab24c",
+        "description": "Mobile app REST API for this Inertia starter (routes\/api.php). Every request requires the X-API-TOKEN, X-Device-Id and X-Platform headers below \u2014 see IdentifyDevice \/ XApiTokenMiddlleware.",
+        "schema": "https:\/\/schema.getpostman.com\/json\/collection\/v2.1.0\/collection.json"
+    },
+    "item": [
+        {
+            "name": "Authentication",
+            "description": "",
+            "item": [
+                {
+                    "name": "Get App Config",
+                    "request": {
+                        "url": {
+                            "host": "{{baseUrl}}",
+                            "path": "api\/config",
+                            "query": [],
+                            "raw": "{{baseUrl}}\/api\/config"
+                        },
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application\/json"
+                            },
+                            {
+                                "key": "Accept",
+                                "value": "application\/json"
+                            },
+                            {
+                                "key": "Accept-Language",
+                                "value": "en"
+                            },
+                            {
+                                "key": "X-API-TOKEN",
+                                "value": "{YOUR_APP_X_API_TOKEN}"
+                            },
+                            {
+                                "key": "X-Device-Id",
+                                "value": "11111111-1111-4111-8111-111111111111"
+                            },
+                            {
+                                "key": "X-Platform",
+                                "value": "web"
+                            }
+                        ],
+                        "body": null,
+                        "description": "Live app configuration for mobile\/web clients to adapt their UI on boot. Always available (not\ngated on APP_USERS). Public, no auth required beyond the standard device\/API-token headers.",
+                        "auth": {
+                            "type": "noauth"
+                        }
+                    },
+                    "response": [
+                        {
+                            "header": [
+                                {
+                                    "key": "Content-Type",
+                                    "value": "application\/json"
+                                }
+                            ],
+                            "code": 200,
+                            "body": "{\"success\": true, \"message\": \"Operation successful\", \"data\": {\"identifiers\": [\"email\"], \"has_username_field\": false, \"has_email_field\": false, \"has_phone_field\": false, \"social_providers\": [\"google.com\", \"apple.com\"], \"max_social_accounts\": 0, \"social_auth_available\": true, \"is_otp_whatsapp\": false, \"multi_session\": true, \"app_users\": true, \"app_guests\": true, \"auth_mode\": \"otp\", \"allowed_email_domains\": \"all\", \"allowed_phone_countries\": \"all\"}, \"errors\": null}",
+                            "name": "Success"
+                        }
+                    ]
+                },
+                {
+                    "name": "Login",
+                    "request": {
+                        "url": {
+                            "host": "{{baseUrl}}",
+                            "path": "api\/login",
+                            "query": [],
+                            "raw": "{{baseUrl}}\/api\/login"
+                        },
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application\/json"
+                            },
+                            {
+                                "key": "Accept",
+                                "value": "application\/json"
+                            },
+                            {
+                                "key": "Accept-Language",
+                                "value": "en"
+                            },
+                            {
+                                "key": "X-API-TOKEN",
+                                "value": "{YOUR_APP_X_API_TOKEN}"
+                            },
+                            {
+                                "key": "X-Device-Id",
+                                "value": "11111111-1111-4111-8111-111111111111"
+                            },
+                            {
+                                "key": "X-Platform",
+                                "value": "web"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\"identifier\":\"jane@example.com\",\"password\":\"SecurePass123!\",\"remember_me\":false}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
+                        },
+                        "description": "Behavior branches on AUTH_MODE (see GET \/api\/config \u2192 auth_mode):\n- `password` (default): body is `identifier` + `password` (+ optional `remember_me`). Issues a Sanctum\n  token immediately. An unverified account still gets a token (usable with verify-otp) plus a fresh\n  verify OTP.\n- `otp`: body is `identifier` only (+ optional `name` for first-time users). Auto-creates the user if\n  missing (promoting any existing guest tied to the same X-Device-Id), sends a `login` OTP, and does\n  NOT issue a token \u2014 client follows with POST \/api\/verify-login.\n\nUnder AUTH_MODE=otp, only `identifier` (+ optional `name` string for first-time users) apply \u2014\n`password`\/`remember_me` are ignored.",
+                        "auth": {
+                            "type": "noauth"
+                        }
+                    },
+                    "response": [
+                        {
+                            "header": [
+                                {
+                                    "key": "Content-Type",
+                                    "value": "application\/json"
+                                }
+                            ],
+                            "code": 200,
+                            "body": "{\"success\": true, \"message\": \"Login successful.\", \"token\": \"1|abcdef123456\", \"data\": {\"user\": {\"id\": 42, \"name\": \"Jane Doe\", \"email\": \"jane@example.com\", \"verified_at\": \"2026-07-18T09:00:00.000000Z\"}, \"is_verified\": true, \"account_restored\": false, \"token_id\": 7, \"token\": \"1|abcdef123456\"}, \"errors\": null}",
+                            "name": "password mode \u2014 verified"
+                        },
+                        {
+                            "header": [
+                                {
+                                    "key": "Content-Type",
+                                    "value": "application\/json"
+                                }
+                            ],
+                            "code": 200,
+                            "body": "{\"success\": true, \"message\": \"Account not verified. Please check your email.\", \"token\": \"1|abcdef123456\", \"data\": {\"user\": {\"id\": 42, \"name\": \"Jane Doe\", \"verified_at\": null}, \"is_verified\": false, \"token_id\": 7, \"otp_expires_in_minutes\": 5, \"token\": \"1|abcdef123456\"}, \"errors\": null}",
+                            "name": "password mode \u2014 unverified (fresh OTP sent)"
+                        },
+                        {
+                            "header": [
+                                {
+                                    "key": "Content-Type",
+                                    "value": "application\/json"
+                                }
+                            ],
+                            "code": 200,
+                            "body": "{\"success\": true, \"message\": \"Login code sent. Enter the code to complete sign in.\", \"data\": {\"identifier\": \"jane@example.com\", \"channel\": \"email\", \"otp_expires_in_minutes\": 5}, \"errors\": null}",
+                            "name": "otp mode \u2014 OTP sent, no token yet"
+                        },
+                        {
+                            "header": [
+                                {
+                                    "key": "Content-Type",
+                                    "value": "application\/json"
+                                }
+                            ],
+                            "code": 403,
+                            "body": "{\"success\": false, \"message\": \"Your account is suspended. Please contact support.\", \"errors\": null, \"data\": null}",
+                            "name": "account suspended (admin-trashed)"
+                        },
+                        {
+                            "header": [
+                                {
+                                    "key": "Content-Type",
+                                    "value": "application\/json"
+                                }
+                            ],
+                            "code": 403,
+                            "body": "{\"success\": false, \"message\": \"Your account is inactive.\", \"errors\": null, \"data\": null}",
+                            "name": "account inactive"
+                        },
+                        {
+                            "header": [
+                                {
+                                    "key": "Content-Type",
+                                    "value": "application\/json"
+                                }
+                            ],
+                            "code": 403,
+                            "body": "{\"success\": false, \"message\": \"Unauthorized access.\", \"errors\": null, \"data\": null}",
+                            "name": "user role missing\/wrong guard"
+                        },
+                        {
+                            "header": [
+                                {
+                                    "key": "Content-Type",
+                                    "value": "application\/json"
+                                }
+                            ],
+                            "code": 422,
+                            "body": "{\"success\": false, \"message\": \"The identifier field is required. (and 1 more error)\", \"errors\": {\"identifier\": [\"The identifier field is required.\"], \"password\": [\"The password field is required.\"]}, \"data\": null}",
+                            "name": "missing required fields"
+                        },
+                        {
+                            "header": [
+                                {
+                                    "key": "Content-Type",
+                                    "value": "application\/json"
+                                }
+                            ],
+                            "code": 422,
+                            "body": "{\"success\": false, \"message\": \"User not found.\", \"errors\": {\"identifier\": [\"User not found.\"]}, \"data\": null}",
+                            "name": "password mode \u2014 user not found"
+                        },
+                        {
+                            "header": [
+                                {
+                                    "key": "Content-Type",
+                                    "value": "application\/json"
+                                }
+                            ],
+                            "code": 422,
+                            "body": "{\"success\": false, \"message\": \"Invalid credentials.\", \"errors\": {\"password\": [\"Invalid credentials.\"]}, \"data\": null}",
+                            "name": "password mode \u2014 invalid password"
+                        },
+                        {
+                            "header": [
+                                {
+                                    "key": "Content-Type",
+                                    "value": "application\/json"
+                                }
+                            ],
+                            "code": 422,
+                            "body": "{\"success\": false, \"message\": \"The identifier must be a valid email or phone.\", \"errors\": {\"identifier\": [\"The identifier must be a valid email or phone.\"]}, \"data\": null}",
+                            "name": "otp mode \u2014 identifier is not a valid email\/phone"
+                        }
+                    ]
+                },
+                {
+                    "name": "Verify Login OTP",
+                    "request": {
+                        "url": {
+                            "host": "{{baseUrl}}",
+                            "path": "api\/verify-login",
+                            "query": [],
+                            "raw": "{{baseUrl}}\/api\/verify-login"
+                        },
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application\/json"
+                            },
+                            {
+                                "key": "Accept",
+                                "value": "application\/json"
+                            },
+                            {
+                                "key": "Accept-Language",
+                                "value": "en"
+                            },
+                            {
+                                "key": "X-API-TOKEN",
+                                "value": "{YOUR_APP_X_API_TOKEN}"
+                            },
+                            {
+                                "key": "X-Device-Id",
+                                "value": "11111111-1111-4111-8111-111111111111"
+                            },
+                            {
+                                "key": "X-Platform",
+                                "value": "web"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\"identifier\":\"jane@example.com\",\"otp\":\"482913\"}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
+                        },
+                        "description": "OTP-mode only: consume the `login` OTP sent by POST \/api\/login and issue a Sanctum token.\nReviewer accounts auto-pass any OTP value.",
+                        "auth": {
+                            "type": "noauth"
+                        }
+                    },
+                    "response": [
+                        {
+                            "header": [
+                                {
+                                    "key": "Content-Type",
+                                    "value": "application\/json"
+                                }
+                            ],
+                            "code": 200,
+                            "body": "{\"success\": true, \"message\": \"Login successful.\", \"token\": \"1|abcdef123456\", \"data\": {\"user\": {\"id\": 42, \"name\": \"Jane Doe\", \"verified_at\": \"2026-07-19T10:00:00.000000Z\"}, \"is_verified\": true, \"account_restored\": false, \"token_id\": 7, \"token\": \"1|abcdef123456\"}, \"errors\": null}",
+                            "name": "Success"
+                        },
+                        {
+                            "header": [
+                                {
+                                    "key": "Content-Type",
+                                    "value": "application\/json"
+                                }
+                            ],
+                            "code": 403,
+                            "body": "{\"success\": false, \"message\": \"Your account is suspended. Please contact support.\", \"errors\": null, \"data\": null}",
+                            "name": "Account suspended\/inactive\/wrong role"
+                        },
+                        {
+                            "header": [
+                                {
+                                    "key": "Content-Type",
+                                    "value": "application\/json"
+                                }
+                            ],
+                            "code": 404,
+                            "body": "{\"success\": false, \"message\": \"Endpoint not available in the current auth mode.\", \"errors\": null, \"data\": null}",
+                            "name": "Wrong auth mode (route logically disabled)"
+                        },
+                        {
+                            "header": [
+                                {
+                                    "key": "Content-Type",
+                                    "value": "application\/json"
+                                }
+                            ],
+                            "code": 422,
+                            "body": "{\"success\": false, \"message\": \"User not found.\", \"errors\": {\"identifier\": [\"User not found.\"]}, \"data\": null}",
+                            "name": "User not found"
+                        },
+                        {
+                            "header": [
+                                {
+                                    "key": "Content-Type",
+                                    "value": "application\/json"
+                                }
+                            ],
+                            "code": 422,
+                            "body": "{\"success\": false, \"message\": \"Invalid or expired verification code.\", \"errors\": {\"otp\": [\"Invalid or expired verification code.\"]}, \"data\": null}",
+                            "name": "Invalid or expired OTP"
+                        }
+                    ]
+                },
+                {
+                    "name": "Check Identifier",
+                    "request": {
+                        "url": {
+                            "host": "{{baseUrl}}",
+                            "path": "api\/check-identifier",
+                            "query": [],
+                            "raw": "{{baseUrl}}\/api\/check-identifier"
+                        },
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application\/json"
+                            },
+                            {
+                                "key": "Accept",
+                                "value": "application\/json"
+                            },
+                            {
+                                "key": "Accept-Language",
+                                "value": "en"
+                            },
+                            {
+                                "key": "X-API-TOKEN",
+                                "value": "{YOUR_APP_X_API_TOKEN}"
+                            },
+                            {
+                                "key": "X-Device-Id",
+                                "value": "11111111-1111-4111-8111-111111111111"
+                            },
+                            {
+                                "key": "X-Platform",
+                                "value": "web"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\"identifier\":\"jane@example.com\"}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
+                        },
+                        "description": "Pre-submit uniqueness\/state check for an email\/phone\/username value \u2014 used before register,\nupdate-profile (username), request-identifier-change, and to pick a forgot-password `type`.",
+                        "auth": {
+                            "type": "noauth"
+                        }
+                    },
+                    "response": [
+                        {
+                            "header": [
+                                {
+                                    "key": "Content-Type",
+                                    "value": "application\/json"
+                                }
+                            ],
+                            "code": 200,
+                            "body": "{\"success\": true, \"message\": \"Operation successful\", \"data\": {\"exists\": true, \"pending_deletion\": false, \"suspended\": false, \"available_channels\": [\"email\"], \"has_password\": true, \"social_providers\": [\"google.com\"], \"verified\": true, \"is_guest\": false}, \"errors\": null}",
+                            "name": "Match found"
+                        },
+                        {
+                            "header": [
+                                {
+                                    "key": "Content-Type",
+                                    "value": "application\/json"
+                                }
+                            ],
+                            "code": 200,
+                            "body": "{\"success\": true, \"message\": \"Operation successful\", \"data\": {\"exists\": false, \"pending_deletion\": false, \"suspended\": false, \"available_channels\": [], \"has_password\": false, \"social_providers\": [], \"verified\": false, \"is_guest\": false}, \"errors\": null}",
+                            "name": "No match"
+                        },
+                        {
+                            "header": [
+                                {
+                                    "key": "Content-Type",
+                                    "value": "application\/json"
+                                }
+                            ],
+                            "code": 422,
+                            "body": "{\"success\": false, \"message\": \"The identifier field is required.\", \"errors\": {\"identifier\": [\"The identifier field is required.\"]}, \"data\": null}",
+                            "name": "Missing identifier"
+                        }
+                    ]
+                },
+                {
+                    "name": "Logout",
+                    "request": {
+                        "url": {
+                            "host": "{{baseUrl}}",
+                            "path": "api\/logout",
+                            "query": [],
+                            "raw": "{{baseUrl}}\/api\/logout"
+                        },
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application\/json"
+                            },
+                            {
+                                "key": "Accept",
+                                "value": "application\/json"
+                            },
+                            {
+                                "key": "Accept-Language",
+                                "value": "en"
+                            },
+                            {
+                                "key": "X-API-TOKEN",
+                                "value": "{YOUR_APP_X_API_TOKEN}"
+                            },
+                            {
+                                "key": "X-Device-Id",
+                                "value": "11111111-1111-4111-8111-111111111111"
+                            },
+                            {
+                                "key": "X-Platform",
+                                "value": "web"
+                            }
+                        ],
+                        "body": null,
+                        "description": "Revoke the current Sanctum token. Requires auth:sanctum.",
+                        "auth": {
+                            "type": "noauth"
+                        }
+                    },
+                    "response": [
+                        {
+                            "header": [
+                                {
+                                    "key": "Content-Type",
+                                    "value": "application\/json"
+                                }
+                            ],
+                            "code": 200,
+                            "body": "{\"success\": true, \"message\": \"Logout successful.\", \"data\": null, \"errors\": null}",
+                            "name": "Success"
+                        }
+                    ]
+                },
+                {
+                    "name": "Resend Verification OTP",
+                    "request": {
+                        "url": {
+                            "host": "{{baseUrl}}",
+                            "path": "api\/send-otp",
+                            "query": [],
+                            "raw": "{{baseUrl}}\/api\/send-otp"
+                        },
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application\/json"
+                            },
+                            {
+                                "key": "Accept",
+                                "value": "application\/json"
+                            },
+                            {
+                                "key": "Accept-Language",
+                                "value": "en"
+                            },
+                            {
+                                "key": "X-API-TOKEN",
+                                "value": "{YOUR_APP_X_API_TOKEN}"
+                            },
+                            {
+                                "key": "X-Device-Id",
+                                "value": "11111111-1111-4111-8111-111111111111"
+                            },
+                            {
+                                "key": "X-Platform",
+                                "value": "web"
+                            }
+                        ],
+                        "body": null,
+                        "description": "Resend the `verify` OTP to the authenticated (but unverified) user's delivery channel.",
+                        "auth": {
+                            "type": "noauth"
+                        }
+                    },
+                    "response": [
+                        {
+                            "header": [
+                                {
+                                    "key": "Content-Type",
+                                    "value": "application\/json"
+                                }
+                            ],
+                            "code": 200,
+                            "body": "{\"success\": true, \"message\": \"Verification code sent successfully.\", \"data\": {\"user\": {\"id\": 42, \"name\": \"Jane Doe\", \"email\": \"jane@example.com\", \"verified_at\": null}, \"otp_expires_in_minutes\": 5}, \"errors\": null}",
+                            "name": "Success"
+                        },
+                        {
+                            "header": [
+                                {
+                                    "key": "Content-Type",
+                                    "value": "application\/json"
+                                }
+                            ],
+                            "code": 400,
+                            "body": "{\"success\": false, \"message\": \"OTP not available for this identifier type.\", \"errors\": null, \"data\": null}",
+                            "name": "No deliverable channel (username-only account)"
+                        },
+                        {
+                            "header": [
+                                {
+                                    "key": "Content-Type",
+                                    "value": "application\/json"
+                                }
+                            ],
+                            "code": 404,
+                            "body": "{\"success\": false, \"message\": \"User not found.\", \"errors\": null, \"data\": null}",
+                            "name": "No user resolved (missing\/invalid Bearer)"
+                        }
+                    ]
+                },
+                {
+                    "name": "Verify OTP",
+                    "request": {
+                        "url": {
+                            "host": "{{baseUrl}}",
+                            "path": "api\/verify-otp",
+                            "query": [],
+                            "raw": "{{baseUrl}}\/api\/verify-otp"
+                        },
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application\/json"
+                            },
+                            {
+                                "key": "Accept",
+                                "value": "application\/json"
+                            },
+                            {
+                                "key": "Accept-Language",
+                                "value": "en"
+                            },
+                            {
+                                "key": "X-API-TOKEN",
+                                "value": "{YOUR_APP_X_API_TOKEN}"
+                            },
+                            {
+                                "key": "X-Device-Id",
+                                "value": "11111111-1111-4111-8111-111111111111"
+                            },
+                            {
+                                "key": "X-Platform",
+                                "value": "web"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\"otp\":\"482913\"}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
+                        },
+                        "description": "Consume a `verify` OTP (sent by register or send-otp) and stamp the account verified.\nReviewer accounts bypass the OTP check entirely.",
+                        "auth": {
+                            "type": "noauth"
+                        }
+                    },
+                    "response": [
+                        {
+                            "header": [
+                                {
+                                    "key": "Content-Type",
+                                    "value": "application\/json"
+                                }
+                            ],
+                            "code": 200,
+                            "body": "{\"success\": true, \"message\": \"Code verified successfully.\", \"data\": {\"user\": {\"id\": 42, \"name\": \"Jane Doe\", \"verified_at\": \"2026-07-19T10:00:00.000000Z\"}}, \"errors\": null}",
+                            "name": "Success"
+                        },
+                        {
+                            "header": [
+                                {
+                                    "key": "Content-Type",
+                                    "value": "application\/json"
+                                }
+                            ],
+                            "code": 422,
+                            "body": "{\"success\": false, \"message\": \"Invalid or expired verification code.\", \"errors\": {\"otp\": [\"Invalid or expired verification code.\"]}, \"data\": null}",
+                            "name": "Invalid or expired OTP"
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "name": "Social Login",
+            "description": "",
+            "item": [
+                {
+                    "name": "Firebase Login",
+                    "request": {
+                        "url": {
+                            "host": "{{baseUrl}}",
+                            "path": "api\/firebase-login",
+                            "query": [],
+                            "raw": "{{baseUrl}}\/api\/firebase-login"
+                        },
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application\/json"
+                            },
+                            {
+                                "key": "Accept",
+                                "value": "application\/json"
+                            },
+                            {
+                                "key": "Accept-Language",
+                                "value": "en"
+                            },
+                            {
+                                "key": "X-API-TOKEN",
+                                "value": "{YOUR_APP_X_API_TOKEN}"
+                            },
+                            {
+                                "key": "X-Device-Id",
+                                "value": "11111111-1111-4111-8111-111111111111"
+                            },
+                            {
+                                "key": "X-Platform",
+                                "value": "web"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\"token\":\"eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9...\"}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
+                        },
+                        "description": "Login or register via a Firebase ID token (Google\/Apple\/Facebook\/etc). Requires email configured\nas an identifier (AUTH_IDENTIFIERS). New users auto-verify and get the `user` role; existing\npassword accounts block social login; social-only accounts link the provider automatically.",
+                        "auth": {
+                            "type": "noauth"
+                        }
+                    },
+                    "response": [
+                        {
+                            "header": [
+                                {
+                                    "key": "Content-Type",
+                                    "value": "application\/json"
+                                }
+                            ],
+                            "code": 200,
+                            "body": "{\"success\": true, \"message\": \"Login successful.\", \"token\": \"1|abcdef123456\", \"data\": {\"user\": {\"id\": 42, \"name\": \"Jane Doe\", \"email\": \"jane@example.com\"}, \"is_verified\": true, \"token_id\": 7, \"is_new_user\": false, \"provider\": \"google.com\", \"provider_already_linked\": true, \"linked_providers\": [\"google.com\"], \"token\": \"1|abcdef123456\"}, \"errors\": null}",
+                            "name": "Success \u2014 existing or new social user"
+                        },
+                        {
+                            "header": [
+                                {
+                                    "key": "Content-Type",
+                                    "value": "application\/json"
+                                }
+                            ],
+                            "code": 400,
+                            "body": "{\"success\": false, \"message\": \"Social authentication is not available. Email must be configured as a login identifier.\", \"errors\": null, \"data\": null}",
+                            "name": "Social auth unavailable (email not an identifier)"
+                        },
+                        {
+                            "header": [
+                                {
+                                    "key": "Content-Type",
+                                    "value": "application\/json"
+                                }
+                            ],
+                            "code": 403,
+                            "body": "{\"success\": false, \"message\": \"Your account is inactive.\", \"errors\": null, \"data\": null}",
+                            "name": "Account inactive \/ wrong role"
+                        },
+                        {
+                            "header": [
+                                {
+                                    "key": "Content-Type",
+                                    "value": "application\/json"
+                                }
+                            ],
+                            "code": 422,
+                            "body": "{\"success\": false, \"message\": \"Invalid or expired Firebase token.\", \"errors\": {\"token\": [\"Invalid or expired Firebase token.\"]}, \"data\": null}",
+                            "name": "Invalid\/expired Firebase token"
+                        },
+                        {
+                            "header": [
+                                {
+                                    "key": "Content-Type",
+                                    "value": "application\/json"
+                                }
+                            ],
+                            "code": 422,
+                            "body": "{\"success\": false, \"message\": \"Email is required for social login.\", \"errors\": {\"token\": [\"Email is required for social login.\"]}, \"data\": null}",
+                            "name": "Token has no email claim"
+                        },
+                        {
+                            "header": [
+                                {
+                                    "key": "Content-Type",
+                                    "value": "application\/json"
+                                }
+                            ],
+                            "code": 422,
+                            "body": "{\"success\": false, \"message\": \"This social provider is not allowed.\", \"errors\": {\"token\": [\"This social provider is not allowed.\"]}, \"data\": null}",
+                            "name": "Provider not in SOCIAL_AUTH_PROVIDERS"
+                        },
+                        {
+                            "header": [
+                                {
+                                    "key": "Content-Type",
+                                    "value": "application\/json"
+                                }
+                            ],
+                            "code": 422,
+                            "body": "{\"success\": false, \"message\": \"Account already exists. Please login with your password.\", \"errors\": {\"token\": [\"Account already exists. Please login with your password.\"]}, \"data\": null}",
+                            "name": "Email already registered with a password"
+                        },
+                        {
+                            "header": [
+                                {
+                                    "key": "Content-Type",
+                                    "value": "application\/json"
+                                }
+                            ],
+                            "code": 422,
+                            "body": "{\"success\": false, \"message\": \"Maximum number of social accounts reached.\", \"errors\": {\"token\": [\"Maximum number of social accounts reached.\"]}, \"data\": null}",
+                            "name": "SOCIAL_AUTH_MAX_ACCOUNTS reached"
+                        }
+                    ]
+                },
+                {
+                    "name": "List Social Accounts",
+                    "request": {
+                        "url": {
+                            "host": "{{baseUrl}}",
+                            "path": "api\/social-accounts",
+                            "query": [],
+                            "raw": "{{baseUrl}}\/api\/social-accounts"
+                        },
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application\/json"
+                            },
+                            {
+                                "key": "Accept",
+                                "value": "application\/json"
+                            },
+                            {
+                                "key": "Accept-Language",
+                                "value": "en"
+                            },
+                            {
+                                "key": "X-API-TOKEN",
+                                "value": "{YOUR_APP_X_API_TOKEN}"
+                            },
+                            {
+                                "key": "X-Device-Id",
+                                "value": "11111111-1111-4111-8111-111111111111"
+                            },
+                            {
+                                "key": "X-Platform",
+                                "value": "web"
+                            }
+                        ],
+                        "body": null,
+                        "description": "List the authenticated user's linked social accounts plus the account\/provider limits.",
+                        "auth": {
+                            "type": "noauth"
+                        }
+                    },
+                    "response": [
+                        {
+                            "header": [
+                                {
+                                    "key": "Content-Type",
+                                    "value": "application\/json"
+                                }
+                            ],
+                            "code": 200,
+                            "body": "{\"success\": true, \"message\": \"Social accounts retrieved successfully.\", \"data\": {\"social_accounts\": [{\"id\": 1, \"provider\": \"google.com\", \"email\": \"jane@example.com\", \"name\": \"Jane Doe\"}], \"allowed_providers\": [\"google.com\", \"apple.com\"], \"max_accounts\": 0, \"can_link_more\": true}, \"errors\": null}",
+                            "name": "Success"
+                        }
+                    ]
+                },
+                {
+                    "name": "Link Social Account",
+                    "request": {
+                        "url": {
+                            "host": "{{baseUrl}}",
+                            "path": "api\/link-social-account",
+                            "query": [],
+                            "raw": "{{baseUrl}}\/api\/link-social-account"
+                        },
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application\/json"
+                            },
+                            {
+                                "key": "Accept",
+                                "value": "application\/json"
+                            },
+                            {
+                                "key": "Accept-Language",
+                                "value": "en"
+                            },
+                            {
+                                "key": "X-API-TOKEN",
+                                "value": "{YOUR_APP_X_API_TOKEN}"
+                            },
+                            {
+                                "key": "X-Device-Id",
+                                "value": "11111111-1111-4111-8111-111111111111"
+                            },
+                            {
+                                "key": "X-Platform",
+                                "value": "web"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\"token\":\"eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9...\"}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
+                        },
+                        "description": "Link a Firebase social account to the authenticated (already logged in) user. Requires the\nverified token's email to match the user's account email.",
+                        "auth": {
+                            "type": "noauth"
+                        }
+                    },
+                    "response": [
+                        {
+                            "header": [
+                                {
+                                    "key": "Content-Type",
+                                    "value": "application\/json"
+                                }
+                            ],
+                            "code": 200,
+                            "body": "{\"success\": true, \"message\": \"Social account linked successfully.\", \"data\": {\"user\": {\"id\": 42, \"email\": \"jane@example.com\"}}, \"errors\": null}",
+                            "name": "Success"
+                        },
+                        {
+                            "header": [
+                                {
+                                    "key": "Content-Type",
+                                    "value": "application\/json"
+                                }
+                            ],
+                            "code": 400,
+                            "body": "{\"success\": false, \"message\": \"Social authentication is not available. Email must be configured as a login identifier.\", \"errors\": null, \"data\": null}",
+                            "name": "Social auth unavailable (email not an identifier)"
+                        },
+                        {
+                            "header": [
+                                {
+                                    "key": "Content-Type",
+                                    "value": "application\/json"
+                                }
+                            ],
+                            "code": 422,
+                            "body": "{\"success\": false, \"message\": \"Invalid or expired Firebase token.\", \"errors\": {\"token\": [\"Invalid or expired Firebase token.\"]}, \"data\": null}",
+                            "name": "Invalid\/expired Firebase token"
+                        },
+                        {
+                            "header": [
+                                {
+                                    "key": "Content-Type",
+                                    "value": "application\/json"
+                                }
+                            ],
+                            "code": 422,
+                            "body": "{\"success\": false, \"message\": \"This social account is already linked to another user.\", \"errors\": {\"token\": [\"This social account is already linked to another user.\"]}, \"data\": null}",
+                            "name": "Provider already linked to another user"
+                        },
+                        {
+                            "header": [
+                                {
+                                    "key": "Content-Type",
+                                    "value": "application\/json"
+                                }
+                            ],
+                            "code": 422,
+                            "body": "{\"success\": false, \"message\": \"This provider is already linked to your account. Logged in.\", \"errors\": {\"token\": [\"This provider is already linked to your account. Logged in.\"]}, \"data\": null}",
+                            "name": "Provider already linked to you"
+                        },
+                        {
+                            "header": [
+                                {
+                                    "key": "Content-Type",
+                                    "value": "application\/json"
+                                }
+                            ],
+                            "code": 422,
+                            "body": "{\"success\": false, \"message\": \"Social account email does not match your account email.\", \"errors\": {\"token\": [\"Social account email does not match your account email.\"]}, \"data\": null}",
+                            "name": "Token email does not match account email"
+                        },
+                        {
+                            "header": [
+                                {
+                                    "key": "Content-Type",
+                                    "value": "application\/json"
+                                }
+                            ],
+                            "code": 422,
+                            "body": "{\"success\": false, \"message\": \"Maximum number of social accounts reached.\", \"errors\": {\"token\": [\"Maximum number of social accounts reached.\"]}, \"data\": null}",
+                            "name": "SOCIAL_AUTH_MAX_ACCOUNTS reached"
+                        }
+                    ]
+                },
+                {
+                    "name": "Unlink Social Account",
+                    "request": {
+                        "url": {
+                            "host": "{{baseUrl}}",
+                            "path": "api\/unlink-social-account",
+                            "query": [],
+                            "raw": "{{baseUrl}}\/api\/unlink-social-account"
+                        },
+                        "method": "DELETE",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application\/json"
+                            },
+                            {
+                                "key": "Accept",
+                                "value": "application\/json"
+                            },
+                            {
+                                "key": "Accept-Language",
+                                "value": "en"
+                            },
+                            {
+                                "key": "X-API-TOKEN",
+                                "value": "{YOUR_APP_X_API_TOKEN}"
+                            },
+                            {
+                                "key": "X-Device-Id",
+                                "value": "11111111-1111-4111-8111-111111111111"
+                            },
+                            {
+                                "key": "X-Platform",
+                                "value": "web"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\"provider\":\"google.com\"}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
+                        },
+                        "description": "Unlink a social provider by name. Blocked if it's the user's last auth method (no password AND\nno other linked provider) \u2014 set a password first.",
+                        "auth": {
+                            "type": "noauth"
+                        }
+                    },
+                    "response": [
+                        {
+                            "header": [
+                                {
+                                    "key": "Content-Type",
+                                    "value": "application\/json"
+                                }
+                            ],
+                            "code": 200,
+                            "body": "{\"success\": true, \"message\": \"Social account unlinked successfully.\", \"data\": {\"user\": {\"id\": 42, \"email\": \"jane@example.com\"}}, \"errors\": null}",
+                            "name": "Success"
+                        },
+                        {
+                            "header": [
+                                {
+                                    "key": "Content-Type",
+                                    "value": "application\/json"
+                                }
+                            ],
+                            "code": 422,
+                            "body": "{\"success\": false, \"message\": \"This social provider is not linked to your account.\", \"errors\": {\"provider\": [\"This social provider is not linked to your account.\"]}, \"data\": null}",
+                            "name": "Provider not linked to this user"
+                        },
+                        {
+                            "header": [
+                                {
+                                    "key": "Content-Type",
+                                    "value": "application\/json"
+                                }
+                            ],
+                            "code": 422,
+                            "body": "{\"success\": false, \"message\": \"Cannot unlink social account. Please set a password first.\", \"errors\": {\"provider\": [\"Cannot unlink social account. Please set a password first.\"]}, \"data\": null}",
+                            "name": "Would remove the user's last auth method"
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "name": "Profile & Account",
+            "description": "",
+            "item": [
+                {
+                    "name": "Update Profile",
+                    "request": {
+                        "url": {
+                            "host": "{{baseUrl}}",
+                            "path": "api\/update-profile",
+                            "query": [],
+                            "raw": "{{baseUrl}}\/api\/update-profile"
+                        },
+                        "method": "PUT",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application\/json"
+                            },
+                            {
+                                "key": "Accept",
+                                "value": "application\/json"
+                            },
+                            {
+                                "key": "Accept-Language",
+                                "value": "en"
+                            },
+                            {
+                                "key": "X-API-TOKEN",
+                                "value": "{YOUR_APP_X_API_TOKEN}"
+                            },
+                            {
+                                "key": "X-Device-Id",
+                                "value": "11111111-1111-4111-8111-111111111111"
+                            },
+                            {
+                                "key": "X-Platform",
+                                "value": "web"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\"name\":\"Jane A. Doe\",\"username\":\"janedoe\",\"email\":\"jane@example.com\",\"phone\":\"+15551234567\"}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
+                        },
+                        "description": "Update the authenticated user's profile. `name` always editable. `username` editable when\nHAS_USERNAME_FIELD=true (username is never an identifier). `email`\/`phone` editable here ONLY\nwhen NOT configured as an identifier (HAS_EMAIL_FIELD\/HAS_PHONE_FIELD extras) \u2014 otherwise use\nrequest-identifier-change instead.",
+                        "auth": {
+                            "type": "noauth"
+                        }
+                    },
+                    "response": [
+                        {
+                            "header": [
+                                {
+                                    "key": "Content-Type",
+                                    "value": "application\/json"
+                                }
+                            ],
+                            "code": 200,
+                            "body": "{\"success\": true, \"message\": \"Profile updated successfully.\", \"data\": {\"user\": {\"id\": 42, \"name\": \"Jane A. Doe\", \"username\": \"janedoe\"}}, \"errors\": null}",
+                            "name": "Success"
+                        },
+                        {
+                            "header": [
+                                {
+                                    "key": "Content-Type",
+                                    "value": "application\/json"
+                                }
+                            ],
+                            "code": 422,
+                            "body": "{\"success\": false, \"message\": \"The username has already been taken.\", \"errors\": {\"username\": [\"The username has already been taken.\"]}, \"data\": null}",
+                            "name": "Validation failed"
+                        }
+                    ]
+                },
+                {
+                    "name": "Request Identifier Change",
+                    "request": {
+                        "url": {
+                            "host": "{{baseUrl}}",
+                            "path": "api\/request-identifier-change",
+                            "query": [],
+                            "raw": "{{baseUrl}}\/api\/request-identifier-change"
+                        },
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application\/json"
+                            },
+                            {
+                                "key": "Accept",
+                                "value": "application\/json"
+                            },
+                            {
+                                "key": "Accept-Language",
+                                "value": "en"
+                            },
+                            {
+                                "key": "X-API-TOKEN",
+                                "value": "{YOUR_APP_X_API_TOKEN}"
+                            },
+                            {
+                                "key": "X-Device-Id",
+                                "value": "11111111-1111-4111-8111-111111111111"
+                            },
+                            {
+                                "key": "X-Platform",
+                                "value": "web"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\"new_identifier\":\"newemail@example.com\"}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
+                        },
+                        "description": "Start an email\/phone identifier change: sends an OTP to `new_identifier`. Rate-limited via\nthrottle:otp (3\/5min). Blocked while the account is pending self-deletion or admin-trashed.\nEmail changes on password-less accounts with linked social providers are blocked until a\npassword is set first (email change wipes social links).",
+                        "auth": {
+                            "type": "noauth"
+                        }
+                    },
+                    "response": [
+                        {
+                            "header": [
+                                {
+                                    "key": "Content-Type",
+                                    "value": "application\/json"
+                                }
+                            ],
+                            "code": 200,
+                            "body": "{\"success\": true, \"message\": \"Verification code sent to your new identifier.\", \"data\": {\"new_identifier\": \"new@example.com\", \"otp_expires_in_minutes\": 5}, \"errors\": null}",
+                            "name": "Success"
+                        },
+                        {
+                            "header": [
+                                {
+                                    "key": "Content-Type",
+                                    "value": "application\/json"
+                                }
+                            ],
+                            "code": 403,
+                            "body": "{\"success\": false, \"message\": \"Your account is in a frozen state and cannot be edited. Please log in to restore it or contact support.\", \"errors\": {\"new_identifier\": [\"Your account is in a frozen state and cannot be edited. Please log in to restore it or contact support.\"]}, \"data\": null}",
+                            "name": "Account pending deletion or suspended"
+                        },
+                        {
+                            "header": [
+                                {
+                                    "key": "Content-Type",
+                                    "value": "application\/json"
+                                }
+                            ],
+                            "code": 422,
+                            "body": "{\"success\": false, \"message\": \"The identifier must be a valid email or phone.\", \"errors\": {\"new_identifier\": [\"The identifier must be a valid email or phone.\"]}, \"data\": null}",
+                            "name": "new_identifier is not a valid\/configured kind"
+                        },
+                        {
+                            "header": [
+                                {
+                                    "key": "Content-Type",
+                                    "value": "application\/json"
+                                }
+                            ],
+                            "code": 422,
+                            "body": "{\"success\": false, \"message\": \"The given data was invalid.\", \"errors\": {\"new_identifier\": [\"The email has already been taken.\"]}, \"data\": null}",
+                            "name": "new_identifier already taken"
+                        },
+                        {
+                            "header": [
+                                {
+                                    "key": "Content-Type",
+                                    "value": "application\/json"
+                                }
+                            ],
+                            "code": 422,
+                            "body": "{\"success\": false, \"message\": \"Set a password before changing your email \u2014 your linked social accounts will be unlinked.\", \"errors\": {\"new_identifier\": [\"Set a password before changing your email \u2014 your linked social accounts will be unlinked.\"]}, \"data\": null}",
+                            "name": "Password required before email change (social-only account)"
+                        }
+                    ]
+                },
+                {
+                    "name": "Verify Identifier Change",
+                    "request": {
+                        "url": {
+                            "host": "{{baseUrl}}",
+                            "path": "api\/verify-identifier-change",
+                            "query": [],
+                            "raw": "{{baseUrl}}\/api\/verify-identifier-change"
+                        },
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application\/json"
+                            },
+                            {
+                                "key": "Accept",
+                                "value": "application\/json"
+                            },
+                            {
+                                "key": "Accept-Language",
+                                "value": "en"
+                            },
+                            {
+                                "key": "X-API-TOKEN",
+                                "value": "{YOUR_APP_X_API_TOKEN}"
+                            },
+                            {
+                                "key": "X-Device-Id",
+                                "value": "11111111-1111-4111-8111-111111111111"
+                            },
+                            {
+                                "key": "X-Platform",
+                                "value": "web"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\"new_identifier\":\"newemail@example.com\",\"otp\":\"482913\"}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
+                        },
+                        "description": "Confirm the OTP from request-identifier-change and apply the new email\/phone. An email change\nwipes all linked social accounts (they were authorized against the old email) and best-effort\nrevokes their Firebase refresh tokens.",
+                        "auth": {
+                            "type": "noauth"
+                        }
+                    },
+                    "response": [
+                        {
+                            "header": [
+                                {
+                                    "key": "Content-Type",
+                                    "value": "application\/json"
+                                }
+                            ],
+                            "code": 200,
+                            "body": "{\"success\": true, \"message\": \"Identifier changed successfully.\", \"data\": {\"user\": {\"id\": 42, \"phone\": \"+15551234567\"}, \"unlinked_providers\": []}, \"errors\": null}",
+                            "name": "Success \u2014 phone change"
+                        },
+                        {
+                            "header": [
+                                {
+                                    "key": "Content-Type",
+                                    "value": "application\/json"
+                                }
+                            ],
+                            "code": 200,
+                            "body": "{\"success\": true, \"message\": \"Identifier changed successfully.\", \"data\": {\"user\": {\"id\": 42, \"email\": \"new@example.com\"}, \"unlinked_providers\": [\"google.com\"]}, \"errors\": null}",
+                            "name": "Success \u2014 email change (social accounts unlinked)"
+                        },
+                        {
+                            "header": [
+                                {
+                                    "key": "Content-Type",
+                                    "value": "application\/json"
+                                }
+                            ],
+                            "code": 403,
+                            "body": "{\"success\": false, \"message\": \"Your account is in a frozen state and cannot be edited. Please log in to restore it or contact support.\", \"errors\": {\"new_identifier\": [\"Your account is in a frozen state and cannot be edited. Please log in to restore it or contact support.\"]}, \"data\": null}",
+                            "name": "Account pending deletion or suspended"
+                        },
+                        {
+                            "header": [
+                                {
+                                    "key": "Content-Type",
+                                    "value": "application\/json"
+                                }
+                            ],
+                            "code": 422,
+                            "body": "{\"success\": false, \"message\": \"Invalid or expired verification code.\", \"errors\": {\"otp\": [\"Invalid or expired verification code.\"]}, \"data\": null}",
+                            "name": "Invalid or expired OTP"
+                        }
+                    ]
+                },
+                {
+                    "name": "Delete Account",
+                    "request": {
+                        "url": {
+                            "host": "{{baseUrl}}",
+                            "path": "api\/delete-account",
+                            "query": [],
+                            "raw": "{{baseUrl}}\/api\/delete-account"
+                        },
+                        "method": "DELETE",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application\/json"
+                            },
+                            {
+                                "key": "Accept",
+                                "value": "application\/json"
+                            },
+                            {
+                                "key": "Accept-Language",
+                                "value": "en"
+                            },
+                            {
+                                "key": "X-API-TOKEN",
+                                "value": "{YOUR_APP_X_API_TOKEN}"
+                            },
+                            {
+                                "key": "X-Device-Id",
+                                "value": "11111111-1111-4111-8111-111111111111"
+                            },
+                            {
+                                "key": "X-Platform",
+                                "value": "web"
+                            }
+                        ],
+                        "body": null,
+                        "description": "Delete the authenticated account. Guests are force-deleted immediately (no retention). Real users\nare soft-marked (`account_deleted_at`) and restorable by logging back in within\nACCOUNT_DELETION_RETENTION_DAYS (default 30) before the purge middleware force-deletes the row.\nAll tokens are revoked. Real users must be verified.",
+                        "auth": {
+                            "type": "noauth"
+                        }
+                    },
+                    "response": [
+                        {
+                            "header": [
+                                {
+                                    "key": "Content-Type",
+                                    "value": "application\/json"
+                                }
+                            ],
+                            "code": 200,
+                            "body": "{\"success\": true, \"message\": \"Account deleted successfully.\", \"data\": null, \"errors\": null}",
+                            "name": "Success"
+                        },
+                        {
+                            "header": [
+                                {
+                                    "key": "Content-Type",
+                                    "value": "application\/json"
+                                }
+                            ],
+                            "code": 403,
+                            "body": "{\"success\": false, \"message\": \"Account not verified. Please check your email.\", \"errors\": null, \"data\": null}",
+                            "name": "Real user not yet verified"
+                        },
+                        {
+                            "header": [
+                                {
+                                    "key": "Content-Type",
+                                    "value": "application\/json"
+                                }
+                            ],
+                            "code": 404,
+                            "body": "{\"success\": false, \"message\": \"User not found.\", \"errors\": null, \"data\": null}",
+                            "name": "No user resolved"
+                        }
+                    ]
+                },
+                {
+                    "name": "Get Current User",
+                    "request": {
+                        "url": {
+                            "host": "{{baseUrl}}",
+                            "path": "api\/user",
+                            "query": [],
+                            "raw": "{{baseUrl}}\/api\/user"
+                        },
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application\/json"
+                            },
+                            {
+                                "key": "Accept",
+                                "value": "application\/json"
+                            },
+                            {
+                                "key": "Accept-Language",
+                                "value": "en"
+                            },
+                            {
+                                "key": "X-API-TOKEN",
+                                "value": "{YOUR_APP_X_API_TOKEN}"
+                            },
+                            {
+                                "key": "X-Device-Id",
+                                "value": "11111111-1111-4111-8111-111111111111"
+                            },
+                            {
+                                "key": "X-Platform",
+                                "value": "web"
+                            }
+                        ],
+                        "body": null,
+                        "description": "Get the currently resolved user (from Bearer token, claimed device, or guest lookup \u2014 see\nIdentifyDevice middleware). Returns the raw model, not wrapped in a `user` key.",
+                        "auth": {
+                            "type": "noauth"
+                        }
+                    },
+                    "response": [
+                        {
+                            "header": [
+                                {
+                                    "key": "Content-Type",
+                                    "value": "application\/json"
+                                }
+                            ],
+                            "code": 200,
+                            "body": "{\"success\": true, \"message\": \"Operation successful\", \"data\": {\"id\": 42, \"name\": \"Jane Doe\", \"email\": \"jane@example.com\", \"is_guest\": false}, \"errors\": null}",
+                            "name": "Success"
+                        },
+                        {
+                            "header": [
+                                {
+                                    "key": "Content-Type",
+                                    "value": "application\/json"
+                                }
+                            ],
+                            "code": 401,
+                            "body": "{\"success\": false, \"message\": \"No user resolved\", \"errors\": null, \"data\": null}",
+                            "name": "No user resolved"
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "name": "Devices & Guests",
+            "description": "",
+            "item": [
+                {
+                    "name": "Create Guest Session",
+                    "request": {
+                        "url": {
+                            "host": "{{baseUrl}}",
+                            "path": "api\/guest",
+                            "query": [],
+                            "raw": "{{baseUrl}}\/api\/guest"
+                        },
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application\/json"
+                            },
+                            {
+                                "key": "Accept",
+                                "value": "application\/json"
+                            },
+                            {
+                                "key": "Accept-Language",
+                                "value": "en"
+                            },
+                            {
+                                "key": "X-API-TOKEN",
+                                "value": "{YOUR_APP_X_API_TOKEN}"
+                            },
+                            {
+                                "key": "X-Device-Id",
+                                "value": "11111111-1111-4111-8111-111111111111"
+                            },
+                            {
+                                "key": "X-Platform",
+                                "value": "web"
+                            }
+                        ],
+                        "body": null,
+                        "description": "Explicit guest creation. Idempotent \u2014 returns the existing guest if X-Device-Id already matches one.",
+                        "auth": {
+                            "type": "noauth"
+                        }
+                    },
+                    "response": [
+                        {
+                            "header": [
+                                {
+                                    "key": "Content-Type",
+                                    "value": "application\/json"
+                                }
+                            ],
+                            "code": 200,
+                            "body": "{\"success\": true, \"message\": \"Guest created.\", \"data\": {\"user\": {\"id\": 99, \"name\": \"Guest\", \"is_guest\": true, \"guest_id\": \"11111111-1111-4111-8111-111111111111\", \"platform\": \"web\", \"is_active\": true}}, \"errors\": null}",
+                            "name": "Success"
+                        },
+                        {
+                            "header": [
+                                {
+                                    "key": "Content-Type",
+                                    "value": "application\/json"
+                                }
+                            ],
+                            "code": 403,
+                            "body": "{\"success\": false, \"message\": \"Guest mode is disabled.\", \"errors\": null, \"data\": null}",
+                            "name": "Guests disabled (APP_GUESTS=false)"
+                        },
+                        {
+                            "header": [
+                                {
+                                    "key": "Content-Type",
+                                    "value": "application\/json"
+                                }
+                            ],
+                            "code": 403,
+                            "body": "{\"success\": false, \"message\": \"This endpoint is only available for guests.\", \"errors\": {\"auth\": [\"This endpoint is only available for guests.\"]}, \"data\": null}",
+                            "name": "Device already claimed by a registered user"
+                        }
+                    ]
+                },
+                {
+                    "name": "List Devices",
+                    "request": {
+                        "url": {
+                            "host": "{{baseUrl}}",
+                            "path": "api\/devices",
+                            "query": [],
+                            "raw": "{{baseUrl}}\/api\/devices"
+                        },
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application\/json"
+                            },
+                            {
+                                "key": "Accept",
+                                "value": "application\/json"
+                            },
+                            {
+                                "key": "Accept-Language",
+                                "value": "en"
+                            },
+                            {
+                                "key": "X-API-TOKEN",
+                                "value": "{YOUR_APP_X_API_TOKEN}"
+                            },
+                            {
+                                "key": "X-Device-Id",
+                                "value": "11111111-1111-4111-8111-111111111111"
+                            },
+                            {
+                                "key": "X-Platform",
+                                "value": "web"
+                            }
+                        ],
+                        "body": null,
+                        "description": "List the authenticated user's active devices\/sessions (only meaningful when MULTI_SESSION_ENABLED=true \u2014\notherwise there is always exactly one).",
+                        "auth": {
+                            "type": "noauth"
+                        }
+                    },
+                    "response": [
+                        {
+                            "header": [
+                                {
+                                    "key": "Content-Type",
+                                    "value": "application\/json"
+                                }
+                            ],
+                            "code": 200,
+                            "body": "{\"success\": true, \"message\": \"Operation successful\", \"data\": {\"devices\": [{\"id\": 3, \"device_name\": null, \"platform\": \"ios\", \"ip\": \"10.0.0.1\", \"user_agent\": \"MyApp\/1.0\", \"last_seen_at\": \"2026-07-19T09:00:00.000000Z\", \"created_at\": \"2026-07-10T08:00:00.000000Z\", \"is_current\": true}, {\"id\": 2, \"device_name\": null, \"platform\": \"android\", \"ip\": \"10.0.0.2\", \"user_agent\": \"MyApp\/1.0\", \"last_seen_at\": \"2026-07-15T09:00:00.000000Z\", \"created_at\": \"2026-07-01T08:00:00.000000Z\", \"is_current\": false}]}, \"errors\": null}",
+                            "name": "Success"
+                        }
+                    ]
+                },
+                {
+                    "name": "Revoke Device",
+                    "request": {
+                        "url": {
+                            "host": "{{baseUrl}}",
+                            "path": "api\/devices\/:deviceId",
+                            "query": [],
+                            "raw": "{{baseUrl}}\/api\/devices\/:deviceId",
+                            "variable": [
+                                {
+                                    "id": "deviceId",
+                                    "key": "deviceId",
+                                    "value": 3,
+                                    "description": "The device row id (from GET \/api\/devices)."
+                                }
+                            ]
+                        },
+                        "method": "DELETE",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application\/json"
+                            },
+                            {
+                                "key": "Accept",
+                                "value": "application\/json"
+                            },
+                            {
+                                "key": "Accept-Language",
+                                "value": "en"
+                            },
+                            {
+                                "key": "X-API-TOKEN",
+                                "value": "{YOUR_APP_X_API_TOKEN}"
+                            },
+                            {
+                                "key": "X-Device-Id",
+                                "value": "11111111-1111-4111-8111-111111111111"
+                            },
+                            {
+                                "key": "X-Platform",
+                                "value": "web"
+                            }
+                        ],
+                        "body": null,
+                        "description": "Revoke a specific device by id (from GET \/api\/devices). Deletes its Sanctum token (FK cascade drops\nthe device row) and broadcasts `device.revoked` on private-user.{userId} so that client clears its\nlocal credentials.",
+                        "auth": {
+                            "type": "noauth"
+                        }
+                    },
+                    "response": [
+                        {
+                            "header": [
+                                {
+                                    "key": "Content-Type",
+                                    "value": "application\/json"
+                                }
+                            ],
+                            "code": 200,
+                            "body": "{\"success\": true, \"message\": \"Device signed out.\", \"data\": null, \"errors\": null}",
+                            "name": "Success"
+                        },
+                        {
+                            "header": [
+                                {
+                                    "key": "Content-Type",
+                                    "value": "application\/json"
+                                }
+                            ],
+                            "code": 404,
+                            "body": "{\"message\": \"No query results for model [App\\\\Models\\\\UserDevice] 999\"}",
+                            "name": "Device id not found for this user (findOrFail \u2014 Laravel default shape, NOT the ApiResponse envelope)"
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "name": "App Settings",
+            "description": "",
+            "item": [
+                {
+                    "name": "List App Settings",
+                    "request": {
+                        "url": {
+                            "host": "{{baseUrl}}",
+                            "path": "api\/app-settings",
+                            "query": [],
+                            "raw": "{{baseUrl}}\/api\/app-settings"
+                        },
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application\/json"
+                            },
+                            {
+                                "key": "Accept",
+                                "value": "application\/json"
+                            },
+                            {
+                                "key": "Accept-Language",
+                                "value": "en"
+                            },
+                            {
+                                "key": "X-API-TOKEN",
+                                "value": "{YOUR_APP_X_API_TOKEN}"
+                            },
+                            {
+                                "key": "X-Device-Id",
+                                "value": "11111111-1111-4111-8111-111111111111"
+                            },
+                            {
+                                "key": "X-Platform",
+                                "value": "web"
+                            }
+                        ],
+                        "body": null,
+                        "description": "All active app settings, grouped by block type and localized to the\nrequest's Accept-Language.\n\nPublic endpoint, no authentication or parameters required. Returns every\nactive AppSetting row, translated via `text_api` and grouped under each\nof the fixed block types (`social`, `contact`, `app_store`, `google_play`,\n`app_gallery`). Types with no active rows are returned as empty arrays.",
+                        "auth": {
+                            "type": "noauth"
+                        }
+                    },
+                    "response": [
+                        {
+                            "header": [
+                                {
+                                    "key": "Content-Type",
+                                    "value": "application\/json"
+                                }
+                            ],
+                            "code": 200,
+                            "body": "{\"success\": true, \"message\": \"App settings retrieved successfully.\", \"errors\": null, \"data\": {\"social\": [{\"id\": 1, \"text\": \"Follow us on Instagram\", \"url\": \"https:\/\/instagram.com\/ourapp\", \"image\": \"http:\/\/localhost:8000\/storage\/app-settings\/instagram-icon.webp\"}], \"contact\": [{\"id\": 2, \"text\": \"support@ourapp.com\", \"url\": \"mailto:support@ourapp.com\", \"image\": null}], \"app_store\": [{\"id\": 3, \"text\": \"Download on the App Store\", \"url\": \"https:\/\/apps.apple.com\/app\/id123456789\", \"image\": \"http:\/\/localhost:8000\/storage\/app-settings\/app-store-badge.webp\"}], \"google_play\": [], \"app_gallery\": []}}",
+                            "name": "Success"
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "name": "Broadcasting",
+            "description": "Pusher\/Echo private-channel authorization for mobile clients. Registered by `withBroadcasting()` in bootstrap\/app.php (vendor route, `Illuminate\\Broadcasting\\BroadcastController`) \u2014 excluded from auto-discovery and hand-documented here since it carries no useful docblock of its own.",
+            "item": [
+                {
+                    "name": "Authorize Private Channel",
+                    "request": {
+                        "url": {
+                            "host": "{{baseUrl}}",
+                            "path": "api\/broadcasting\/auth",
+                            "query": [],
+                            "raw": "{{baseUrl}}\/api\/broadcasting\/auth"
+                        },
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application\/x-www-form-urlencoded"
+                            },
+                            {
+                                "key": "Accept",
+                                "value": "application\/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "urlencoded",
+                            "urlencoded": [
+                                {
+                                    "key": "channel_name",
+                                    "value": "private-user.42",
+                                    "type": "text",
+                                    "description": "The private channel being subscribed to."
+                                },
+                                {
+                                    "key": "socket_id",
+                                    "value": "123.456",
+                                    "type": "text",
+                                    "description": "The Pusher connection's socket id, generated client-side by Pusher-JS\/Echo."
+                                }
+                            ]
+                        },
+                        "description": "Called by Laravel Echo automatically whenever the client subscribes to a private channel (e.g. `private-user.{userId}`, see routes\/channels.php) \u2014 not something you call directly outside an Echo\/Pusher-JS client. Requires a valid Sanctum Bearer token; the channel authorization callback then checks the token's user against the channel name.\n\nA separate session-authenticated `POST \/broadcasting\/auth` (no `api` prefix) exists for the admin web panel \u2014 see realtime-broadcasting skill.\n"
+                    },
+                    "response": [
+                        {
+                            "header": [
+                                {
+                                    "key": "Content-Type",
+                                    "value": "application\/json"
+                                }
+                            ],
+                            "code": 200,
+                            "body": "{\"auth\":\"a1b2c3d4e5f6g7h8i9j0:9f8e7d6c5b4a3f2e1d0c9b8a7f6e5d4c3b2a1f0e9d8c7b6a5f4e3d2c1b0a9f8e\"}",
+                            "name": "Authorized \u2014 signature returned for Pusher to admit the subscription."
+                        },
+                        {
+                            "header": [
+                                {
+                                    "key": "Content-Type",
+                                    "value": "application\/json"
+                                }
+                            ],
+                            "code": 403,
+                            "body": "{\"message\":\"This action is unauthorized.\"}",
+                            "name": "Bearer token missing\/invalid, or the channel authorization callback in routes\/channels.php rejected this user for the requested channel (e.g. subscribing to another user's private-user.{userId})."
+                        }
+                    ]
+                }
+            ]
+        }
+    ],
+    "auth": {
+        "type": "bearer",
+        "bearer": [
+            {
+                "key": "key",
+                "type": "string"
+            }
+        ]
+    }
+}

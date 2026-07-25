@@ -66,6 +66,9 @@ endpoints:
         - `otp`: body is `identifier` only (+ optional `name` for first-time users). Auto-creates the user if
           missing (promoting any existing guest tied to the same X-Device-Id), sends a `login` OTP, and does
           NOT issue a token — client follows with POST /api/verify-login.
+
+        Under AUTH_MODE=otp, only `identifier` (+ optional `name` string for first-time users) apply —
+        `password`/`remember_me` are ignored.
       authenticated: false
       deprecated: false
     headers:
@@ -83,39 +86,39 @@ endpoints:
       identifier:
         custom: []
         name: identifier
-        description: 'Must not be greater than 255 characters.'
+        description: 'Email or phone.'
         required: true
-        example: b
+        example: jane@example.com
         type: string
         enumValues: []
-        exampleWasSpecified: false
+        exampleWasSpecified: true
         nullable: false
         deprecated: false
       password:
         custom: []
         name: password
-        description: 'Must not be greater than 255 characters.'
+        description: ''
         required: true
-        example: ']|{+-0pBNvYg'
+        example: SecurePass123!
         type: string
         enumValues: []
-        exampleWasSpecified: false
+        exampleWasSpecified: true
         nullable: false
         deprecated: false
       remember_me:
         custom: []
         name: remember_me
-        description: ''
+        description: "Extends the issued token's lifetime to 30 days."
         required: false
         example: false
         type: boolean
         enumValues: []
-        exampleWasSpecified: false
+        exampleWasSpecified: true
         nullable: false
         deprecated: false
     cleanBodyParameters:
-      identifier: b
-      password: ']|{+-0pBNvYg'
+      identifier: jane@example.com
+      password: SecurePass123!
       remember_me: false
     fileParameters: []
     responses:
@@ -216,28 +219,28 @@ endpoints:
       identifier:
         custom: []
         name: identifier
-        description: 'Must not be greater than 255 characters.'
+        description: ''
         required: true
-        example: b
+        example: jane@example.com
         type: string
         enumValues: []
-        exampleWasSpecified: false
+        exampleWasSpecified: true
         nullable: false
         deprecated: false
       otp:
         custom: []
         name: otp
-        description: 'Must not be greater than 10 characters.'
+        description: ''
         required: true
-        example: ngzmiy
+        example: '482913'
         type: string
         enumValues: []
-        exampleWasSpecified: false
+        exampleWasSpecified: true
         nullable: false
         deprecated: false
     cleanBodyParameters:
-      identifier: b
-      otp: ngzmiy
+      identifier: jane@example.com
+      otp: '482913'
     fileParameters: []
     responses:
       -
@@ -307,16 +310,16 @@ endpoints:
       identifier:
         custom: []
         name: identifier
-        description: 'Must not be greater than 255 characters.'
+        description: 'Email, phone, or username value to look up.'
         required: true
-        example: b
+        example: jane@example.com
         type: string
         enumValues: []
-        exampleWasSpecified: false
+        exampleWasSpecified: true
         nullable: false
         deprecated: false
     cleanBodyParameters:
-      identifier: b
+      identifier: jane@example.com
     fileParameters: []
     responses:
       -
@@ -468,16 +471,16 @@ endpoints:
       otp:
         custom: []
         name: otp
-        description: 'Must not be greater than 10 characters.'
+        description: ''
         required: true
-        example: bngzmi
+        example: '482913'
         type: string
         enumValues: []
-        exampleWasSpecified: false
+        exampleWasSpecified: true
         nullable: false
         deprecated: false
     cleanBodyParameters:
-      otp: bngzmi
+      otp: '482913'
     fileParameters: []
     responses:
       -

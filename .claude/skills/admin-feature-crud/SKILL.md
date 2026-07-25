@@ -56,6 +56,8 @@ When adding a new feature that needs access control:
 
 Protected roles that must never be deleted: `super_admin`, `fallback`.
 
+**If the feature is gated by a `HAS_*` DevSettings/env flag (like `HAS_PAGES`, `HAS_APP_SETTINGS`, `HAS_DYNAMIC_STORAGE`), the permission is NOT auto-hidden when the flag is off.** `RolesController` (`app/Http/Controllers/Admin/Roles/RolesController.php`) has a private `disabledFeaturePermissions()` method — a `['permission_name' => bool $enabled]` map — that filters which permissions appear in the Roles create/edit UI (`index()`) and which are preserved-but-hidden on update (`update()`). Add your new `'feature_name' => filter_var(env('HAS_FEATURE_NAME', true), FILTER_VALIDATE_BOOLEAN)` entry there too, or the permission stays selectable/visible forever even with the feature fully disabled (this exact gap existed for `dynamic_storage`/`app_settings` — RoleSeeder created the permission rows unconditionally, per the "always seed the row" rule below, but nobody had wired the corresponding `disabledFeaturePermissions()` entries). The permission row itself should still ALWAYS be seeded unconditionally in `RoleSeeder.php` regardless of the flag — this only controls UI visibility, not existence, so toggling the flag back on later doesn't lose existing role assignments.
+
 ## Controllers (Admin)
 
 Every admin feature controller follows this structure:
@@ -85,5 +87,6 @@ When creating a new feature, follow this order:
    - `{Feature}CreateModal.vue`
    - `{Feature}EditModal.vue`
 8. **Navbar** — Add link in `Navbar.vue` with permission check: `v-if="page.props.auth.permissions.find(p => p === 'feature_name')"`.
+9. **If gated by a `HAS_*` env flag** (a DevSettings on/off toggle for the whole feature, not just a permission check) — add the flag to `RolesController::disabledFeaturePermissions()` (see "Roles & Permissions" above) so the permission disappears from the Roles UI when the feature is off. Also add the flag to CLAUDE.md's "Environment Variables" reference table.
 
 If the model needs soft deletes, see `reference/soft-deletes.md` for the full 5-step wiring (model, migration, `HasSoftDeleteActions` controller trait, routes, frontend `TrashedFilter`/`BulkActions`).

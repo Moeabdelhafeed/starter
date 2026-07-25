@@ -45,7 +45,11 @@ return [
 
             // Exclude these routes even if they matched the rules above.
             'exclude' => [
-                // 'GET /health', 'admin.*'
+                // Vendor route (Illuminate\Broadcasting\BroadcastController) — auto-discovery picks up
+                // its generic framework docblock with no @group. A hand-written, accurate definition
+                // lives in .scribe/endpoints/custom.0.yaml instead (see Broadcasting group).
+                'GET api/broadcasting/auth',
+                'POST api/broadcasting/auth',
             ],
         ],
     ],
@@ -189,6 +193,7 @@ return [
             'Pages',
             'App Settings',
             'Languages',
+            'Broadcasting',
         ],
     ],
 

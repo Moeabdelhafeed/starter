@@ -78,6 +78,10 @@ class PolishApiDocs extends Command
             return false;
         }
 
+        if (($body['options']['raw']['language'] ?? null) === 'json') {
+            return false;
+        }
+
         $item['request']['body']['options'] = ['raw' => ['language' => 'json']];
 
         return true;

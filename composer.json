@@ -72,6 +72,7 @@
         ],
         "api-docs": [
             "@php artisan scribe:generate",
+            "@php artisan scribe:polish",
             "cp storage/app/private/scribe/collection.json Starter.postman_collection.json"
         ],
         "test:lint": [

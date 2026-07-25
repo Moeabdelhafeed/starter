@@ -128,16 +128,16 @@ endpoints:
       deviceId:
         custom: []
         name: deviceId
-        description: ''
+        description: 'The device row id (from GET /api/devices).'
         required: true
-        example: architecto
-        type: string
+        example: 3
+        type: integer
         enumValues: []
-        exampleWasSpecified: false
+        exampleWasSpecified: true
         nullable: false
         deprecated: false
     cleanUrlParameters:
-      deviceId: architecto
+      deviceId: 3
     queryParameters: []
     cleanQueryParameters: []
     bodyParameters: []
