@@ -166,7 +166,7 @@ const getSubjectName = (subjectType) => {
 
         <div class="grid grid-cols-1 gap-6 lg:grid-cols-3">
             <!-- Recent Activity -->
-            <div class="lg:col-span-2">
+            <div v-if="page.props.has_activity_logs" class="lg:col-span-2">
                 <div class="rounded-3xl border border-border bg-card p-6">
                     <div class="mb-6 flex items-center justify-between">
                         <div class="flex items-center gap-3">
@@ -272,7 +272,7 @@ const getSubjectName = (subjectType) => {
                 </div>
 
                 <!-- Activity Stats Card -->
-                <div class="mt-6 rounded-3xl border border-border bg-card p-6">
+                <div v-if="page.props.has_activity_logs" class="mt-6 rounded-3xl border border-border bg-card p-6">
                     <div class="flex items-center justify-between">
                         <div>
                             <p class="text-sm text-muted-foreground">{{ t('total_activities') }}</p>

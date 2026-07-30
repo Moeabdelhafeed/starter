@@ -30,12 +30,14 @@ class DashboardController extends Controller
         $languageCount = Language::where('is_active', true)->count();
         $pageCount = Page::count();
         $translationCount = TranslationKey::count();
-        $activityCount = ActivityLog::count();
+
+        $hasActivityLogs = filter_var(env('HAS_ACTIVITY_LOGS', true), FILTER_VALIDATE_BOOLEAN);
+        $activityCount = $hasActivityLogs ? ActivityLog::count() : 0;
 
         // Recent activity logs
-        $recentActivities = ActivityLog::latest()
-            ->take(5)
-            ->get(['id', 'causer_name', 'action', 'subject_type', 'created_at']);
+        $recentActivities = $hasActivityLogs
+            ? ActivityLog::latest()->take(5)->get(['id', 'causer_name', 'action', 'subject_type', 'created_at'])
+            : [];
 
         return Inertia::render('Dashboard', [
             'stats' => [
