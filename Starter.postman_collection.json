@@ -10,7 +10,7 @@
     ],
     "info": {
         "name": "starter kit API Documentation",
-        "_postman_id": "1ee5bf1a-7423-4c2d-a198-dcd9c22ab24c",
+        "_postman_id": "da61b0e5-2fed-45e6-a1e6-b73287832b53",
         "description": "Mobile app REST API for this Inertia starter (routes\/api.php). Every request requires the X-API-TOKEN, X-Device-Id and X-Platform headers below \u2014 see IdentifyDevice \/ XApiTokenMiddlleware.",
         "schema": "https:\/\/schema.getpostman.com\/json\/collection\/v2.1.0\/collection.json"
     },

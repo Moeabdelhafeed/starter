@@ -314,7 +314,7 @@
     "destructive": "Destructive",
     "warning": "Warning",
     "fresh_warning_message": "This will DELETE ALL DATA in your production database. Only use this for initial setup or when you want to completely reset the database.",
-    "download_postman": "Postman Collection",
+    "generating_api_docs": "Generating...",
     "production_db": "Production Database",
     "production_db_desc": "Configure production database credentials. Used when deploying.",
     "db_host": "Host",

@@ -669,15 +669,22 @@ class DevSettingController extends Controller
         return redirect()->back()->with('success', 'Favicon updated successfully.');
     }
 
-    public function downloadPostman()
+    /**
+     * Regenerate the API docs (Scribe: /docs, /docs.postman, /docs.openapi) against the
+     * current routes + .env, then sync Starter.postman_collection.json — same pipeline as
+     * `composer api-docs`, triggerable from the UI instead of the CLI.
+     */
+    public function generateApiDocs()
     {
-        $path = base_path('Starter.postman_collection.json');
+        Artisan::call('scribe:generate', ['--no-interaction' => true]);
+        Artisan::call('scribe:polish');
 
-        if (! file_exists($path)) {
-            return redirect()->back()->with('error', 'Postman collection file not found.');
+        $generated = storage_path('app/private/scribe/collection.json');
+        if (file_exists($generated)) {
+            copy($generated, base_path('Starter.postman_collection.json'));
         }
 
-        return response()->download($path);
+        return redirect()->back()->with('success', 'API docs generated.');
     }
 
     public function updateAppName(Request $request)

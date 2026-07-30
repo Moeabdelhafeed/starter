@@ -216,7 +216,7 @@ Route::middleware('auth')->group(function () {
             Route::post('/logo', [DevSettingController::class, 'uploadLogo'])->name('dev_settings.logo');
             Route::post('/dark-logo', [DevSettingController::class, 'uploadDarkLogo'])->name('dev_settings.dark_logo');
             Route::post('/favicon', [DevSettingController::class, 'uploadFavicon'])->name('dev_settings.favicon');
-            Route::get('/postman', [DevSettingController::class, 'downloadPostman'])->name('dev_settings.postman');
+            Route::post('/generate-api-docs', [DevSettingController::class, 'generateApiDocs'])->name('dev_settings.generate_api_docs');
         });
     }
 });

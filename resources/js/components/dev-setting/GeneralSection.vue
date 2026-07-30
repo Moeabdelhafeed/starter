@@ -2,7 +2,7 @@
 import { ref } from 'vue';
 import { useForm, router } from '@inertiajs/vue3';
 import { useI18n } from 'vue-i18n';
-import { Loader2, Hammer, Download, ImageIcon, Clipboard, Check, Settings } from 'lucide-vue-next';
+import { Loader2, Hammer, BookOpen, ImageIcon, Clipboard, Check, Settings } from 'lucide-vue-next';
 import Input from '@/components/ui/input/Input.vue';
 import Button from '@/components/ui/button/Button.vue';
 import ImageUpload from '@/components/ui/image-upload/ImageUpload.vue';
@@ -68,6 +68,17 @@ const triggerBuild = () => {
     router.post(route('dev_settings.build'), {}, {
         preserveScroll: true,
         onFinish: () => { building.value = false; },
+    });
+};
+
+// API Docs (Scribe)
+const generatingDocs = ref(false);
+const generateApiDocs = () => {
+    generatingDocs.value = true;
+    router.post(route('dev_settings.generate_api_docs'), {}, {
+        preserveScroll: true,
+        onSuccess: () => { window.open('/docs', '_blank'); },
+        onFinish: () => { generatingDocs.value = false; },
     });
 };
 </script>
@@ -166,13 +177,12 @@ const triggerBuild = () => {
                     <Hammer v-else class="me-2 size-4" />
                     {{ building ? t('building') : t('build_assets') }}
                 </Button>
-                <a :href="route('dev_settings.postman')" download>
-                    <Button variant="outline"
-                        class="border-orange-500 text-orange-500 hover:bg-orange-500 hover:text-white">
-                        <Download class="me-2 size-4" />
-                        {{ t('download_postman') }}
-                    </Button>
-                </a>
+                <Button :disabled="generatingDocs" variant="outline" @click="generateApiDocs"
+                    class="border-orange-500 text-orange-500 hover:bg-orange-500 hover:text-white">
+                    <Loader2 v-if="generatingDocs" class="me-2 h-4 w-4 animate-spin" />
+                    <BookOpen v-else class="me-2 size-4" />
+                    {{ generatingDocs ? t('generating_api_docs') : t('generate_api_docs') }}
+                </Button>
             </div>
         </SettingsCard>
     </div>
