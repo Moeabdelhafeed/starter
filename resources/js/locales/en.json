@@ -118,7 +118,7 @@
     "trigger_model_event_desc": "Fire automatically when the chosen model event occurs.",
     "send_now": "Send",
     "safe_storage_deploy": "Safe Storage Deploy",
-    "safe_storage_deploy_desc": "Preserve backend/storage/app/public across deploys. Backs up before wipe, restores after unzip, then re-creates the public/storage symlink. Off = stock deploy (may overwrite uploaded files).",
+    "safe_storage_deploy_desc": "Preserve backend/storage/app/public across deploys. Backs up before wipe, restores after unzip. The public/storage symlink is always re-created regardless of this setting. Off = stock deploy (may overwrite uploaded files).",
     "generate_api_docs": "Generate API Docs",
     "generate_api_docs_desc": "Regenerate /docs, /docs.postman and /docs.openapi against this target's deployed .env after the deploy. Turn off on production if you don't want the API docs publicly reachable.",
     "create_app_user": "Create App User",

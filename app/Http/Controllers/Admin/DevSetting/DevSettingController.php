@@ -1913,15 +1913,19 @@ PHPEOF;
 
         $ssh->exec("cat > {$publicPath}/index.php << 'INDEXEOF'\n{$indexPhp}\nINDEXEOF");
 
-        // Step 11: Storage symlink — only run when safe-storage mode is on. With
-        // it off, the deploy leaves whatever public/storage state was unpacked
-        // by the zip alone; safe mode ensures the symlink points at the
-        // preserved backend/storage/app/public.
-        if ($safeStorage) {
-            $ssh->exec("rm -rf {$publicPath}/storage");
-            $ssh->exec("mkdir -p {$backendPath}/storage/app/public 2>/dev/null");
-            $output .= $ssh->exec("ln -sfn {$backendPath}/storage/app/public {$publicPath}/storage 2>&1")."\n";
-        }
+        // Step 11: Storage symlink — ALWAYS recreated, regardless of safe-storage
+        // mode. Step 4 unconditionally wipes everything in public_html except
+        // backend/ (including any existing public_html/storage symlink), so
+        // skipping this step whenever safe-storage is off left every deploy
+        // without one — every uploaded file (avatars, attachments, logos) 404'd
+        // until the next safe-storage deploy happened to recreate it. Safe-storage
+        // mode only controls whether OLD storage/app/public file *contents* are
+        // backed up/restored around the wipe (steps 4's start/end); it has no
+        // bearing on whether the symlink itself needs rebuilding, since step 4
+        // destroys it every single time either way.
+        $ssh->exec("rm -rf {$publicPath}/storage");
+        $ssh->exec("mkdir -p {$backendPath}/storage/app/public 2>/dev/null");
+        $output .= $ssh->exec("ln -sfn {$backendPath}/storage/app/public {$publicPath}/storage 2>&1")."\n";
 
         // Step 12: .htaccess
         $htaccess = <<<'HTEOF'
