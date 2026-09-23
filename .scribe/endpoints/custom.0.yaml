@@ -1,0 +1,162 @@
+# To include an endpoint that isn't a part of your Laravel app (or belongs to a vendor package),
+# you can define it in a custom.*.yaml file, like this one.
+# Each custom file should contain an array of endpoints. Here's an example:
+# See https://scribe.knuckles.wtf/laravel/documenting/custom-endpoints#extra-sorting-groups-in-custom-endpoint-files for more options
+
+#- httpMethods:
+#    - POST
+#  uri: api/doSomething/{param}
+#  metadata:
+#    groupName: The group the endpoint belongs to. Can be a new group or an existing group.
+#    groupDescription: A description for the group. You don't need to set this for every endpoint; once is enough.
+#    subgroup: You can add a subgroup, too.
+#    title: Do something
+#    description: 'This endpoint allows you to do something.'
+#    authenticated: false
+#  headers:
+#    Content-Type: application/json
+#    Accept: application/json
+#  urlParameters:
+#    param:
+#      name: param
+#      description: A URL param for no reason.
+#      required: true
+#      example: 2
+#      type: integer
+#  queryParameters:
+#    speed:
+#      name: speed
+#      description: How fast the thing should be done. Can be `slow` or `fast`.
+#      required: false
+#      example: fast
+#      type: string
+#  bodyParameters:
+#    something:
+#      name: something
+#      description: The things we should do.
+#      required: true
+#      example:
+#        - string 1
+#        - string 2
+#      type: 'string[]'
+#  responses:
+#    - status: 200
+#      description: 'When the thing was done smoothly.'
+#      content: # Your response content can be an object, an array, a string or empty.
+#         {
+#           "hey": "ho ho ho"
+#         }
+#  responseFields:
+#    hey:
+#      name: hey
+#      description: Who knows?
+#      type: string # This is optional
+
+- httpMethods:
+    - POST
+  uri: api/broadcasting/auth
+  metadata:
+    groupName: Broadcasting
+    groupDescription: 'Pusher/Echo private-channel authorization for mobile clients. Registered by `withBroadcasting()` in bootstrap/app.php (vendor route, `Illuminate\Broadcasting\BroadcastController`) — excluded from auto-discovery and hand-documented here since it carries no useful docblock of its own.'
+    title: Authorize Private Channel
+    description: |
+      Called by Laravel Echo automatically whenever the client subscribes to a private channel (e.g. `private-user.{userId}`, see routes/channels.php) — not something you call directly outside an Echo/Pusher-JS client. Requires a valid Sanctum Bearer token; the channel authorization callback then checks the token's user against the channel name.
+
+      A separate session-authenticated `POST /broadcasting/auth` (no `api` prefix) exists for the admin web panel — see realtime-broadcasting skill.
+    authenticated: true
+  headers:
+    Content-Type: application/x-www-form-urlencoded
+    Accept: application/json
+  bodyParameters:
+    channel_name:
+      name: channel_name
+      description: 'The private channel being subscribed to.'
+      required: true
+      example: private-user.42
+      type: string
+    socket_id:
+      name: socket_id
+      description: 'The Pusher connection''s socket id, generated client-side by Pusher-JS/Echo.'
+      required: true
+      example: '123.456'
+      type: string
+  responses:
+    - status: 200
+      description: 'Authorized — signature returned for Pusher to admit the subscription.'
+      content:
+        {
+          "auth": "a1b2c3d4e5f6g7h8i9j0:9f8e7d6c5b4a3f2e1d0c9b8a7f6e5d4c3b2a1f0e9d8c7b6a5f4e3d2c1b0a9f8e"
+        }
+    - status: 403
+      description: 'Bearer token missing/invalid, or the channel authorization callback in routes/channels.php rejected this user for the requested channel (e.g. subscribing to another user''s private-user.{userId}).'
+      content:
+        {
+          "message": "This action is unauthorized."
+        }
+
+# Hand-written because it only exists under one AUTH_MODE. Scribe documents the routes that
+# are *currently registered*, so whichever mode the generating machine is in decides which
+# auth endpoints appear. `composer api-docs` pins AUTH_MODE=password so the password flow is
+# always documented; verify-login is otp-mode only, so it lives here and survives either mode.
+- httpMethods:
+    - POST
+  uri: api/verify-login
+  metadata:
+    groupName: Authentication
+    title: Verify Login OTP
+    description: |
+      **Only registered when `AUTH_MODE=otp`** — it 404s in the default `password` mode. Read `auth_mode` from `GET /api/config` on boot and branch the login screen on it.
+
+      Consumes the `login` OTP that `POST /api/login` sent, and issues the Sanctum token. In OTP mode `login` takes an identifier only, issues no token, and auto-creates the user if they are new (promoting any guest tied to the same `X-Device-Id`) — so this call is what actually signs them in.
+
+      The four verify endpoints are NOT interchangeable, because each consumes a different OTP type: `verify-otp` takes a `verify` code, `verify-forgot-password-otp` takes a `reset_password` code, `verify-identifier-change` takes a `change_identifier` code, and this one takes a `login` code. A correct code sent to the wrong endpoint fails.
+    authenticated: false
+  headers:
+    Content-Type: application/json
+    Accept: application/json
+  bodyParameters:
+    identifier:
+      name: identifier
+      description: 'The same identifier that was passed to POST /api/login.'
+      required: true
+      example: jane@example.com
+      type: string
+    type:
+      name: type
+      description: 'Which identifier is being sent — `email`, `phone`, or `username`. Must match the value; the API never infers it.'
+      required: true
+      example: email
+      type: string
+    otp:
+      name: otp
+      description: 'The code delivered by POST /api/login. Returned in that response when IS_TESTING=true.'
+      required: true
+      example: '482913'
+      type: string
+  responses:
+    - status: 200
+      description: 'Signed in — store the token.'
+      content:
+        {
+          "success": true, "message": "Login successful.", "token": "1|abcdef123456",
+          "data": { "user": { "id": 42, "name": "Jane Doe", "verified_at": "2026-07-19T10:00:00.000000Z" }, "is_verified": true, "account_restored": false, "token_id": 7, "token": "1|abcdef123456" },
+          "errors": null
+        }
+    - status: 404
+      description: 'Running in password mode, where this route is not registered.'
+      content:
+        {
+          "success": false, "message": "Endpoint not available in the current auth mode.", "errors": null, "data": null
+        }
+    - status: 422
+      description: 'No user matches that identifier.'
+      content:
+        {
+          "success": false, "message": "User not found.", "errors": { "identifier": ["User not found."] }, "data": null
+        }
+    - status: 422
+      description: 'The code is wrong or has expired.'
+      content:
+        {
+          "success": false, "message": "Invalid or expired verification code.", "errors": { "otp": ["Invalid or expired verification code."] }, "data": null
+        }

@@ -1,0 +1,376 @@
+<?php
+
+namespace App\Models;
+
+// use Illuminate\Contracts\Auth\MustVerifyEmail;
+use App\Helpers\AuthIdentity;
+use App\Helpers\FCMHelper;
+use App\Traits\Exportable;
+use App\Traits\HasImage;
+use App\Traits\LogsActivity;
+use Carbon\CarbonInterface;
+use Database\Factories\UserFactory;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Foundation\Auth\User as Authenticatable;
+use Illuminate\Notifications\Notifiable;
+use Laravel\Sanctum\HasApiTokens;
+use Spatie\Permission\Traits\HasRoles;
+
+class User extends Authenticatable
+{
+    /** @use HasFactory<UserFactory> */
+    use Exportable, HasApiTokens, HasFactory, HasImage, HasRoles, LogsActivity, Notifiable, SoftDeletes;
+
+    /**
+     * The attributes that are mass assignable.
+     *
+     * @var list<string>
+     */
+    protected $fillable = [
+        'name',
+        'username',
+        'email',
+        'phone',
+        'password',
+        'is_active',
+        'current_lang',
+        'account_deleted_at',
+        'is_guest',
+        'platform',
+        'guest_id',
+        'last_seen_at',
+        'is_reviewer',
+    ];
+
+    /**
+     * Columns included in CSV export. See Traits\Exportable.
+     */
+    protected array $exportable = ['id', 'name', 'email', 'phone', 'username', 'is_active', 'is_guest', 'platform', 'guest_id', 'last_seen_at', 'verified_at', 'created_at'];
+
+    /**
+     * Relations to delete alongside the user.
+     * Add relation method names here, e.g. ['posts', 'comments'].
+     * Soft-delete on admin trash; force-delete on permanent purge.
+     */
+    protected array $cascadeOnDelete = [];
+
+    /**
+     * Relations to restore alongside the user when admin restores from trash.
+     * Only rows whose deleted_at matches the parent's deleted_at are restored,
+     * so children trashed independently of the user are left alone.
+     */
+    protected array $cascadeOnRestore = [];
+
+    /**
+     * Typed as the interface, not `Illuminate\Support\Carbon`: the app calls
+     * `Date::use(CarbonImmutable::class)`, so a date cast yields a
+     * `CarbonImmutable`, which is not an instance of the mutable class and
+     * would fatal on assignment — taking every restore down with it.
+     */
+    protected ?CarbonInterface $cascadeRestoreDeletedAt = null;
+
+    protected static function booted(): void
+    {
+        static::deleted(function (User $user): void {
+            if ($user->isForceDeleting()) {
+                return;
+            }
+            $user->cascadeDelete(force: false);
+        });
+
+        static::forceDeleted(function (User $user): void {
+            $user->cascadeDelete(force: true);
+        });
+
+        static::restoring(function (User $user): void {
+            // deleted_at is still set here; capture it for the restored hook
+            // so cascadeRestore can match children stamped with the same timestamp.
+            $user->cascadeRestoreDeletedAt = $user->deleted_at;
+        });
+
+        static::restored(function (User $user): void {
+            $user->cascadeRestore();
+        });
+    }
+
+    public function cascadeDelete(bool $force = false): void
+    {
+        foreach ($this->cascadeOnDelete as $relation) {
+            $query = $this->{$relation}();
+
+            if ($force) {
+                // Iterate so HasImage / HasVideo / boot-event hooks fire on each
+                // child — bare `forceDelete()` on a hasMany skips them and leaks
+                // storage files + image/video table rows.
+                $query->withTrashed()->get()->each(function ($child) {
+                    if (method_exists($child, 'deleteImage')) {
+                        $child->deleteImage();
+                    }
+                    if (method_exists($child, 'deleteVideo')) {
+                        $child->deleteVideo();
+                    }
+                    $child->forceDelete();
+                });
+
+                continue;
+            }
+
+            // Stamp children with parent's exact deleted_at so cascadeRestore can match.
+            // Bypasses child model events — declarative cascade is the contract here.
+            $query->update(['deleted_at' => $this->deleted_at]);
+        }
+
+        // Parent's own files on force-delete: clean before the row is gone.
+        if ($force) {
+            if (method_exists($this, 'deleteImage')) {
+                $this->deleteImage();
+            }
+            if (method_exists($this, 'deleteVideo')) {
+                $this->deleteVideo();
+            }
+        }
+    }
+
+    public function cascadeRestore(): void
+    {
+        $deletedAt = $this->cascadeRestoreDeletedAt;
+        $this->cascadeRestoreDeletedAt = null;
+
+        if (! $deletedAt) {
+            return;
+        }
+
+        foreach ($this->cascadeOnRestore as $relation) {
+            $this->{$relation}()
+                ->onlyTrashed()
+                ->where('deleted_at', $deletedAt)
+                ->restore();
+        }
+    }
+
+    public function isPendingDeletion(): bool
+    {
+        return $this->account_deleted_at !== null;
+    }
+
+    public function markAccountDeleted(): void
+    {
+        $this->forceFill(['account_deleted_at' => now()])->save();
+    }
+
+    public function restoreAccount(): void
+    {
+        $this->forceFill(['account_deleted_at' => null])->save();
+    }
+
+    public function otps(): HasMany
+    {
+        return $this->hasMany(Otp::class);
+    }
+
+    public function devices(): HasMany
+    {
+        return $this->hasMany(UserDevice::class);
+    }
+
+    /**
+     * Saved AI assistant chats, newest first.
+     *
+     * Every read and write of a conversation goes through this relation rather
+     * than `AiConversation::find()`, which is what keeps one admin's history
+     * out of another's sidebar.
+     */
+    public function aiConversations(): HasMany
+    {
+        return $this->hasMany(AiConversation::class)->latest('updated_at');
+    }
+
+    /**
+     * Active FCM tokens across every active device row. Returns one token for
+     * guests (single user_devices row) and N tokens for real users in
+     * multi-session mode. Reads from `user_devices.fcm_token` for both.
+     *
+     * Deduplicated: `sendMulticast()` delivers one push per token it is handed, so the same
+     * token twice is the same notification twice on the same phone. The device table now
+     * refuses duplicate rows and releases a token when it moves, but this is the cheap
+     * backstop that keeps a stray copy from ever reaching a customer's tray.
+     *
+     * @return array<int, string>
+     */
+    public function fcmTokens(): array
+    {
+        return $this->devices()
+            ->whereNotNull('fcm_token')
+            ->pluck('fcm_token')
+            ->unique()
+            ->values()
+            ->all();
+    }
+
+    /**
+     * Send an FCM push to every active token this user has. Works uniformly
+     * for guests and registered users. Returns the FCMHelper report shape.
+     *
+     * @param  array<string, scalar>  $data
+     * @return array<string, mixed>
+     */
+    public function sendNotification(string $title, string $body, array $data = []): array
+    {
+        $tokens = $this->fcmTokens();
+
+        if (empty($tokens)) {
+            return ['success' => false, 'message' => 'No FCM tokens for user'];
+        }
+
+        return FCMHelper::send($tokens, $title, $body, $data);
+    }
+
+    public function socialAccounts(): HasMany
+    {
+        return $this->hasMany(SocialAccount::class);
+    }
+
+    /**
+     * Check if user has a specific provider linked.
+     */
+    public function hasSocialProvider(string $provider): bool
+    {
+        return $this->socialAccounts()->where('provider', $provider)->exists();
+    }
+
+    protected $guard_name = ['web', 'api'];
+
+    /**
+     * The attributes that should be hidden for serialization.
+     *
+     * @var list<string>
+     */
+    protected $hidden = [
+        'password',
+        'remember_token',
+    ];
+
+    /**
+     * Get the attributes that should be cast.
+     *
+     * @return array<string, string>
+     */
+    protected function casts(): array
+    {
+        return [
+            'verified_at' => 'datetime',
+            'account_deleted_at' => 'datetime',
+            'last_seen_at' => 'datetime',
+            'password' => 'hashed',
+            'is_active' => 'boolean',
+            'is_guest' => 'boolean',
+            'is_reviewer' => 'boolean',
+        ];
+    }
+
+    public function scopeReviewers(Builder $query): Builder
+    {
+        return $query->where('is_reviewer', true);
+    }
+
+    public function scopeGuests(Builder $query): Builder
+    {
+        return $query->where('is_guest', true);
+    }
+
+    public function scopeRealUsers(Builder $query): Builder
+    {
+        return $query->where('is_guest', false);
+    }
+
+    public function scopeWeb(Builder $query): Builder
+    {
+        return $query->where('platform', 'web');
+    }
+
+    public function scopeIos(Builder $query): Builder
+    {
+        return $query->where('platform', 'ios');
+    }
+
+    public function scopeAndroid(Builder $query): Builder
+    {
+        return $query->where('platform', 'android');
+    }
+
+    /**
+     * Resolve or lazily create a guest user keyed by `(guest_id)`. Throttles
+     * `last_seen_at` writes to once per minute so every api hit doesn't churn
+     * the row.
+     */
+    public static function findOrCreateGuest(string $platform, string $guestId): self
+    {
+        $user = self::where('guest_id', $guestId)->where('is_guest', true)->first();
+
+        if ($user) {
+            if (! $user->last_seen_at || $user->last_seen_at->diffInSeconds(now()) > 60) {
+                $user->forceFill(['last_seen_at' => now()])->saveQuietly();
+            }
+
+            return $user;
+        }
+
+        $user = self::create([
+            'name' => 'Guest',
+            'is_active' => true,
+            'is_guest' => true,
+            'platform' => $platform,
+            'guest_id' => $guestId,
+            'last_seen_at' => now(),
+            'verified_at' => now(),
+        ]);
+
+        $role = Role::where('name', 'user')
+            ->where('guard_name', 'api')
+            ->first();
+
+        if ($role) {
+            $user->assignRole($role);
+        }
+
+        return $user;
+    }
+
+    /**
+     * Hide identifier-like fields (`email`, `phone`, `username`) from API serialization
+     * when they are NOT configured (neither in `AUTH_IDENTIFIERS` nor enabled via `HAS_*_FIELD`).
+     * Admin/web responses keep all columns so the admin panel can manage every field.
+     */
+    public function toArray(): array
+    {
+        $array = parent::toArray();
+
+        if (! request()->is('api/*')) {
+            return $array;
+        }
+
+        // Lets the client branch UI between "Set password" (social-only) and
+        // "Change password" without exposing the password column itself.
+        $array['has_password'] = $this->password !== null;
+
+        foreach (['email', 'phone', 'username'] as $field) {
+            if (! AuthIdentity::hasField($field)) {
+                unset($array[$field]);
+            }
+        }
+
+        return $array;
+    }
+
+    /**
+     * Normalize email to lowercase on every write to keep lookups case-insensitive
+     * across MySQL/PostgreSQL.
+     */
+    public function setEmailAttribute(?string $value): void
+    {
+        $this->attributes['email'] = $value !== null ? strtolower(trim($value)) : null;
+    }
+}

@@ -1,0 +1,65 @@
+name: tests
+
+on:
+  push:
+    branches:
+      - develop
+      - main
+  pull_request:
+    branches:
+      - develop
+      - main
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # laravel/framework ^13 requires PHP ^8.3; 8.4 is what the project is
+      # developed against, so that is the single version CI proves.
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          tools: composer:v2
+          coverage: none
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Install PHP dependencies
+        run: composer install --no-interaction --prefer-dist --optimize-autoloader
+
+      - name: Install Node dependencies
+        run: npm ci
+
+      # The suite runs on in-memory SQLite and takes its APP_X_API_TOKEN,
+      # AUTH_MODE and identifier settings from phpunit.xml — .env only has to
+      # exist and hold an APP_KEY for the app to boot.
+      - name: Prepare environment
+        run: |
+          cp .env.example .env
+          php artisan key:generate
+
+      # Also generates the Wayfinder action/route modules under resources/js,
+      # which `npm run types` needs to type-check against.
+      - name: Build assets
+        run: npm run build
+
+      - name: PHP tests
+        run: php artisan test
+
+      - name: PHP code style
+        run: vendor/bin/pint --test
+
+      - name: TypeScript
+        run: npm run types
+
+      - name: ESLint
+        run: npm run lint:check

@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<phpunit xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:noNamespaceSchemaLocation="vendor/phpunit/phpunit/phpunit.xsd"
+         bootstrap="vendor/autoload.php"
+         colors="true"
+>
+    <testsuites>
+        <testsuite name="Unit">
+            <directory>tests/Unit</directory>
+        </testsuite>
+        <testsuite name="Feature">
+            <directory>tests/Feature</directory>
+        </testsuite>
+    </testsuites>
+    <source>
+        <include>
+            <directory>app</directory>
+        </include>
+    </source>
+    <php>
+        <env name="APP_ENV" value="testing"/>
+        <env name="APP_MAINTENANCE_DRIVER" value="file"/>
+        <env name="BCRYPT_ROUNDS" value="4"/>
+        <env name="BROADCAST_CONNECTION" value="null"/>
+        <env name="CACHE_STORE" value="array"/>
+        <env name="DB_CONNECTION" value="sqlite"/>
+        <env name="DB_DATABASE" value=":memory:"/>
+        <env name="MAIL_MAILER" value="array"/>
+        <env name="QUEUE_CONNECTION" value="sync"/>
+        <env name="SESSION_DRIVER" value="array"/>
+        <!-- Feature and auth configuration the suite asserts against, so a developer's
+             local .env (which may disable features or run AUTH_MODE=otp) cannot change
+             what the tests exercise. These are read through config/features.php and
+             config/auth.php, which cast with filter_var, so the string "true" that
+             PHPUnit passes here resolves correctly. -->
+        <env name="APP_X_API_TOKEN" value="testing-x-api-token"/>
+        <env name="AUTH_MODE" value="password"/>
+        <env name="APP_USERS" value="true"/>
+        <env name="APP_GUESTS" value="true"/>
+        <env name="HAS_TRANSLATIONS" value="true"/>
+        <env name="HAS_NOTIFICATION_TEMPLATES" value="true"/>
+        <env name="HAS_PAGES" value="true"/>
+        <env name="PROTECTED_PAGES" value="terms"/>
+        <env name="HAS_APP_SETTINGS" value="true"/>
+        <env name="HAS_DYNAMIC_STORAGE" value="true"/>
+        <env name="HAS_ACTIVITY_LOGS" value="true"/>
+        <!-- On so the assistant's routes exist; every test fakes the model. -->
+        <env name="HAS_AI_AGENT" value="true"/>
+        <env name="IS_TESTING" value="false"/>
+        <env name="MULTI_SESSION_ENABLED" value="true"/>
+        <env name="AUTH_IDENTIFIERS" value="email"/>
+        <env name="ALLOWED_EMAIL_DOMAINS" value="all"/>
+        <env name="ALLOWED_PHONE_COUNTRIES" value="all"/>
+        <env name="PULSE_ENABLED" value="false"/>
+        <env name="TELESCOPE_ENABLED" value="false"/>
+        <env name="NIGHTWATCH_ENABLED" value="false"/>
+    </php>
+</phpunit>

@@ -1,0 +1,312 @@
+@import 'tailwindcss';
+@import 'tw-animate-css';
+
+@custom-variant dark (&:is(.dark *));
+
+@source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
+@source '../../storage/framework/views/*.php';
+
+@theme inline {
+    --radius-sm: calc(var(--radius) - 4px);
+    --radius-md: calc(var(--radius) - 2px);
+    --radius-lg: var(--radius);
+    --radius-xl: calc(var(--radius) + 4px);
+    --color-background: var(--background);
+    --color-foreground: var(--foreground);
+    --color-card: var(--card);
+    --color-card-foreground: var(--card-foreground);
+    --color-popover: var(--popover);
+    --color-popover-foreground: var(--popover-foreground);
+    --color-primary: var(--primary);
+    --color-primary-foreground: var(--primary-foreground);
+    --color-secondary: var(--secondary);
+    --color-secondary-foreground: var(--secondary-foreground);
+    --color-muted: var(--muted);
+    --color-muted-foreground: var(--muted-foreground);
+    --color-accent: var(--accent);
+    --color-accent-foreground: var(--accent-foreground);
+    --color-destructive: var(--destructive);
+    --color-destructive-foreground: var(--destructive-foreground);
+    --color-success: var(--success);
+    --color-success-foreground: var(--success-foreground);
+    --color-warning: var(--warning);
+    --color-warning-foreground: var(--warning-foreground);
+    --color-info: var(--info);
+    --color-info-foreground: var(--info-foreground);
+    --color-border: var(--border);
+    --color-input: var(--input);
+    --color-ring: var(--ring);
+    --color-chart-1: var(--chart-1);
+    --color-chart-2: var(--chart-2);
+    --color-chart-3: var(--chart-3);
+    --color-chart-4: var(--chart-4);
+    --color-chart-5: var(--chart-5);
+    --color-sidebar: var(--sidebar);
+    --color-sidebar-foreground: var(--sidebar-foreground);
+    --color-sidebar-primary: var(--sidebar-primary);
+    --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+    --color-sidebar-accent: var(--sidebar-accent);
+    --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+    --color-sidebar-border: var(--sidebar-border);
+    --color-sidebar-ring: var(--sidebar-ring);
+}
+
+:root {
+    --background: oklch(0.9885 0.0055 274.79);
+    --foreground: oklch(0.3288 0.0953 260.0498);
+    --card: oklch(1 0 0);
+    --card-foreground: oklch(0.3288 0.0952 260.0436);
+    --popover: oklch(0.9885 0.0054 274.9676);
+    --popover-foreground: oklch(0.3288 0.0952 260.0436);
+    --primary: oklch(0.6805 0.0855 227.9858);
+    --primary-foreground: oklch(0.9885 0.0055 274.79);
+    --secondary: oklch(0.244 0.068 259.8961);
+    --secondary-foreground: oklch(0.9885 0.0055 274.79);
+    --muted: oklch(0.97 0 0);
+    --muted-foreground: oklch(0.556 0 0);
+    --accent: oklch(0.9494 0.0242 259.8398);
+    --accent-foreground: oklch(0.3288 0.0953 260.0498);
+    --destructive: oklch(0.5831 0.2386 28.4697);
+    --destructive-foreground: oklch(1 0 0);
+    --success: oklch(0.52 0.13 155);
+    --success-foreground: oklch(0.99 0.005 155);
+    --warning: oklch(0.78 0.15 80);
+    --warning-foreground: oklch(0.26 0.05 70);
+    --info: oklch(0.52 0.15 250);
+    --info-foreground: oklch(0.99 0.005 250);
+    --border: oklch(0.9597 0.019 263.0087);
+    --input: oklch(94.396% 0.02671 262.387);
+    --ring: oklch(0.3288 0.0952 260.0436);
+    --chart-1: oklch(0.81 0.1 252);
+    --chart-2: oklch(0.62 0.19 260);
+    --chart-3: oklch(0.55 0.22 263);
+    --chart-4: oklch(0.49 0.22 264);
+    --chart-5: oklch(0.42 0.18 266);
+    --sidebar: oklch(0.985 0 0);
+    --sidebar-foreground: oklch(0.145 0 0);
+    --sidebar-primary: oklch(0.205 0 0);
+    --sidebar-primary-foreground: oklch(0.985 0 0);
+    --sidebar-accent: oklch(0.97 0 0);
+    --sidebar-accent-foreground: oklch(0.205 0 0);
+    --sidebar-border: oklch(0.922 0 0);
+    --sidebar-ring: oklch(0.708 0 0);
+    --font-sans:
+        ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, 'Noto Sans', sans-serif,
+        'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
+    --font-serif: ui-serif, Georgia, Cambria, 'Times New Roman', Times, serif;
+    --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
+    --radius: 0.625rem;
+    --shadow-x: 0;
+    --shadow-y: 1px;
+    --shadow-blur: 3px;
+    --shadow-spread: 0px;
+    --shadow-opacity: 0.1;
+    --shadow-color: oklch(0 0 0);
+    --shadow-2xs: 0 1px 3px 0px hsl(0 0% 0% / 0.05);
+    --shadow-xs: 0 1px 3px 0px hsl(0 0% 0% / 0.05);
+    --shadow-sm: 0 1px 3px 0px hsl(0 0% 0% / 0.1), 0 1px 2px -1px hsl(0 0% 0% / 0.1);
+    --shadow: 0 1px 3px 0px hsl(0 0% 0% / 0.1), 0 1px 2px -1px hsl(0 0% 0% / 0.1);
+    --shadow-md: 0 1px 3px 0px hsl(0 0% 0% / 0.1), 0 2px 4px -1px hsl(0 0% 0% / 0.1);
+    --shadow-lg: 0 1px 3px 0px hsl(0 0% 0% / 0.1), 0 4px 6px -1px hsl(0 0% 0% / 0.1);
+    --shadow-xl: 0 1px 3px 0px hsl(0 0% 0% / 0.1), 0 8px 10px -1px hsl(0 0% 0% / 0.1);
+    --shadow-2xl: 0 1px 3px 0px hsl(0 0% 0% / 0.25);
+    --tracking-normal: 0em;
+    --spacing: 0.25rem;
+}
+
+.dark {
+    --background: oklch(0.1448 0 263.2831);
+    --foreground: oklch(0.9851 0.0001 263.2831);
+    --card: oklch(0.205 0 0);
+    --card-foreground: oklch(0.985 0 0);
+    --popover: oklch(0.269 0 0);
+    --popover-foreground: oklch(0.985 0 0);
+    --primary: oklch(0.6805 0.0855 227.9858);
+    --primary-foreground: oklch(0.2046 0 263.2831);
+    --secondary: oklch(0.2686 0 263.2831);
+    --secondary-foreground: oklch(0.9851 0.0001 263.2831);
+    --muted: oklch(0.269 0 0);
+    --muted-foreground: oklch(0.708 0 0);
+    --accent: oklch(0.3715 0 263.2831);
+    --accent-foreground: oklch(0.9851 0.0001 263.2831);
+    --destructive: oklch(0.7022 0.1892 22.2155);
+    --destructive-foreground: oklch(0.2046 0.03 22.2155);
+    --success: oklch(0.72 0.15 155);
+    --success-foreground: oklch(0.2 0.03 155);
+    --warning: oklch(0.82 0.15 80);
+    --warning-foreground: oklch(0.24 0.04 60);
+    --info: oklch(0.72 0.12 250);
+    --info-foreground: oklch(0.18 0.03 250);
+    --border: oklch(0.275 0 0);
+    --input: oklch(0.325 0 0);
+    --ring: oklch(0.556 0 0);
+    --chart-1: oklch(0.81 0.1 252);
+    --chart-2: oklch(0.62 0.19 260);
+    --chart-3: oklch(0.55 0.22 263);
+    --chart-4: oklch(0.49 0.22 264);
+    --chart-5: oklch(0.42 0.18 266);
+    --sidebar: oklch(0.205 0 0);
+    --sidebar-foreground: oklch(0.985 0 0);
+    --sidebar-primary: oklch(0.488 0.243 264.376);
+    --sidebar-primary-foreground: oklch(0.985 0 0);
+    --sidebar-accent: oklch(0.269 0 0);
+    --sidebar-accent-foreground: oklch(0.985 0 0);
+    --sidebar-border: oklch(0.275 0 0);
+    --sidebar-ring: oklch(0.439 0 0);
+    --font-sans:
+        ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, 'Noto Sans', sans-serif,
+        'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
+    --font-serif: ui-serif, Georgia, Cambria, 'Times New Roman', Times, serif;
+    --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
+    --radius: 0.625rem;
+    --shadow-x: 0;
+    --shadow-y: 1px;
+    --shadow-blur: 3px;
+    --shadow-spread: 0px;
+    --shadow-opacity: 0.1;
+    --shadow-color: oklch(0 0 0);
+    --shadow-2xs: 0 1px 3px 0px hsl(0 0% 0% / 0.05);
+    --shadow-xs: 0 1px 3px 0px hsl(0 0% 0% / 0.05);
+    --shadow-sm: 0 1px 3px 0px hsl(0 0% 0% / 0.1), 0 1px 2px -1px hsl(0 0% 0% / 0.1);
+    --shadow: 0 1px 3px 0px hsl(0 0% 0% / 0.1), 0 1px 2px -1px hsl(0 0% 0% / 0.1);
+    --shadow-md: 0 1px 3px 0px hsl(0 0% 0% / 0.1), 0 2px 4px -1px hsl(0 0% 0% / 0.1);
+    --shadow-lg: 0 1px 3px 0px hsl(0 0% 0% / 0.1), 0 4px 6px -1px hsl(0 0% 0% / 0.1);
+    --shadow-xl: 0 1px 3px 0px hsl(0 0% 0% / 0.1), 0 8px 10px -1px hsl(0 0% 0% / 0.1);
+    --shadow-2xl: 0 1px 3px 0px hsl(0 0% 0% / 0.25);
+}
+
+@layer base {
+    /*
+     * Thin, themed scrollbars everywhere — modals, tables, dropdown panels, the page
+     * itself. The default chrome scrollbar is a fat grey slab that reads as part of the
+     * browser rather than part of the panel, and it is especially loud inside a small
+     * card or a popup.
+     *
+     * Both properties sit on `*` rather than on `:root`: `scrollbar-width` doesn't
+     * inherit at all, and pinning `scrollbar-color` per element means each one resolves
+     * `--color-primary` in its own context, so the dark theme is picked up without a
+     * second rule. Only scroll containers are affected — everything else ignores them.
+     */
+    * {
+        @apply border-border outline-ring/50;
+
+        scrollbar-width: thin;
+        scrollbar-color: var(--color-primary) transparent;
+    }
+
+    body {
+        @apply bg-background text-foreground;
+    }
+
+    /*
+     * The same look for engines without the standard properties (Safari < 18.2,
+     * Chrome < 121). Where both are supported the standard ones win and these are
+     * ignored, so the two can't disagree.
+     */
+    ::-webkit-scrollbar {
+        width: 8px;
+        height: 8px;
+    }
+
+    ::-webkit-scrollbar-track,
+    ::-webkit-scrollbar-corner {
+        background: transparent;
+    }
+
+    ::-webkit-scrollbar-thumb {
+        background-color: var(--color-primary);
+        border-radius: 9999px;
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+        background-color: var(--color-primary);
+        opacity: 0.85;
+    }
+}
+
+/* Inertia progress bar */
+#nprogress .bar {
+    background: var(--primary) !important;
+}
+
+#nprogress .peg {
+    box-shadow:
+        0 0 10px var(--primary),
+        0 0 5px var(--primary) !important;
+}
+
+#nprogress .spinner-icon {
+    border-top-color: var(--primary) !important;
+    border-left-color: var(--primary) !important;
+}
+
+/* Theme toggle circular reveal */
+::view-transition-old(root),
+::view-transition-new(root) {
+    animation: none;
+    mix-blend-mode: normal;
+}
+
+::view-transition-old(root) {
+    z-index: 1;
+}
+
+::view-transition-new(root) {
+    z-index: 9999;
+}
+
+@keyframes theme-clip-reveal {
+    from {
+        clip-path: circle(0 at var(--theme-x, 50%) var(--theme-y, 50%));
+    }
+    to {
+        clip-path: circle(var(--theme-r, 150vmax) at var(--theme-x, 50%) var(--theme-y, 50%));
+    }
+}
+
+::view-transition-new(root) {
+    animation: theme-clip-reveal 500ms ease-out;
+}
+/* Pin a table's actions column to the inline-end edge so it stays visible
+   while the row scrolls horizontally. Apply to the actions <th> and <td>.
+   bg + leading border keep it opaque and visually separated. RTL-safe. */
+@utility sticky-actions {
+    position: sticky;
+    inset-inline-end: 0;
+    z-index: 10;
+    background-color: var(--color-card);
+    border-inline-start: 1px solid var(--color-border);
+}
+
+/* No scrollbar at all, for a strip the user drags or swipes (chips, tabs) where the
+   bar itself is visual noise. The area still scrolls — this only hides the indicator,
+   so never use it on something with no other way to reach the overflowing content. */
+@utility scrollbar-none {
+    scrollbar-width: none;
+
+    &::-webkit-scrollbar {
+        display: none;
+    }
+}
+
+/*
+ * Scroll cue for a scrolling panel whose edges are covered by fixed furniture — the
+ * navbar's link list, with the footer buttons pinned beneath it. A shadow appears at
+ * whichever edge still has content behind it, and only there, so "there is more below"
+ * is visible without scrolling to find out.
+ *
+ * No JS and nothing to keep in sync: the two `local` layers scroll with the content and
+ * sit over the two `scroll` layers, uncovering a shadow exactly when that edge has
+ * something past it. The cover is the panel's own `--color-card`, and the shadow is mixed
+ * from `--color-foreground`, so it darkens on a light theme and lightens on a dark one
+ * rather than being an invisible black smudge.
+ */
+@utility scroll-shadows {
+    background:
+        linear-gradient(var(--color-card) 30%, transparent) center top / 100% 22px no-repeat local,
+        linear-gradient(transparent, var(--color-card) 70%) center bottom / 100% 22px no-repeat local,
+        radial-gradient(farthest-side at 50% 0, color-mix(in oklab, var(--color-foreground) 30%, transparent), transparent) center top / 100% 15px
+            no-repeat scroll,
+        radial-gradient(farthest-side at 50% 100%, color-mix(in oklab, var(--color-foreground) 30%, transparent), transparent) center bottom / 100%
+            15px no-repeat scroll;
+}

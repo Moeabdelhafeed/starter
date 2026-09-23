@@ -1,0 +1,36 @@
+/.phpunit.cache
+/bootstrap/ssr
+/node_modules
+/public/build
+/public/hot
+/public/storage
+/public/vendor/scribe
+/resources/views/scribe
+/resources/js/actions
+/resources/js/routes
+/resources/js/wayfinder
+/storage/*.key
+/storage/pail
+/vendor
+.DS_Store
+.env
+.env.backup
+.env.production
+.phpactor.json
+.phpunit.result.cache
+Homestead.json
+Homestead.yaml
+npm-debug.log
+yarn-error.log
+/auth.json
+/.fleet
+/.idea
+
+/.nova
+/.vscode
+/.zed
+.deploy.json
+
+# graphify knowledge graph — regenerated output, 3MB+ of JSON/HTML.
+# Rebuild with `/graphify . --update`; the cache under it is machine-local.
+/graphify-out
