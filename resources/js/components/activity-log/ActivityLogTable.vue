@@ -15,12 +15,10 @@ export interface ActivityLogRow {
 
 <script setup lang="ts">
 import { InfiniteScroll } from '@inertiajs/vue3';
-import { Clock, Eye, Trash2, User } from 'lucide-vue-next';
-import { computed } from 'vue';
+import { Clock, Eye, User } from 'lucide-vue-next';
 import { useI18n } from 'vue-i18n';
 
 import Button from '@/components/ui/button/Button.vue';
-import Checkbox from '@/components/ui/checkbox/Checkbox.vue';
 import { Table, TableBody, TableCell, TableEmpty, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useDateFormat } from '@/composables/useDateFormat';
 import type { Paginated } from '@/types';
@@ -32,36 +30,18 @@ const { t } = useI18n();
 const props = withDefaults(
     defineProps<{
         logs: Paginated<ActivityLogRow>;
-        selectedIds?: number[];
         view?: 'table' | 'grid';
     }>(),
     {
-        selectedIds: () => [],
         view: 'table',
     },
 );
 
 const emit = defineEmits<{
-    (e: 'view' | 'delete', log: ActivityLogRow): void;
-    (e: 'update:selectedIds', ids: number[]): void;
+    (e: 'view', log: ActivityLogRow): void;
 }>();
 
-/** Checkbox emits `boolean | unknown[]`; in multi-select mode it is always the id array. */
-const onSelectionChange = (value: unknown) => emit('update:selectedIds', value as number[]);
 
-const isAllSelected = computed({
-    get: () => props.logs.data.length > 0 && props.selectedIds.length === props.logs.data.length,
-    set: (value: boolean) => {
-        if (value) {
-            emit(
-                'update:selectedIds',
-                props.logs.data.map((l) => l.id),
-            );
-        } else {
-            emit('update:selectedIds', []);
-        }
-    },
-});
 
 const getActionColor = (action: string): string => {
     switch (action) {
@@ -90,9 +70,6 @@ const getModelName = (subjectType?: string | null): string => {
             <Table>
                 <TableHeader>
                     <TableRow class="w-full text-start!">
-                        <TableHead class="w-10 py-4">
-                            <Checkbox v-model="isAllSelected" :aria-label="t('select_all')" />
-                        </TableHead>
                         <TableHead class="py-4 font-bold">{{ t('user') }}</TableHead>
                         <TableHead class="py-4 font-bold">{{ t('action') }}</TableHead>
                         <TableHead class="py-4 font-bold">{{ t('target') }}</TableHead>
@@ -104,14 +81,6 @@ const getModelName = (subjectType?: string | null): string => {
                 <TableBody>
                     <InfiniteScroll class="contents" preserve-url data="logs">
                         <TableRow v-for="log in logs.data" :key="log.id" v-highlight="log.id" class="group">
-                            <TableCell class="py-4">
-                                <Checkbox
-                                    :model-value="selectedIds"
-                                    :value="log.id"
-                                    :aria-label="log.causer_name || String(log.id)"
-                                    @update:model-value="onSelectionChange"
-                                />
-                            </TableCell>
                             <TableCell class="py-4 text-start!">
                                 <div class="flex max-w-[220px] min-w-0 flex-col">
                                     <span class="truncate font-bold text-foreground" :title="log.causer_name ?? ''">{{ log.causer_name }}</span>
@@ -154,21 +123,11 @@ const getModelName = (subjectType?: string | null): string => {
                                     >
                                         <Eye class="h-4 w-4" />
                                     </Button>
-                                    <Button
-                                        size="icon-sm"
-                                        variant="outline"
-                                        :title="t('delete')"
-                                        :aria-label="t('delete')"
-                                        class="border-red-500/50 text-red-500 shadow-none! hover:bg-red-500 hover:text-white"
-                                        @click="emit('delete', log)"
-                                    >
-                                        <Trash2 class="h-4 w-4" />
-                                    </Button>
                                 </div>
                             </TableCell>
                         </TableRow>
                     </InfiniteScroll>
-                    <TableEmpty v-if="!logs.data?.length" :colspan="6">
+                    <TableEmpty v-if="!logs.data?.length" :colspan="5">
                         <p class="text-sm text-muted-foreground">{{ t('no_results_found') }}</p>
                     </TableEmpty>
                 </TableBody>
@@ -189,14 +148,8 @@ const getModelName = (subjectType?: string | null): string => {
             v-highlight="log.id"
             class="flex flex-col gap-4 rounded-3xl border bg-card p-5 transition-shadow hover:shadow-md"
         >
-            <!-- Top: checkbox + action badge -->
-            <div class="flex items-start justify-between gap-3">
-                <Checkbox
-                    :model-value="selectedIds"
-                    :value="log.id"
-                    :aria-label="log.causer_name || String(log.id)"
-                    @update:model-value="onSelectionChange"
-                />
+            <!-- Top: action badge -->
+            <div class="flex items-start justify-end gap-3">
                 <span :class="['inline-flex items-center rounded-md px-2 py-1 text-xs font-medium ring-1 ring-inset', getActionColor(log.action)]">
                     {{ t(log.action) }}
                 </span>
@@ -242,16 +195,6 @@ const getModelName = (subjectType?: string | null): string => {
                     @click="emit('view', log)"
                 >
                     <Eye class="h-4 w-4" />
-                </Button>
-                <Button
-                    size="icon-sm"
-                    variant="outline"
-                    :title="t('delete')"
-                    :aria-label="t('delete')"
-                    class="border-red-500/50 text-red-500 shadow-none! hover:bg-red-500 hover:text-white"
-                    @click="emit('delete', log)"
-                >
-                    <Trash2 class="h-4 w-4" />
                 </Button>
             </div>
         </div>

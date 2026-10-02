@@ -79,6 +79,12 @@ const confirmBulkDelete = (done: () => void) => {
         route('app_users.bulk-destroy'),
         { ids: selectedIds.value, _method: 'DELETE' },
         {
+            // Same options as every other list's bulk actions. `reset` is what
+            // resyncs the scroll component's page counter — a bulk delete can
+            // shorten the list enough that the next page starts somewhere else.
+            preserveScroll: true,
+            preserveState: true,
+            reset: ['users', 'success', 'error', 'filters'],
             onSuccess: () => {
                 selectedIds.value = [];
                 isBulkDeleteModalOpen.value = false;
@@ -98,6 +104,12 @@ const handleBulkTurnOn = () => {
             _method: 'PUT',
         },
         {
+            // Same options as every other list's bulk actions. `reset` is what
+            // resyncs the scroll component's page counter — a bulk delete can
+            // shorten the list enough that the next page starts somewhere else.
+            preserveScroll: true,
+            preserveState: true,
+            reset: ['users', 'success', 'error', 'filters'],
             onSuccess: () => (selectedIds.value = []),
         },
     );
@@ -112,6 +124,12 @@ const handleBulkTurnOff = () => {
             _method: 'PUT',
         },
         {
+            // Same options as every other list's bulk actions. `reset` is what
+            // resyncs the scroll component's page counter — a bulk delete can
+            // shorten the list enough that the next page starts somewhere else.
+            preserveScroll: true,
+            preserveState: true,
+            reset: ['users', 'success', 'error', 'filters'],
             onSuccess: () => (selectedIds.value = []),
         },
     );

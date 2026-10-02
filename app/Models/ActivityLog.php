@@ -5,10 +5,24 @@ namespace App\Models;
 use App\Traits\Exportable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use RuntimeException;
 
 class ActivityLog extends Model
 {
     use Exportable, HasFactory;
+
+    /**
+     * The log is an audit trail: an admin who could delete an entry could delete the record
+     * of what they did. The panel offers no delete and no route reaches one; this is the
+     * backstop for any code path added later (the same guard NotificationTemplate and Page
+     * use for rows that must never go).
+     */
+    protected static function booted(): void
+    {
+        static::deleting(function (): void {
+            throw new RuntimeException('Activity log entries cannot be deleted.');
+        });
+    }
 
     protected $fillable = [
         'causer_name',

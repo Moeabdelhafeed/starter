@@ -3,6 +3,7 @@
 namespace App\Providers;
 
 use App\Helpers\Trans;
+use App\Http\Inertia\ResponseFactory;
 use App\Services\Ai\AgentDriver;
 use App\Services\Ai\OllamaDriver;
 use Carbon\CarbonImmutable;
@@ -19,6 +20,7 @@ use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\URL;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Validation\Rules\Password;
+use Inertia\ResponseFactory as BaseResponseFactory;
 use InvalidArgumentException;
 
 class AppServiceProvider extends ServiceProvider
@@ -28,6 +30,16 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
+        /*
+         * `Inertia::scroll()` returns our ScrollProp, which merges only for the
+         * InfiniteScroll component's own page fetch. The package's prop appends on
+         * every other request too, so the redirect after a write told the client to
+         * stack the restored pages onto the pages it already had. See
+         * App\Http\Inertia\ScrollProp — a singleton over the package's own, so no
+         * controller has to know and no new list can opt out by forgetting.
+         */
+        $this->app->singleton(BaseResponseFactory::class, ResponseFactory::class);
+
         /*
          * The AI assistant's model backend, chosen by config('ai.driver').
          *

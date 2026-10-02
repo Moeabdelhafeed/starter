@@ -57,22 +57,4 @@ class ActivityLogController extends Controller
             ->when($request->input('causer'), fn ($q, $email) => $q->where('causer_email', $email))
             ->orderByDesc('created_at');
     }
-
-    public function destroy($id)
-    {
-        ActivityLog::findOrFail($id)->delete();
-
-        return back()->with('success', __('admin.deleted_successfully'));
-    }
-
-    public function bulkDestroy(Request $request)
-    {
-        $validated = $request->validate([
-            'ids' => ['required', 'array', 'exists:activity_logs,id'],
-        ]);
-
-        ActivityLog::whereIn('id', $validated['ids'])->delete();
-
-        return redirect()->back()->with('success', __('admin.deleted_successfully'));
-    }
 }

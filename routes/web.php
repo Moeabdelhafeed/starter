@@ -121,8 +121,7 @@ Route::middleware('auth')->group(function () {
         Route::prefix('activity-logs')->middleware('permission:activity_logs')->group(function () {
             Route::get('/', [ActivityLogController::class, 'index'])->name('activity_logs');
             Route::get('/export', [ActivityLogController::class, 'export'])->name('activity_logs.export');
-            Route::delete('/bulk-destroy', [ActivityLogController::class, 'bulkDestroy'])->name('activity_logs.bulk-destroy');
-            Route::delete('/{id}', [ActivityLogController::class, 'destroy'])->name('activity_logs.destroy');
+            // Read-only: an audit trail an admin could delete from records nothing.
         });
     }
 

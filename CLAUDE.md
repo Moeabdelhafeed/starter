@@ -682,6 +682,12 @@ Adding a feature that sends its own notification? It gets a `system_type`. See t
 and the null-handling rule. `tests/Feature/Admin/ProtectedPagesTest.php` and
 `SystemNotificationTemplateTest.php` pin both.
 
+**The activity log can't be deleted at all.** An audit trail an admin can delete from records
+nothing, so there are no delete routes and no delete or bulk-delete in the panel (View is the
+only row action; search, filters and CSV export stay). `ActivityLog::booted()` throws on
+`deleting` rather than returning `false`: with no delete path left in the CMS, anything that
+reaches it is a bug that should be loud, not a silent no-op. `ActivityLogReadOnlyTest.php` pins it.
+
 ### Timezones: the database holds UTC, the admin sees their own
 
 `config('app.timezone')` stays `UTC` and every stored datetime is UTC. Two pieces bridge that to
@@ -1023,7 +1029,24 @@ Every admin list is `Inertia::scroll()` + `<InfiniteScroll>`. Two things make a 
 - **`->scrollPaginate($perPage)` instead of `->paginate($perPage)->withQueryString()`** (Builder macro, `AppServiceProvider::configureScrollPagination()`). A write redirects back to the list; that full response used to carry page 1 only while the InfiniteScroll component still remembered it had loaded page N, so its next fetch appended page N+1 after page 1 and the rows in between (the edited one included) were gone. `resources/js/app.ts` now sends `X-Inertia-Scroll-Restore` (`{pageName: reachedPage}`) on every non-GET visit — the header survives the redirect like Inertia's own — and the macro answers with pages 1..N as a paginator sitting on page N. Partial reloads (the scroll's own page fetches) ignore it; a forged value is capped at 50 pages. Any new list must use the macro, or it regresses to the old behaviour.
 - **`->with('highlight', $model->id)` on the success redirect of every `store()`/`update()`**, shared as the `highlight` prop by `HandleInertiaRequests`. `installHighlight()` (`composables/useHighlight.ts`) turns that — or a `?highlight={id}` deep link from a notification — into a 6-second glow on the row carrying `v-highlight="row.id"`, and scrolls it into view. Every row/card in a `*Table.vue` carries the directive; a table with no per-row id (translations) is the one exception. Don't bind the glow classes by hand — the directive is the single mechanism.
 
-`tests/Feature/Admin/InfiniteScrollRestoreTest.php` pins both.
+- **A scroll prop must never merge except for the scroll component's own fetch.**
+  `Inertia::scroll()` marks its prop mergeable and the package's `ScrollProp` appends
+  **whenever `X-Inertia-Infinite-Scroll-Merge-Intent` is absent** — which is every
+  request that is not InfiniteScroll asking for the next page, including the redirect
+  after a write. Combined with the macro above, that redirect returned pages 1..N *and*
+  told the client to append them onto the pages 1..N it already held: every row twice.
+  The package's escape hatch is naming the prop in the visit's `reset:` array, which is
+  one array in one options object per call site, on nine lists, remembered forever — and
+  two lists never had it. `App\Http\Inertia\ScrollProp` decides it from the header
+  instead, and `AppServiceProvider::register()` binds `App\Http\Inertia\ResponseFactory`
+  over the package's so `Inertia::scroll()` returns it everywhere. **A new list needs no
+  new spelling and cannot opt out.** Keep passing `reset: ['<scrollProp>', 'success',
+  'error', 'filters']` on writes anyway: it also resyncs the client's page counter
+  (`scrollProps.<name>.reset`), which matters when a bulk delete shortens the list enough
+  to move where the next page begins.
+
+`tests/Feature/Admin/InfiniteScrollRestoreTest.php` pins all three, the last one across
+every admin list rather than the one that happened to break.
 
 ### One device row per phone, one row per FCM token
 
