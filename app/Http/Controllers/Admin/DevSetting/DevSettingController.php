@@ -47,7 +47,6 @@ class DevSettingController extends Controller
         'HAS_APP_SETTINGS',
         'HAS_DYNAMIC_STORAGE',
         'HAS_ACTIVITY_LOGS',
-        'HAS_AI_AGENT',
         'IS_TESTING',
         'APP_DEBUG',
         'IS_OTP_WHATSAPP',

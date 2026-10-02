@@ -14,16 +14,16 @@
 
 Domain-specific conventions live in `.claude/skills/`. Activate the relevant skill _before_ touching that part of the app — don't wait until you're stuck or something breaks:
 
-| Skill | Covers |
-|---|---|
-| `admin-feature-crud` | New admin feature scaffolding: directory structure, dual guard, web route conventions, controller pattern (index/store/update/destroy/bulk), RoleSeeder permission wiring, the New Feature Checklist, model traits (`reference/traits.md`), soft deletes (`reference/soft-deletes.md`). |
-| `vue-admin-ui-patterns` | Vue page/table/modal/form conventions, the mandatory method-spoofed PUT/DELETE workaround, `ImageUpload`/`VideoUpload` components, sticky-actions tables, the table/grid view toggle, Inertia shared props. |
-| `styling-rtl-responsive` | RTL logical-property rules (banned `ml-*`/`mr-*`/etc.), semantic theme color tokens, icon library, layout consistency, mobile-first responsive breakpoints. |
-| `translations-i18n` | The three translation systems (Vue i18n `t()`, PHP `__('admin.key')`, DB-backed `Trans::get('api.key')`), `app`/`web` sub-groups, placeholder protection in the CMS. |
-| `mobile-auth-identity` | Mobile API auth: `routes/api.php` auth endpoints, rate limiting, `AUTH_IDENTIFIERS`/`AUTH_MODE`, register/login/OTP, the field-keyed error convention, account deletion, Firebase social auth. |
-| `mobile-device-tracking` | `X-Device-Id`/`X-Platform`/`X-FCM-Token` headers, `IdentifyDevice` resolution order, guest users, multi-session device management, FCM. |
-| `dynamic-storage-media` | The keyed media store (Dynamic Storage): `MediaItem`, `POST`/`GET /api/media`, the admin Media CMS. |
-| `realtime-broadcasting` | Pusher broadcast events, private channel auth, `ShouldBroadcastNow`, Echo listeners. |
+| Skill                    | Covers                                                                                                                                                                                                                                                                                  |
+| ------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `admin-feature-crud`     | New admin feature scaffolding: directory structure, dual guard, web route conventions, controller pattern (index/store/update/destroy/bulk), RoleSeeder permission wiring, the New Feature Checklist, model traits (`reference/traits.md`), soft deletes (`reference/soft-deletes.md`). |
+| `vue-admin-ui-patterns`  | Vue page/table/modal/form conventions, the mandatory method-spoofed PUT/DELETE workaround, `ImageUpload`/`VideoUpload` components, sticky-actions tables, the table/grid view toggle, Inertia shared props.                                                                             |
+| `styling-rtl-responsive` | RTL logical-property rules (banned `ml-*`/`mr-*`/etc.), semantic theme color tokens, icon library, layout consistency, mobile-first responsive breakpoints.                                                                                                                             |
+| `translations-i18n`      | The three translation systems (Vue i18n `t()`, PHP `__('admin.key')`, DB-backed `Trans::get('api.key')`), `app`/`web` sub-groups, placeholder protection in the CMS.                                                                                                                    |
+| `mobile-auth-identity`   | Mobile API auth: `routes/api.php` auth endpoints, rate limiting, `AUTH_IDENTIFIERS`/`AUTH_MODE`, register/login/OTP, the field-keyed error convention, account deletion, Firebase social auth.                                                                                          |
+| `mobile-device-tracking` | `X-Device-Id`/`X-Platform`/`X-FCM-Token` headers, `IdentifyDevice` resolution order, guest users, multi-session device management, FCM.                                                                                                                                                 |
+| `dynamic-storage-media`  | The keyed media store (Dynamic Storage): `MediaItem`, `POST`/`GET /api/media`, the admin Media CMS.                                                                                                                                                                                     |
+| `realtime-broadcasting`  | Pusher broadcast events, private channel auth, `ShouldBroadcastNow`, Echo listeners.                                                                                                                                                                                                    |
 
 ## Dual Guard System
 
@@ -40,12 +40,12 @@ Domain-specific conventions live in `.claude/skills/`. Activate the relevant ski
 **`env()` returns `null` once `php artisan config:cache` has run.** Every flag below is therefore
 read through a config file, and application code must do the same:
 
-| Read this | Not this |
-|---|---|
-| `config('features.pages')`, `config('features.app_users')`, … | `env('HAS_PAGES')` |
+| Read this                                                                                                                                                      | Not this                                         |
+| -------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------ |
+| `config('features.pages')`, `config('features.app_users')`, …                                                                                                  | `env('HAS_PAGES')`                               |
 | `config('auth.mode')`, `config('auth.identifiers')`, `config('auth.fields.email')`, `config('auth.rate_limits.otp')`, `config('auth.allowed_phone_countries')` | `env('AUTH_MODE')`, `env('AUTH_IDENTIFIERS')`, … |
-| `config('app.is_testing')`, `config('app.x_api_token')` | `env('IS_TESTING')`, `env('APP_X_API_TOKEN')` |
-| `config('admin.email')`, `config('admin.password')` | `env('ADMIN_EMAIL')` |
+| `config('app.is_testing')`, `config('app.x_api_token')`                                                                                                        | `env('IS_TESTING')`, `env('APP_X_API_TOKEN')`    |
+| `config('admin.email')`, `config('admin.password')`                                                                                                            | `env('ADMIN_EMAIL')`                             |
 
 New flag? Add it to `config/features.php` (feature toggles) or `config/auth.php` (anything about
 identity, tokens or limits) with a comment, add it to `.env.example`, and read it via `config()`.
@@ -91,7 +91,6 @@ Key `.env` flags that affect behavior:
 - `RATE_LIMIT_OTP` / `RATE_LIMIT_OTP_DECAY` — OTP request rate limit (default: 3/5).
 - `MULTI_SESSION_ENABLED` — multi-device sessions (default: `true`). See `mobile-device-tracking` skill.
 - `ACCOUNT_DELETION_RETENTION_DAYS` — days a user-initiated soft deletion is retained before permanent purge (default: 30).
-- `HAS_AI_AGENT` — enables the read-only admin assistant at `/ai` (default `false`). Also needs the `ai_agent` permission. `AI_DRIVER` / `OLLAMA_URL` / `OLLAMA_MODEL` / `OLLAMA_TIMEOUT` pick the model backend, `AI_MAX_TOOL_HOPS` and `AI_MAX_PROMPT_CHARS` bound one turn. See "The AI assistant is read-only" below.
 
 ### Files That Must Stay in Sync
 
@@ -343,166 +342,8 @@ don't inline a second copy.
 The palette (`Cmd/Ctrl+K`) searches the same index, gated on `is_local` **and**
 `super_admin`, and links to `…/dev-settings#{anchor}`. `resolveHash()` turns a bare
 anchor back into its section through `settingsIndex`, so the URL never encodes where a
-setting lives — one place knows. It runs on mount *and* on `hashchange`, because
+setting lives — one place knows. It runs on mount _and_ on `hashchange`, because
 arriving from the palette while already on the page changes only the hash.
-
-### The AI assistant proposes writes, and its tools carry the permissions
-
-`HAS_AI_AGENT` (default **off** — it needs a model backend before it can answer
-anything) plus the `ai_agent` permission put a chat panel at `/ai`. It answers
-questions about this install's data and configuration, and can *propose*
-changes.
-
-**Reading tools run on the model's say-so. Writing tools never do.** A
-`WriteTool` call becomes a proposal: the Agent validates it, stores it on the
-assistant's message, and the reply carries a summary the administrator has to
-Confirm. That is the whole safety position — the two things a small local model
-is worst at are picking the wrong tool and being talked into one by text it
-read, so the worst a bad call can do is put a sentence on screen that nobody
-accepts.
-
-The action is read back from the stored row at confirm time, never from the
-request: the client sends a message id and nothing else, so approving cannot be
-turned into approving something different. `performed_at` makes it idempotent
-against a double-click or a stale tab, permissions are re-checked at the moment
-of the write (approval can arrive after a revoke), and only the **first**
-proposal in a turn is kept — approving a batch from one sentence is how an
-administrator confirms more than they read.
-
-Two exist: `create_page` (title and address only — a small model drafting a
-body produces something you rewrite anyway) and `set_page_status`
-(publish/hide). The second carries the rule that makes protected pages
-protected: **unpublishing one counts as deleting it**, because the API's
-`show()` filters on `active()` and an inactive Terms page 404s to a shipped
-build exactly like a missing one. `Page`'s `saving` guard would force it back
-on *silently*, so the tool refuses at proposal time and says why — a change
-that quietly does nothing while the assistant reports success is the worse
-failure.
-
-Adding a write tool? Implement `WriteTool`: `validate()` (at proposal time, so
-nobody is shown a sentence that cannot be carried out), `summarise()` (the exact
-line they approve on) and `perform()`. Leave `run()` describing rather than
-writing, so a caller that misses the distinction is safe.
-
-**Every tool needs an `ai_tool_{name}` key in each locale.** The chip under an
-answer is the evidence it came from real data, so it is the line a
-non-technical admin most needs to read — and `toolLabel()` falls back to the
-raw wire name, so a missing key does not error, it just prints
-`set_page_status` on screen. Both write tools shipped that way. The locale
-coverage is pinned in `AiAgentTest`.
-
-Tools today: `count_records` (how many), `list_records` (which ones, by name),
-`search_records` (find by term, delegating to the command palette's controller)
-and `explain_setting`. **A missing tool does not read as a missing tool — it
-reads as a confident wrong answer.** Asked to list the CMS pages before
-`list_records` existed, the model invented a plausible set (About, Contact,
-Terms…) rather than saying it could not answer. When a question the assistant
-should handle comes back wrong, check first whether any tool could have
-answered it.
-
-**Tool schemas are narrowed per admin, not just filtered.** `schema(User)` is
-admin-aware so a cross-module tool's `module` enum lists only what this admin
-can reach — switch `HAS_PAGES` off and `pages` disappears from the options the
-model is told about. Advertising a module that is off costs a round trip to be
-refused, and a model told an option exists keeps reaching for it. `run()` still
-re-checks: the enum is a hint to the model, never the security boundary.
-
-**`ToolRegistry` filters the tool list before it goes on the wire.** An admin
-who lacks a module's permission is never told that module's tool exists, so
-there is nothing for a prompt injection to name — the same reason the command
-palette filters server-side rather than hiding rows. `Agent::runTool()` then
-resolves the call **only** within that filtered set; a name outside it comes
-back as `no such tool`, never as a lookup.
-
-- `AgentTool::availableTo()` answers "is this admin offered the tool at all",
-  covering feature flag and permission together. A tool spanning several
-  modules (`count_records`) answers "any of them" and **re-checks each module
-  inside `run()`** — being offered it settles nothing about which modules it may
-  read.
-- **`run()` validates its own input.** Arguments come from a language model,
-  which is untrusted input however sober the prompt looks, and a 3B model gets
-  schemas wrong routinely. Validate exactly as you would request input.
-- Tool output is fenced to the model as *data about records, not instructions*.
-- `max_tool_hops` caps the loop: a model that has lost the thread otherwise
-  calls the same tool forever.
-- The client replays prior turns, so the controller accepts only `user` and
-  `assistant` roles in `history` — a client that could inject `system` would
-  rewrite the assistant's instructions, and `tool` would let it fake a result.
-
-**Chats are saved, and the transcript is the server's.** `ai_conversations` /
-`ai_messages` hold one admin's history; the page is a ChatGPT-style rail plus
-conversation pane, and a chat is titled from its first question. Every read and
-write goes through `$admin->aiConversations()` — **never `AiConversation::find()`,
-and the route binding is a plain int, not a model**, because a route-model bind
-resolves another admin's row before any check runs. A chat holds questions about
-the business and whatever the assistant read back, so a foreign id is a 404.
-
-The browser sends only the new question: history is replayed from the database.
-It used to be replayed by the client, which made the transcript the client's to
-rewrite — a forged `assistant` turn could put words in the model's mouth, and
-the only defence was validating roles. Now the key is not accepted at all.
-Note `messages()` carries its own `orderBy('id')`, so reading the last N turns
-needs `reorder()` first — a bare `latest('id')` appends a clause the database
-ignores and hands the model the conversation backwards.
-
-**Ollama is the default backend** (`config/ai.php`), over its
-OpenAI-compatible `/v1` endpoint rather than its native API — that same wire
-format is spoken by LM Studio, vLLM, OpenRouter and Groq, so `OllamaDriver`
-covers all of them by pointing `OLLAMA_URL` elsewhere. Two driver details earn
-their place: `temperature` is **0** (Ollama's own default is 0.8, tuned for
-chat — this workload is picking one tool and reading a value back unchanged),
-and the driver strips `<think>…</think>` because reasoning models expect the
-client to hide their scratchpad. It also recovers a tool call the model *wrote
-as text* instead of emitting — small models do that, and unhandled it shows the
-admin raw JSON while the call never runs.
-
-Model choice is measured, not assumed — on this project's own questions, on a
-16 GB Mac: `qwen3:8b` 4/4 at ~19s, `llama3.2` 3/4 at ~6s. 8B is the default
-because an assistant that is wrong a quarter of the time is worse than a slow
-one. Nothing leaves the
-server and there is no API key or per-token cost. It does need a host that can
-run the daemon and hold the weights, **so it cannot run on the shared hosting
-the Deploy panel targets** — a hosted provider is the answer there, and
-`AgentDriver` exists so that is a new class bound in `AppServiceProvider`,
-not a rewrite. Use a model post-trained for tool calling (llama3.2, qwen3,
-mistral); one without it answers in prose instead of calling anything, which
-reads as the assistant inventing numbers.
-
-**Answers stream, and the panel uses the streaming endpoint.** A measured
-two-tool turn against `qwen3:8b` is ~15s, a longer one ~35s, and that much
-silence is indistinguishable from a hang — to a user and to every proxy in the
-path. `POST /ai/chat/stream` answers `text/event-stream` and emits `tool` as
-each one runs, `token` per fragment, `thinking` while a reasoning model is
-inside `<think>` (no text — it exists only to keep bytes moving), `reset` when
-a hop that had started writing turns out to want a tool after all, and `done`
-carrying the same payload the plain endpoint returns. `POST /ai/chat` is the
-same turn unstreamed, on the same throttle key, kept for callers with no
-event-source reader.
-
-Three things it has to keep doing, each of which broke something:
-
-- **`session()->save()` before the stream opens.** The session file is locked
-  for the whole request, so a 40-second turn blocks every other request from
-  that admin — the panel freezes, which is the symptom streaming was for.
-- **`ob_flush()` + `flush()` per event, and `X-Accel-Buffering: no`.** PHP's
-  output buffering and nginx's proxy buffer each hold the whole stream to the
-  end otherwise, which is the unstreamed version with extra code.
-- **The rows are written inside the stream, before `done`.** A reload mid-answer
-  then shows what was on screen, and a proposed change reaches the confirm card
-  the same way it does unstreamed.
-
-Reasoning is suppressed live rather than stripped at the end — a `<think>` block
-arrives as ordinary tokens, so the admin would otherwise watch the model
-second-guess itself. Errors are an `error` event, never a status code: the
-response committed 200 before the model was called.
-
-`tests/Feature/Admin/AiAgentTest.php` fakes the model and blocks strays, and
-pins the boundary rather than the prose: which tools an admin is offered, that
-a tool refuses a module they cannot see, that an invented tool name is
-refused, and that the hop cap holds. `tests/Feature/LiveOllamaSmokeTest.php`
-is the one test that talks to a real model and is **opt-in** via
-`AI_LIVE_TEST=1` — a real model is slow and non-deterministic, which is worth
-checking deliberately and worthless as a random red build.
 
 ### The database list and phpMyAdmin
 
@@ -1033,7 +874,7 @@ Every admin list is `Inertia::scroll()` + `<InfiniteScroll>`. Two things make a 
   `Inertia::scroll()` marks its prop mergeable and the package's `ScrollProp` appends
   **whenever `X-Inertia-Infinite-Scroll-Merge-Intent` is absent** — which is every
   request that is not InfiniteScroll asking for the next page, including the redirect
-  after a write. Combined with the macro above, that redirect returned pages 1..N *and*
+  after a write. Combined with the macro above, that redirect returned pages 1..N _and_
   told the client to append them onto the pages 1..N it already held: every row twice.
   The package's escape hatch is naming the prop in the visit's `reset:` array, which is
   one array in one options object per call site, on nine lists, remembered forever — and
@@ -1041,7 +882,7 @@ Every admin list is `Inertia::scroll()` + `<InfiniteScroll>`. Two things make a 
   instead, and `AppServiceProvider::register()` binds `App\Http\Inertia\ResponseFactory`
   over the package's so `Inertia::scroll()` returns it everywhere. **A new list needs no
   new spelling and cannot opt out.** Keep passing `reset: ['<scrollProp>', 'success',
-  'error', 'filters']` on writes anyway: it also resyncs the client's page counter
+'error', 'filters']` on writes anyway: it also resyncs the client's page counter
   (`scrollProps.<name>.reset`), which matters when a bulk delete shortens the list enough
   to move where the next page begins.
 

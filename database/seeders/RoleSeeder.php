@@ -32,7 +32,6 @@ class RoleSeeder extends Seeder
         $appSettingsPermission = Permission::firstOrCreate(['name' => 'app_settings', 'guard_name' => 'web']);
         $notificationTemplatesPermission = Permission::firstOrCreate(['name' => 'notification_templates', 'guard_name' => 'web']);
         $dynamicStoragePermission = Permission::firstOrCreate(['name' => 'dynamic_storage', 'guard_name' => 'web']);
-        $aiAgentPermission = Permission::firstOrCreate(['name' => 'ai_agent', 'guard_name' => 'web']);
 
         // Read via config() (not env()) so it survives `php artisan config:cache` on deploy.
         $adminEmail = config('admin.email');
@@ -71,7 +70,6 @@ class RoleSeeder extends Seeder
         $appSettingsPermission->assignRole($super_admin);
         $notificationTemplatesPermission->assignRole($super_admin);
         $dynamicStoragePermission->assignRole($super_admin);
-        $aiAgentPermission->assignRole($super_admin);
 
         $admin->assignRole(Role::findByName('super_admin', 'web'));
     }

@@ -45,7 +45,6 @@
         <env name="HAS_DYNAMIC_STORAGE" value="true"/>
         <env name="HAS_ACTIVITY_LOGS" value="true"/>
         <!-- On so the assistant's routes exist; every test fakes the model. -->
-        <env name="HAS_AI_AGENT" value="true"/>
         <env name="IS_TESTING" value="false"/>
         <env name="MULTI_SESSION_ENABLED" value="true"/>
         <env name="AUTH_IDENTIFIERS" value="email"/>

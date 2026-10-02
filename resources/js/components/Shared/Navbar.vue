@@ -22,7 +22,6 @@ import {
     Search,
     Settings,
     Share2,
-    Sparkles,
     Sun,
     Trash2,
     UserIcon,
@@ -467,17 +466,6 @@ const isRouteActive = (name: string) => {
                     >
                         <UserIcon class="size-5 text-muted-foreground" />
                         <span class="text-sm text-foreground">{{ t('profile') }}</span>
-                    </Button>
-                </Link>
-
-                <Link v-if="page.props.has_ai_agent && page.props.auth.permissions.find((p) => p === 'ai_agent')" :href="route('ai')" class="w-full">
-                    <Button
-                        variant="ghost"
-                        :class="{ 'bg-primary/10': isRouteActive('ai') }"
-                        class="h-10 w-full cursor-pointer justify-start gap-3 hover:bg-primary/10 hover:text-primary"
-                    >
-                        <Sparkles class="size-5 text-muted-foreground" />
-                        <span class="text-sm text-foreground">{{ t('ai_assistant') }}</span>
                     </Button>
                 </Link>
 

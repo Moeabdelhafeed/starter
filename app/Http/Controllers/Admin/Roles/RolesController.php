@@ -207,7 +207,6 @@ class RolesController extends Controller
             'dynamic_storage' => config('features.dynamic_storage'),
             'app_users' => config('features.app_users')
                 || config('features.app_guests'),
-            'ai_agent' => config('features.ai_agent'),
         ];
 
         return array_keys(array_filter($features, fn ($enabled) => ! $enabled));

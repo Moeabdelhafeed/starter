@@ -87,7 +87,6 @@ class HandleInertiaRequests extends Middleware
             'has_app_settings' => config('features.app_settings'),
             'has_dynamic_storage' => config('features.dynamic_storage'),
             'has_activity_logs' => config('features.activity_logs'),
-            'has_ai_agent' => config('features.ai_agent'),
             'translation_warnings' => $this->translationWarnings($user),
             'is_local' => app()->environment('local'),
             'is_testing' => config('app.is_testing'),

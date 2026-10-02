@@ -124,7 +124,6 @@ const TOGGLE_GROUPS: { label: string; keys: string[] }[] = [
             'HAS_APP_SETTINGS',
             'HAS_DYNAMIC_STORAGE',
             'HAS_ACTIVITY_LOGS',
-            'HAS_AI_AGENT',
         ],
     },
     { label: 'env_group_behaviour', keys: ['IS_TESTING', 'APP_DEBUG', 'IS_OTP_WHATSAPP'] },
@@ -158,7 +157,6 @@ const envLabel = (key: string): string => {
         HAS_APP_SETTINGS: 'App Settings',
         HAS_DYNAMIC_STORAGE: 'Dynamic Storage',
         HAS_ACTIVITY_LOGS: 'Activity Logs',
-        HAS_AI_AGENT: 'AI Assistant',
         IS_TESTING: 'Testing Mode',
         APP_DEBUG: 'Debug Mode',
         IS_OTP_WHATSAPP: 'OTP via WhatsApp',
@@ -178,8 +176,6 @@ const envDescription = (key: string): string => {
         HAS_DYNAMIC_STORAGE: 'Enable/disable the Dynamic Storage feature (keyed media store admin CRUD + the /api/media upload & fetch endpoints).',
         HAS_ACTIVITY_LOGS:
             'Enable/disable the activity logs admin feature (routes + navbar link). Models still record logs; only the admin viewer is hidden.',
-        HAS_AI_AGENT:
-            'Enable/disable the read-only AI assistant at /ai. Also needs the ai_agent permission, and a model backend configured in config/ai.php.',
         IS_TESTING: 'Enable/disable testing mode for the application',
         APP_DEBUG: 'Enable/disable detailed error pages and debug info',
         IS_OTP_WHATSAPP: 'If true, OTPs sent via WhatsApp. If false, sent via SMS. Only applies when identifier is phone.',

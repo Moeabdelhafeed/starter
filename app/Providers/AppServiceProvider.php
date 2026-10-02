@@ -4,8 +4,6 @@ namespace App\Providers;
 
 use App\Helpers\Trans;
 use App\Http\Inertia\ResponseFactory;
-use App\Services\Ai\AgentDriver;
-use App\Services\Ai\OllamaDriver;
 use Carbon\CarbonImmutable;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Database\Eloquent\Builder;
@@ -21,7 +19,6 @@ use Illuminate\Support\Facades\URL;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Validation\Rules\Password;
 use Inertia\ResponseFactory as BaseResponseFactory;
-use InvalidArgumentException;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -39,18 +36,6 @@ class AppServiceProvider extends ServiceProvider
          * controller has to know and no new list can opt out by forgetting.
          */
         $this->app->singleton(BaseResponseFactory::class, ResponseFactory::class);
-
-        /*
-         * The AI assistant's model backend, chosen by config('ai.driver').
-         *
-         * Bound by interface so the agent, its tools and its permission gating
-         * never name a provider — adding a hosted one later is a new class and
-         * a new case here, not a change to anything else.
-         */
-        $this->app->bind(AgentDriver::class, fn (): AgentDriver => match ((string) config('ai.driver')) {
-            'ollama' => new OllamaDriver,
-            default => throw new InvalidArgumentException('Unknown AI driver ['.config('ai.driver').'].'),
-        });
     }
 
     /**

@@ -177,18 +177,6 @@ class User extends Authenticatable
     }
 
     /**
-     * Saved AI assistant chats, newest first.
-     *
-     * Every read and write of a conversation goes through this relation rather
-     * than `AiConversation::find()`, which is what keeps one admin's history
-     * out of another's sidebar.
-     */
-    public function aiConversations(): HasMany
-    {
-        return $this->hasMany(AiConversation::class)->latest('updated_at');
-    }
-
-    /**
      * Active FCM tokens across every active device row. Returns one token for
      * guests (single user_devices row) and N tokens for real users in
      * multi-session mode. Reads from `user_devices.fcm_token` for both.

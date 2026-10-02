@@ -55,7 +55,6 @@ return [
      * anything, and an install that never sets one should not grow a chat panel
      * that only ever errors.
      */
-    'ai_agent' => filter_var(env('HAS_AI_AGENT', false), FILTER_VALIDATE_BOOLEAN),
 
     // Comma-separated page slugs the CMS may never delete (see App\Helpers\ProtectedPages).
     // Seeded by PageSeeder, editable in DevSettings.

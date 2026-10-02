@@ -1,7 +1,6 @@
 <?php
 
 use App\Http\Controllers\Admin\ActivityLog\ActivityLogController;
-use App\Http\Controllers\Admin\Ai\AiAgentController;
 use App\Http\Controllers\Admin\AppSetting\AppSettingController;
 use App\Http\Controllers\Admin\AppUser\AppUserController;
 use App\Http\Controllers\Admin\Auth\AuthController;
@@ -122,42 +121,6 @@ Route::middleware('auth')->group(function () {
             Route::get('/', [ActivityLogController::class, 'index'])->name('activity_logs');
             Route::get('/export', [ActivityLogController::class, 'export'])->name('activity_logs.export');
             // Read-only: an audit trail an admin could delete from records nothing.
-        });
-    }
-
-    /*
-     * AI assistant. Reading tools run on the model's say-so; writing tools do
-     * not — a call becomes a proposal and `ai.confirm` is the only thing that
-     * carries it out. ToolRegistry filters what it can reach by this admin's
-     * own permissions. Throttled because each turn is several seconds of local
-     * inference holding a PHP worker.
-     */
-    if (config('features.ai_agent')) {
-        Route::prefix('ai')->middleware('permission:ai_agent')->group(function () {
-            Route::get('/', [AiAgentController::class, 'index'])->name('ai');
-            Route::post('/chat', [AiAgentController::class, 'chat'])
-                ->middleware('throttle:20,1,ai-chat')
-                ->name('ai.chat');
-
-            // The streaming twin of ai.chat, and what the panel calls. Same
-            // throttle key, so the two cannot be alternated to double the rate.
-            Route::post('/chat/stream', [AiAgentController::class, 'stream'])
-                ->middleware('throttle:20,1,ai-chat')
-                ->name('ai.chat.stream');
-            // Conversations are scoped to the caller inside the controller, so the
-            // binding is a plain int rather than a model — a route-model bind would
-            // resolve another admin's row before any check ran.
-            Route::get('/conversations/{conversation}', [AiAgentController::class, 'show'])
-                ->whereNumber('conversation')
-                ->name('ai.conversation');
-            // Carrying out a change the assistant proposed. The action lives on
-            // the stored message; this only names which one.
-            Route::post('/confirm/{message}', [AiAgentController::class, 'confirm'])
-                ->whereNumber('message')
-                ->name('ai.confirm');
-            Route::delete('/conversations/{conversation}', [AiAgentController::class, 'destroy'])
-                ->whereNumber('conversation')
-                ->name('ai.conversation.destroy');
         });
     }
 
